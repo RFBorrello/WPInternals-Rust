@@ -18,6 +18,9 @@ been executed from this local session.
 | Hardware identification | Model, product code and firmware read successfully through native interface 3 / Microsoft WinUSB |
 | Browser hardware identification | User reported Lumia 1020 / RM-875 / Spec A / 3051.50009.1451.1003 in normal mode, matching native results; exact browser version not recorded |
 | Phone writes / mode changes | Not performed |
+| Real RM-875 FFU | 1,716,256,768-byte image: headers, 28 GPT partitions and SHA-256 chunk table validated |
+| Real EFIESP extraction | 64 MiB; SHA-256 matched independent upstream-algorithm translation; FAT16 EFI directory read |
+| Real FFU browser inspection | Headless Edge and real WASM worker matched the native platform ID and 28 partitions |
 
 Tests cover malformed/truncated image metadata, FFU hash corruption, GPT CRCs,
 lossless 64-bit GPT attribute serialization, sparse map precedence, output
@@ -35,8 +38,18 @@ the real Rust adapter: allowlisted model/product/firmware requests, vendor inter
 release, blocked ambiguous retries, observed disconnection, renewed selection,
 and late-result rejection. These are software tests, not browser hardware evidence.
 
-Synthetic fixtures do not prove compatibility with real Lumia firmware. NTFS file
-reads need real-image fixtures, and all device writing workflows remain blocked.
+Synthetic fixtures do not prove compatibility with real Lumia firmware. The first
+real FFU exposed an image-header chunk-unit error that synthetic data had mirrored.
+Image and security headers use KiB; the store uses bytes. The corrected fixture
+and parser now check these units, mismatches and conversion overflow.
+NTFS file reads still need real-image fixtures, and all device writing workflows
+remain blocked.
+
+Offline evidence for the local RM-875 `3051.50009.1424.0002` image is recorded in
+`tests/fixtures/rm875-validation.json`. Its EFIESP hash matched the independently
+translated mapping algorithm in `scripts/reference-ffu-check.py`; this comparison
+did not execute upstream C#. Firmware bytes are not committed. Catalog authenticity
+and applicability to the phone's different installed firmware remain unverified.
 
 The first read-only hardware result is recorded in
 `tests/hardware/lumia-1020-rm875-windows-arm64-normal-info.json`. Firmware reported

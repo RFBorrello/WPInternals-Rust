@@ -81,7 +81,11 @@ impl FfuMetadata {
         if image_header < 24 {
             return Err(invalid("image header is shorter than 24 bytes"));
         }
-        let image_chunk = u32le(&image, 20)?;
+        // Security and image headers express chunk size in KiB; the store
+        // header's block size is in bytes. Do not compare the raw fields.
+        let image_chunk = u32le(&image, 20)?
+            .checked_mul(1024)
+            .ok_or_else(|| invalid("image chunk size overflow"))?;
         if image_chunk != chunk_size {
             return Err(invalid("image and security chunk sizes differ"));
         }

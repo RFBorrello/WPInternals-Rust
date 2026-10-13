@@ -1,0 +1,38 @@
+{
+  "recorded_on": "2026-10-13",
+  "operation_scope": "Offline FFU inspection, hash-table verification, partition extraction and filesystem reads",
+  "host": "Windows ARM64",
+  "source": {
+    "filename": "RM875_3051.50009.1424.0002_RETAIL_eu_euro1_267_02_448151_prd_signed.ffu",
+    "size": 1716256768,
+    "sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "firmware_build_from_filename": "3051.50009.1424.0002",
+    "platform_id": "Nokia.MSM8960.P5217",
+    "chunk_size": 131072,
+    "header_size": 917504,
+    "payload_size": 1715339264,
+    "write_descriptor_count": 13087,
+    "mapping_count": 13088
+  },
+  "checks": {
+    "declared_file_size": "matched",
+    "gpt_crcs_and_partition_bounds": "passed",
+    "partition_count": 28,
+    "browser_inspection": "Headless Microsoft Edge running the real Rust WASM worker: platform and all 28 partitions matched native inspection",
+    "sha256_chunk_table": "passed",
+    "signing_catalog_authenticity": "not_verified",
+    "phone_applicability": "not_verified"
+  },
+  "extraction": {
+    "partition": "EFIESP",
+    "size": 67108864,
+    "sha256": "c1a8300aad5b8c5e96c66ffa99c3e9390aae5dcfa485e461bc5735f7b39320bd",
+    "comparison": "Matched scripts/reference-ffu-check.py, an independent Python translation of the pinned upstream FFU.cs mapping algorithm; upstream C# was not executed",
+    "filesystem": "FAT16",
+    "directory_read": "EFI contains boot, Microsoft and Nokia"
+  },
+  "device_storage_written": false,
+  "source_modified": false,
+  "limitations": "One local image and one extracted partition. Installed phone firmware is 3051.50009.1451.1003, different from the image filename. Does not establish flash, unlock, restore, MainOS/NTFS or wider firmware support.",
+  "privacy_and_redistribution": "Only metadata and hashes are published. Original firmware, extracted proprietary bytes and local personal paths are excluded."
+}

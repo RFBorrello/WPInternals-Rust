@@ -39,7 +39,7 @@ image = bytearray(CHUNK)
 manifest = b'<FullFlashUpdateImage><Description>Synthetic fixture; do not flash</Description></FullFlashUpdateImage>'
 struct.pack_into("<I", image, 0, 24)
 image[4:16] = b"ImageFlash  "
-struct.pack_into("<II", image, 16, len(manifest), CHUNK)
+struct.pack_into("<II", image, 16, len(manifest), CHUNK // 1024)
 image[24:24 + len(manifest)] = manifest
 store = bytearray(CHUNK)
 struct.pack_into("<IHHHH", store, 0, 0, 1, 0, 2, 0)

@@ -29,6 +29,9 @@ hardware validation.
   native extraction cancellation, and a capability matrix that blocks phone writes.
 
 NTFS file reads are implemented but not yet tested against real Lumia images.
+One local RM-875 FFU passed native and browser inspection, chunk-hash verification,
+and a 64 MiB EFIESP extraction comparison. Metadata-only evidence is recorded in
+`tests/fixtures/rm875-validation.json`; proprietary firmware is not included.
 NTFS image writes, modern/multi-store FFUs, WP7 protocols, and complete device
 workflows are not implemented. Hash verification does not authenticate an FFU’s
 signing catalog. Browser FAT/NTFS support currently covers boot-sector inspection;

@@ -58,6 +58,13 @@ fn truncated_and_oversized_headers_fail_without_allocation() {
     let mut large = FFU.to_vec();
     large[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
     assert!(FfuMetadata::open(&mut Cursor::new(large)).is_err());
+    // Image chunk size is KiB, unlike the store's byte-sized block field.
+    // Reject both inconsistent values and overflow during KiB conversion.
+    for image_chunk_kib in [4096u32, u32::MAX] {
+        let mut invalid_image = FFU.to_vec();
+        invalid_image[4096 + 20..4096 + 24].copy_from_slice(&image_chunk_kib.to_le_bytes());
+        assert!(FfuMetadata::open(&mut Cursor::new(invalid_image)).is_err());
+    }
 }
 #[test]
 fn payload_tampering_is_detected_and_cancellation_is_bounded() {
