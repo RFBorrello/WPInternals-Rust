@@ -23,8 +23,12 @@ export interface Inspection { format: string; size: number; ffu: FfuMetadata | n
 export interface ProbeResult { device: DeviceIdentity; info: Record<string, unknown> | null; normal: { manufacturer_model: string; product_code: string; firmware: string } | null; firmware: string | null }
 export interface OperationEvent { sequence: number; operation: string; state: string; completed_bytes: number; total_bytes: number; message: string }
 export interface ImportedArtifact { name: string; file?: File; path?: string; inspection: Inspection }
-export interface WorkerRequest { id: number; action: 'inspect' | 'extract' | 'gpt_xml' | 'cancel'; file?: File; partition?: string; handle?: FileSystemFileHandle; gpt?: Gpt }
-export interface WorkerReply { id: number; kind: 'result' | 'error' | 'progress'; result?: Inspection | string | Blob; error?: string; completed?: number; total?: number }
+export interface RecoveryPreparation {
+  plan: { operation: 'stock_flash'; executable: boolean; blockers: string[]; steps: string[]; artifacts: { name: string; sha256: string }[]; device: DeviceIdentity | null };
+  checks: { key: string; label: string; status: 'passed' | 'failed' | 'missing' | 'unverified'; message: string }[];
+}
+export interface WorkerRequest { id: number; action: 'inspect' | 'extract' | 'gpt_xml' | 'cancel' | 'recovery_prepare'; file?: File; device?: DeviceIdentity | null; partition?: string; handle?: FileSystemFileHandle; gpt?: Gpt }
+export interface WorkerReply { id: number; kind: 'result' | 'error' | 'progress'; result?: Inspection | RecoveryPreparation | string | Blob; error?: string; completed?: number; total?: number }
 declare global {
   interface Window { __TAURI_INTERNALS__?: unknown; showSaveFilePicker?: (options: { suggestedName: string }) => Promise<FileSystemFileHandle>; }
 }

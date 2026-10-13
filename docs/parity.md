@@ -13,14 +13,15 @@ Later upstream changes are not implicitly accepted or enabled.
 | Firmware integrity | SHA-256 chunk hashes | Catalog authenticity not verified |
 | Partition extraction | Streaming FFU primary mappings and raw images | Local files only |
 | GPT conversion | CRC checks, bounds, UTF-16 names, Partitions.xml output | Local files only |
-| FAT image file operations | Directory listing, extraction, same-length patching on new copies | CLI; not verified on phone firmware |
-| NTFS image file operations | Boot inspection, directory listing, file extraction | CLI reads; no writes; real-image tests pending |
+| FAT image file operations | Directory listing, extraction, same-length patching on new copies | CLI; real RM-875 EFIESP directory read; patching not verified on phone firmware |
+| NTFS image file operations | Boot inspection, directory listing, file extraction; patched index addressing | CLI reads tested on one RM-875 MainOS; kernel hash matches upstream catalog; no writes or compressed/encrypted streams |
 | Root byte patches | Upstream hash-pinned catalog, reverse and obsolete-patch handling | Extracted files / copied FAT images only |
 | Stock FFU flashing/recovery | v1/v2 streaming workflow restricted to replay, preflight and interrupted-ack tests | Blocked; authenticated native executor and hardware validation pending |
+| Recovery preparation | Shared advisory checklist; native full-file/chunk verification, browser header preview | Offline only; exports cannot authorize execution |
 | Spec A / Spec B unlocking | Separate profile families only | Not implemented; blocked |
 | Bootloader restore/relock | Not implemented | Blocked |
 | Root installation/removal | Offline target-file patching only | Phone workflow blocked |
-| Phone partition/full backup | Not implemented | Blocked |
+| Phone partition/full backup | Bounded sector-copy engine restricted to replay data; atomic output and failure tests | Blocked; native storage adapters, exclusive access and hardware validation pending |
 | Phone restore/custom flashing | Not implemented | Blocked |
 | Emergency recovery | HDLC codecs, Sahara HELLO parser; no programmer transfer | Enumeration only |
 | Firmware/loader downloads | Not implemented | Local import required |

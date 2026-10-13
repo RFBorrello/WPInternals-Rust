@@ -27,4 +27,6 @@ and apps/ui/package-lock.json pin the resolved dependency graph. Key libraries:
 | Playwright | Apache-2.0 |
 
 Review the complete transitive license inventory before publishing release bundles.
+The patched `ntfs` 0.4.0 runtime source is included under `vendor/ntfs`, with its
+original MIT/Apache-2.0 licenses and local changes documented in `PATCHES.md`.
 Do not redistribute proprietary phone firmware or loaders as project assets.

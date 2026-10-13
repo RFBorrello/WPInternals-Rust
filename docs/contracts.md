@@ -17,3 +17,15 @@ are published only on success, without overwriting existing native artifacts.
 USB VID/PID implies a possible mode only. Model/family information is assigned
 only after a device-provided variant is matched to the research catalog. Hardware
 verification status remains independent of that match.
+
+RecoveryPreparation wraps a blocked stock-flash plan plus per-check statuses
+(`passed`, `failed`, `missing`, `unverified`). Native preparation reads and verifies
+the complete local FFU; the browser reports unverified chunk/fingerprint checks.
+Authenticity, applicable hardware profiles, backup access and execution stay
+blocked independently. Exports redact USB serial and host instance identifiers.
+Changing a report cannot bypass the operation coordinator's execution gate.
+
+ReplayBlockSource is a concrete simulated read-only disk with bounded fixtures.
+The backup engine cannot accept native USB or raw block devices. Successful replay
+backups produce a `replay_only` manifest and atomically publish a new local image;
+interruptions discard temporary outputs and never retry uncertain transfers.

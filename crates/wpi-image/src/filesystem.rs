@@ -152,6 +152,14 @@ pub fn extract_file<R: Read + Seek, W: Write, F: FnMut(u64, u64) -> bool>(
             .ok_or_else(|| invalid("file has no unnamed data stream"))?
             .map_err(|e| invalid(e.to_string()))?;
         let attribute = item.to_attribute().map_err(|e| invalid(e.to_string()))?;
+        if attribute
+            .flags()
+            .intersects(ntfs::NtfsAttributeFlags::COMPRESSED | ntfs::NtfsAttributeFlags::ENCRYPTED)
+        {
+            return Err(ImageError::Unsupported(
+                "Compressed or encrypted NTFS data streams are not implemented".into(),
+            ));
+        }
         let mut data = attribute
             .value(reader)
             .map_err(|e| invalid(e.to_string()))?;
@@ -172,7 +180,9 @@ pub fn extract_file<R: Read + Seek, W: Write, F: FnMut(u64, u64) -> bool>(
             done += n as u64;
         }
         writer.flush()?;
-        progress(done, total);
+        if !progress(done, total) {
+            return Err(ImageError::Cancelled);
+        }
         Ok(())
     } else {
         let fs = fatfs::FileSystem::new(ReadOnly(reader), fatfs::FsOptions::new())?;

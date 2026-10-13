@@ -51,6 +51,12 @@ jobs:
             target/release/wpi.exe
             target/release/wpi-desktop
             target/release/wpi-desktop.exe
+            LICENSE
+            THIRD_PARTY_NOTICES.md
+            resources/upstream/LICENSE
+            vendor/ntfs/LICENSE-MIT
+            vendor/ntfs/LICENSE-APACHE
+            docs/validation.md
           if-no-files-found: error
   browser:
     runs-on: ubuntu-24.04

@@ -78,3 +78,18 @@ test('permission rejection does not create a connected device', async ({ page })
   // nusb treats an ungranted chooser request as no selection; no device is claimed.
   await expect(page.getByRole('button',{name:'Connect a device',exact:true})).toBeEnabled();
 });
+
+test('recovery preparation is advisory, exports missing checks, and clears on a new image', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
+  await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'synthetic.ffu'));
+  await page.getByRole('button', { name: 'Check preparation' }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('Unverified');
+  await expect(page.getByRole('row').filter({ hasText: 'Phone identity' })).toContainText('Missing');
+  await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export preparation' }).click();
+  const result = JSON.parse(await readFile((await (await downloadPromise).path())!, 'utf8'));
+  expect(result.plan.executable).toBe(false); expect(result.plan.operation).toBe('stock_flash');
+  await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'gpt.bin'));
+  await expect(page.getByRole('button', { name: 'Export preparation' })).toHaveCount(0);
+});

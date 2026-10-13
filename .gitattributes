@@ -1,6 +1,9 @@
 * text=auto eol=lf
 # Preserve the pinned upstream resources byte-for-byte.
 resources/upstream/* -text -whitespace
+# Upstream Markdown intentionally uses two spaces for hard line breaks.
+vendor/ntfs/README.md whitespace=-blank-at-eol
+vendor/ntfs/src/lib.rs whitespace=-blank-at-eol
 *.png -text
 *.ico -text
 *.icns -text

@@ -27,15 +27,21 @@ hardware validation.
 - Reversible, hash-pinned upstream patches on extracted files and **new copies** of FAT images.
 - Shared React UI, Rust WebAssembly processing in a worker, bounded streaming,
   native extraction cancellation, and a capability matrix that blocks phone writes.
+- Recovery preparation checklist in CLI, browser and desktop; native preparation
+  verifies full-file/chunk hashes, while browser previews leave those checks unverified.
 
-NTFS file reads are implemented but not yet tested against real Lumia images.
+NTFS directory and kernel reads have been validated on one real RM-875 MainOS
+image. A small patched dependency handles index records smaller than clusters;
+synthetic tests cover resident/fragmented files, invalid VCNs and cyclic indexes.
 One local RM-875 FFU passed native and browser inspection, chunk-hash verification,
-and a 64 MiB EFIESP extraction comparison. Metadata-only evidence is recorded in
+and matching EFIESP/MainOS reconstructions. Metadata-only evidence is recorded in
 `tests/fixtures/rm875-validation.json`; proprietary firmware is not included.
 NTFS image writes, modern/multi-store FFUs, WP7 protocols, and complete device
 workflows are not implemented. Hash verification does not authenticate an FFU’s
 signing catalog. Browser FAT/NTFS support currently covers boot-sector inspection;
 filesystem file access and patching are CLI features.
+Compressed/encrypted NTFS streams are rejected. The backup engine currently
+accepts replay block data only; native phone storage access is not implemented.
 
 ## Quick start
 
@@ -80,6 +86,7 @@ See [platform setup](docs/platforms.md) for WebView/runtime, USB and packaging d
 cargo run -p wpi-cli -- devices
 cargo run -p wpi-cli -- probe '<device-id-from-devices>'
 cargo run -p wpi-cli -- inspect path/to/firmware.ffu
+cargo run -p wpi-cli -- prepare-recovery path/to/firmware.ffu
 cargo run -p wpi-cli -- verify path/to/firmware.ffu
 cargo run -p wpi-cli -- extract path/to/firmware.ffu EFIESP efiesp.img
 cargo run -p wpi-cli -- convert-gpt path/to/firmware.ffu Partitions.xml
@@ -101,6 +108,7 @@ backup GPT reconstruction are implemented.
 
 ```sh
 python scripts/generate-fixtures.py
+python scripts/generate-ntfs-fixture.py
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo check -p wpi-wasm --target wasm32-unknown-unknown

@@ -1,4 +1,4 @@
-import type { CapabilityReport, DeviceIdentity, ImportedArtifact, Inspection, ModelProfile, ProbeResult, WorkerReply, WorkerRequest } from './types';
+import type { CapabilityReport, DeviceIdentity, ImportedArtifact, Inspection, ModelProfile, ProbeResult, RecoveryPreparation, WorkerReply, WorkerRequest } from './types';
 import { initialize, wasm } from './engine';
 
 export const desktop = Boolean(window.__TAURI_INTERNALS__);
@@ -31,6 +31,15 @@ export async function connect(): Promise<DeviceIdentity | null> { return desktop
 export async function probe(device: DeviceIdentity): Promise<ProbeResult> { return desktop ? invoke('probe', { id: device.id }) : JSON.parse(await wasm.probe_json(device.id)); }
 export async function capabilities(device: DeviceIdentity | null): Promise<CapabilityReport> { return desktop ? invoke('capabilities', { device }) : JSON.parse(wasm.capabilities_json(JSON.stringify(device))); }
 export async function importBrowserFile(file: File): Promise<ImportedArtifact> { return { name: file.name, file, inspection: await request<Inspection>({ action: 'inspect', file }) }; }
+export async function prepareRecovery(artifact: ImportedArtifact, device: DeviceIdentity | null, progress: (done: number, total: number) => void): Promise<RecoveryPreparation> {
+  if (desktop && artifact.path) {
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<{ completed_bytes: number; total_bytes: number }>('operation-progress', event => progress(event.payload.completed_bytes, event.payload.total_bytes));
+    try { return await invoke('prepare_recovery', { input: artifact.path, device }); } finally { unlisten(); }
+  }
+  if (!artifact.file) throw new Error('No local file selected');
+  return request({ action: 'recovery_prepare', file: artifact.file, device }, progress);
+}
 export async function importDesktopFile(): Promise<ImportedArtifact | null> {
   const { open } = await import('@tauri-apps/plugin-dialog');
   const path = await open({ multiple: false, directory: false, filters: [{ name: 'Firmware and images', extensions: ['ffu', 'bin', 'img'] }] });

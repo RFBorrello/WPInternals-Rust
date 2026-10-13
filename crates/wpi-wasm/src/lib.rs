@@ -24,6 +24,20 @@ pub fn capabilities_json(device: &str) -> Result<String, JsValue> {
     ))
 }
 #[wasm_bindgen]
+pub fn recovery_preparation_json(device: &str, inspection: &str) -> Result<String, JsValue> {
+    let device: Option<DeviceIdentity> = serde_json::from_str(device).map_err(js_error)?;
+    let image: wpi_core::inspection::Inspection =
+        serde_json::from_str(inspection).map_err(js_error)?;
+    json(&wpi_core::recovery_prepare::report(
+        device,
+        Some(&image),
+        None,
+        wpi_core::recovery_prepare::ChunkIntegrity::NotChecked,
+        Host::Browser,
+        TransportKind::WebUsb,
+    ))
+}
+#[wasm_bindgen]
 pub fn ffu_headers_json(headers: &[u8], total_size: u64) -> Result<String, JsValue> {
     json(&FfuMetadata::read_headers(&mut Cursor::new(headers), total_size).map_err(js_error)?)
 }

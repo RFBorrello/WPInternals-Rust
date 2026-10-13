@@ -22,7 +22,9 @@ pub fn copy_hashed<R: Read, W: Write, F: FnMut(u64, u64) -> bool>(
         done += n as u64;
     }
     writer.flush()?;
-    progress(done, length);
+    if !progress(done, length) {
+        return Err(ImageError::Cancelled);
+    }
     Ok(hex::encode(hash.finalize()))
 }
 pub fn sha256<R: Read>(reader: &mut R) -> Result<String> {

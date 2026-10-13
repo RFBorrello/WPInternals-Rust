@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["crates/*", "apps/desktop"]
+exclude = ["vendor/ntfs"]
 default-members = ["crates/wpi-cli", "crates/wpi-core", "crates/wpi-image", "crates/wpi-protocol", "crates/wpi-transport", "crates/wpi-types"]
 
 [workspace.package]
@@ -29,3 +30,6 @@ wpi-transport = { path = "crates/wpi-transport" }
 [profile.release]
 lto = "thin"
 strip = true
+
+[patch.crates-io]
+ntfs = { path = "vendor/ntfs" }

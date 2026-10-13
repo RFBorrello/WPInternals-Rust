@@ -73,6 +73,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       if (!request.file) throw new Error('No local file selected');
       const report = await inspect(request.file);
       if (request.action === 'inspect') reply({ id: request.id, kind: 'result', result: report });
+      else if (request.action === 'recovery_prepare') reply({ id: request.id, kind: 'result', result: JSON.parse(wasm.recovery_preparation_json(JSON.stringify(request.device ?? null), JSON.stringify(report))) });
       else {
         const matches = report.gpt?.partitions.filter(p => p.name === request.partition) ?? [];
         if (matches.length !== 1) throw new Error('Partition not found or ambiguous');
@@ -87,6 +88,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           else parts.push(data as Uint8Array<ArrayBuffer>);
           reply({ id: request.id, kind: 'progress', completed: Math.min(done + CHUNK, length), total: length });
         }
+        if (cancelled) throw new Error('Operation cancelled');
         if (writer) { await writer.close(); writer = undefined; }
         reply({ id: request.id, kind: 'result', result: request.handle ? 'Partition saved' : new Blob(parts, { type: 'application/octet-stream' }) });
       }

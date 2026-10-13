@@ -53,5 +53,5 @@ security[32:32 + len(hashes)] = hashes
 (OUT / "synthetic.ffu").write_bytes(security + hashed)
 (OUT / "synthetic.img").write_bytes(disk)
 (OUT / "gpt.bin").write_bytes(header + entries)
-(OUT / "README.md").write_text("# Synthetic fixtures\n\nGenerated with `python scripts/generate-fixtures.py`.\nThese images contain recognizable test bytes, not a phone operating system. Never flash them.\n", encoding="utf-8")
+(OUT / "README.md").write_text("# Synthetic fixtures\n\nFFU/GPT images are generated with `python scripts/generate-fixtures.py`.\nThe minimal NTFS reader image is generated with `python scripts/generate-ntfs-fixture.py`.\nThese images contain recognizable test bytes, not a phone operating system. Never flash or mount them.\n\n`rm875-validation.json` records metadata and hashes for a separately supplied real image; proprietary firmware is not included.\n", encoding="utf-8")
 print(f"Generated fixtures in {OUT}")

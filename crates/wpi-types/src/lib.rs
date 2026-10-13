@@ -199,3 +199,27 @@ pub struct OperationEvent {
     pub total_bytes: u64,
     pub message: String,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PreparationStatus {
+    Passed,
+    Failed,
+    Missing,
+    Unverified,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreparationCheck {
+    pub key: String,
+    pub label: String,
+    pub status: PreparationStatus,
+    pub message: String,
+}
+
+/// Advisory checklist only. This cannot grant any device-write capability.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPreparation {
+    pub plan: OperationPlan,
+    pub checks: Vec<PreparationCheck>,
+}

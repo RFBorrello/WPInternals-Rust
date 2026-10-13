@@ -24,6 +24,12 @@ enum Command {
     Probe { id: String },
     /// Inspect a legacy FFU, GPT/raw disk image, or FAT/NTFS boot sector.
     Inspect { input: PathBuf },
+    /// Verify a local FFU and generate an advisory recovery checklist. Never starts recovery.
+    PrepareRecovery {
+        input: PathBuf,
+        #[arg(long)]
+        device_id: Option<String>,
+    },
     /// Check FFU SHA-256 chunk hashes (does not authenticate its signing catalog).
     Verify { input: PathBuf },
     /// Extract a named partition into a new local file, using bounded memory.
@@ -96,6 +102,18 @@ fn run() -> Result<(), Box<dyn Error>> {
         Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
         Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
         Command::Inspect { input } => print(artifacts::inspect_file(&input)?)?,
+        Command::PrepareRecovery { input, device_id } => {
+            let device = device_id
+                .map(|id| wpi_transport::probe(&id).map(|p| p.device))
+                .transpose()?;
+            print(artifacts::prepare_recovery(
+                &input,
+                device,
+                profiles::current_host(),
+                TransportKind::Usb,
+                |_, _| true,
+            )?)?;
+        }
         Command::Verify { input } => {
             let mut file = artifacts::open_artifact(&input)?;
             let ffu = wpi_image::ffu::FfuMetadata::open(&mut file)?;

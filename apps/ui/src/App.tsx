@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, ArrowRight, Check, ChevronRight, CircleHelp, Cpu, FileCode2, FileUp, FolderOpen, HardDrive, Info, Layers3, LoaderCircle, LockKeyhole, Monitor, Radio, RefreshCw, ShieldCheck, Smartphone, Terminal, Unplug, Usb, X } from 'lucide-react';
 import * as backend from './backend';
 import { bytes, hexId, label, partitionRange } from './format';
-import type { CapabilityReport, DeviceIdentity, ImportedArtifact, ModelProfile } from './types';
+import type { CapabilityReport, DeviceIdentity, ImportedArtifact, ModelProfile, RecoveryPreparation } from './types';
 
 type Page = 'workspace' | 'firmware' | 'compatibility' | 'activity';
 interface Activity { time: string; message: string; kind: 'info' | 'success' | 'error' }
@@ -21,6 +21,7 @@ export default function App() {
   const [models, setModels] = useState<ModelProfile[]>([]);
   const [report, setReport] = useState<CapabilityReport | null>(null);
   const [artifact, setArtifact] = useState<ImportedArtifact | null>(null);
+  const [preparation, setPreparation] = useState<RecoveryPreparation | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -28,6 +29,7 @@ export default function App() {
   const [help, setHelp] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const connectionEpoch = useRef(0);
+  useEffect(() => { setPreparation(null); }, [artifact, selected]);
   function log(message: string, kind: Activity['kind'] = 'info') {
     setActivity(items => [{ time: new Date().toLocaleTimeString(), message, kind }, ...items].slice(0, 200));
   }
@@ -87,6 +89,16 @@ export default function App() {
       if (imported) { setArtifact(imported); setPage('firmware'); log(`Inspected ${imported.name}. ${imported.inspection.gpt?.partitions.length ?? 0} partitions found.`, 'success'); }
     });
   }
+  async function prepareRecovery() {
+    if (!artifact) return;
+    const epoch = connectionEpoch.current;
+    await task('Checking recovery preparation', async () => {
+      const result = await backend.prepareRecovery(artifact, selected, (done, total) => setProgress({ done, total }));
+      if (epoch !== connectionEpoch.current) return;
+      setPreparation(result);
+      log('Recovery checklist prepared locally. Recovery execution remains unavailable.');
+    });
+  }
   const usbAvailable = backend.desktop || (Boolean((navigator as Navigator & { usb?: unknown }).usb) && window.isSecureContext);
   const disabled = !ready || Boolean(busy);
   const title = navigation.find(n => n.page === page)!.label;
@@ -131,6 +143,15 @@ export default function App() {
             <section className="card artifact-heading"><div className="artifact-icon"><HardDrive size={24} /></div><div><span className="eyebrow">LOCAL ARTIFACT</span><h2>{artifact.name}</h2><p>{artifact.inspection.format} <span>·</span> {bytes(artifact.inspection.size)} <span>·</span> Original preserved</p></div><button className="secondary-button" disabled={disabled} onClick={chooseFile}>Change image</button></section>
             <div className="stat-grid"><Stat label="Platform ID" value={artifact.inspection.ffu?.platform_id || 'Not specified'} /><Stat label="Partitions" value={String(partitions.length)} /><Stat label="Chunk size" value={artifact.inspection.ffu ? bytes(artifact.inspection.ffu.chunk_size) : '512 B sectors'} /><Stat label="Validation" value={artifact.inspection.gpt ? 'GPT CRCs checked' : 'Boot sector parsed'} /></div>
             {artifact.inspection.notes.map(note => <div className="info-note" key={note}><Info size={16} />{note}</div>)}
+            {artifact.inspection.ffu && <section className="card capability-card recovery-card">
+              <div className="section-heading"><h3><ShieldCheck size={18} /> Recovery preparation</h3><button className="secondary-button compact" disabled={disabled} onClick={() => void prepareRecovery()}>Check preparation</button></div>
+              <p>Check your local firmware and phone information before planning recovery. This check does not change phone modes or start flashing.</p>
+              {preparation && <>
+                <div className="info-note">Recovery is unavailable. Missing checks and implementation must be resolved before phone writes can be enabled.</div>
+                <div className="table-scroll"><table><thead><tr><th>Check</th><th>Status</th><th>Result / next step</th></tr></thead><tbody>{preparation.checks.map(check => <tr key={check.key}><td><strong>{check.label}</strong></td><td><span className={`status-badge ${check.status === 'passed' ? 'experimental' : 'blocked'}`}>{label(check.status)}</span></td><td>{check.message}</td></tr>)}</tbody></table></div>
+                <button className="secondary-button compact" onClick={() => backend.download(new Blob([JSON.stringify(preparation, null, 2)], { type: 'application/json' }), 'recovery-preparation.json')}><ArrowDownToLine size={15} /> Export preparation</button>
+              </>}
+            </section>}
             {artifact.inspection.filesystem && <section className="card"><h3>Filesystem geometry</h3><dl className="details-list"><dt>Filesystem</dt><dd>{artifact.inspection.filesystem.kind}</dd><dt>Sector size</dt><dd>{bytes(artifact.inspection.filesystem.bytes_per_sector)}</dd><dt>Sectors per cluster</dt><dd>{artifact.inspection.filesystem.sectors_per_cluster}</dd><dt>Volume serial</dt><dd>{artifact.inspection.filesystem.volume_serial}</dd></dl></section>}
             {partitions.length > 0 && <section className="card partition-card"><div className="section-heading"><h3><Layers3 size={18} /> Partition map</h3><button className="secondary-button compact" disabled={disabled} onClick={() => void task('Exporting partition table', async () => { await backend.exportGpt(artifact); log('Exported Partitions.xml.', 'success'); })}><ArrowDownToLine size={15} /> Export XML</button></div><div className="table-scroll"><table><thead><tr><th>Partition</th><th>Start sector</th><th>Size</th><th>Action</th></tr></thead><tbody>{partitions.map(p => <tr key={p.guid}><td><span className="partition-symbol"><Layers3 size={15} /></span><strong>{p.name}</strong></td><td className="mono">{p.first_sector.toLocaleString()}</td><td>{bytes(partitionRange(p.first_sector, p.last_sector).length)}</td><td><button className="table-action" disabled={disabled} onClick={() => void task(`Extracting ${p.name}`, async () => { await backend.extract(artifact, p.name, (done, total) => setProgress({ done, total })); log(`Finished export workflow for ${p.name}.`, 'success'); })}><ArrowDownToLine size={14} /> Extract</button></td></tr>)}</tbody></table></div><div className="table-footer">Extraction writes a local file. It does not flash your phone.</div></section>}
           </>}

@@ -327,7 +327,9 @@ impl FfuMetadata {
             }
         }
         writer.flush()?;
-        progress(completed, length);
+        if !progress(completed, length) {
+            return Err(ImageError::Cancelled);
+        }
         Ok(())
     }
     /// Verifies SHA-256 chunk hashes. This does NOT authenticate the signing catalog.

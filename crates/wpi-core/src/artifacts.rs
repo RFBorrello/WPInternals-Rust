@@ -21,6 +21,70 @@ pub fn open_artifact(path: &Path) -> Result<File> {
 pub fn inspect_file(path: &Path) -> Result<crate::inspection::Inspection> {
     crate::inspection::inspect(&mut open_artifact(path)?)
 }
+pub fn prepare_recovery<F: FnMut(u64, u64) -> bool>(
+    path: &Path,
+    device: Option<wpi_types::DeviceIdentity>,
+    host: wpi_types::Host,
+    transport: wpi_types::TransportKind,
+    mut progress: F,
+) -> Result<wpi_types::RecoveryPreparation> {
+    use crate::recovery_prepare::{report, ChunkIntegrity};
+    let mut source = open_artifact(path)?;
+    let before = source.metadata()?;
+    let inspection = crate::inspection::inspect(&mut source)?;
+    let Some(ffu) = inspection.ffu.as_ref() else {
+        return Ok(report(
+            device,
+            Some(&inspection),
+            None,
+            ChunkIntegrity::NotChecked,
+            host,
+            transport,
+        ));
+    };
+    let verified_bytes = ffu.total_size - ffu.security_size;
+    let total = verified_bytes
+        .checked_add(before.len())
+        .ok_or_else(|| ImageError::Invalid("preparation progress range overflow".into()))?;
+    let integrity = match ffu.verify_hashes(&mut source, |done, _| {
+        progress(done * ffu.chunk_size as u64, total)
+    }) {
+        Ok(()) => ChunkIntegrity::Passed,
+        Err(ImageError::Cancelled) => return Err(ImageError::Cancelled),
+        Err(error) => ChunkIntegrity::Failed(error.to_string()),
+    };
+    source.seek(SeekFrom::Start(0))?;
+    let hashed = wpi_image::stream::copy_hashed(
+        &mut source,
+        &mut std::io::sink(),
+        before.len(),
+        |done, _| progress(verified_bytes + done, total),
+    )?;
+    let after = source.metadata()?;
+    if before.len() != after.len() || before.modified()? != after.modified()? {
+        return Err(ImageError::Invalid(
+            "source image changed during preparation; reselect and inspect it again".into(),
+        ));
+    }
+    let artifact = wpi_types::ArtifactIdentity {
+        name: path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
+        size: after.len(),
+        sha256: hashed,
+        platform_id: Some(ffu.platform_id.clone()),
+    };
+    Ok(report(
+        device,
+        Some(&inspection),
+        Some(artifact),
+        integrity,
+        host,
+        transport,
+    ))
+}
 pub fn write_new<F: FnOnce(&mut File) -> Result<()>>(output: &Path, action: F) -> Result<()> {
     if output.exists() {
         return Err(ImageError::Invalid(

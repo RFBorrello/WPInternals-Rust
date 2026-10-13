@@ -76,6 +76,94 @@ async fn inspect_file(path: String, state: State<'_, DesktopState>) -> Result<In
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn prepare_recovery(
+    input: String,
+    device: Option<DeviceIdentity>,
+    app: tauri::AppHandle,
+    state: State<'_, DesktopState>,
+) -> Result<RecoveryPreparation, String> {
+    let mut session = state
+        .coordinator
+        .reserve_local(Operation::InspectFirmware)
+        .map_err(|e| e.to_string())?;
+    *state
+        .cancellation
+        .lock()
+        .map_err(|_| "Operation state lock failed")? = Some(session.cancellation());
+    let registry = state.cancellation.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut last = (0, 0);
+        emit(
+            &app,
+            &mut session,
+            OperationState::Running,
+            0,
+            0,
+            "Checking local recovery artifacts",
+        );
+        let result = artifacts::prepare_recovery(
+            &PathBuf::from(input),
+            device,
+            profiles::current_host(),
+            TransportKind::Usb,
+            |done, total| {
+                last = (done, total);
+                emit(
+                    &app,
+                    &mut session,
+                    OperationState::Running,
+                    done,
+                    total,
+                    "Verifying local firmware",
+                );
+                session.safe_boundary()
+            },
+        );
+        match &result {
+            Ok(_) => emit(
+                &app,
+                &mut session,
+                OperationState::Completed,
+                last.0,
+                last.1,
+                "Checklist ready; device recovery remains blocked",
+            ),
+            Err(wpi_image::ImageError::Cancelled) => {
+                emit(
+                    &app,
+                    &mut session,
+                    OperationState::Cancelling,
+                    last.0,
+                    last.1,
+                    "Cancellation requested",
+                );
+                emit(
+                    &app,
+                    &mut session,
+                    OperationState::Cancelled,
+                    last.0,
+                    last.1,
+                    "Offline preparation cancelled",
+                );
+            }
+            Err(error) => emit(
+                &app,
+                &mut session,
+                OperationState::Failed,
+                last.0,
+                last.1,
+                &error.to_string(),
+            ),
+        }
+        if let Ok(mut current) = registry.lock() {
+            *current = None;
+        }
+        result.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn convert_gpt(
     input: String,
     output: String,
@@ -216,6 +304,7 @@ fn main() {
             devices,
             probe,
             inspect_file,
+            prepare_recovery,
             convert_gpt,
             extract_partition,
             cancel_operation
