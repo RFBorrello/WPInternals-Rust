@@ -1,0 +1,95 @@
+{
+  "recorded_on": "2026-10-13",
+  "operation": "device_info",
+  "validation_case": "normal_mode_usb_unplug_replug",
+  "result": "observed_success",
+  "transport": "web_usb",
+  "application_version": "0.1.0",
+  "origin": "http://127.0.0.1:1420/",
+  "evidence_kind": "User-supplied exported comparison report and explicit confirmation of unplug/replug after remembering the phone; no raw protocol or USB event transcript",
+  "device_context": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "firmware": "3051.50009.1451.1003",
+    "family": "spec_a",
+    "provenance": "Earlier native and browser identification in this chat; the comparison export contains agreement checks rather than identity values"
+  },
+  "host_context": {
+    "os": "Windows",
+    "architecture": "ARM64",
+    "provenance": "Existing workspace and native hardware-test context, not measured by this export"
+  },
+  "browser": {
+    "name": null,
+    "version": null,
+    "reason": "Exact browser identity/version was not reported"
+  },
+  "sequence": [
+    "Read and remember phone information",
+    "Unplug USB after remembering",
+    "Reconnect USB",
+    "Run Check reconnection with Normal expected"
+  ],
+  "sequence_provenance": "The user explicitly confirmed unplug/replug occurred after Remember this phone; timing and USB arrival events were not independently captured",
+  "report_sha256": "bdefd8eb96534ededdefd8471a141c92dc35253eb35b958dd96bf4d3782c09b6",
+  "report": {
+    "status": "correlated",
+    "expected_mode": "normal",
+    "observed_mode": "normal",
+    "checks": [
+      {
+        "key": "usb",
+        "label": "Recognized USB interface",
+        "status": "passed",
+        "message": "USB IDs identify an interface, not a physical phone."
+      },
+      {
+        "key": "mode",
+        "label": "Observed application mode",
+        "status": "passed",
+        "message": "A fresh application-level probe must establish the expected mode."
+      },
+      {
+        "key": "serial",
+        "label": "USB serial correlation",
+        "status": "passed",
+        "message": "USB serials match locally. This is not cryptographic authentication."
+      },
+      {
+        "key": "variant",
+        "label": "Hardware variant",
+        "status": "passed",
+        "message": "Fresh observations agree."
+      },
+      {
+        "key": "firmware",
+        "label": "Installed firmware",
+        "status": "passed",
+        "message": "Fresh observations agree."
+      },
+      {
+        "key": "platform",
+        "label": "Platform",
+        "status": "unverified",
+        "message": "This field is unavailable in one of the modes; it was not copied from the remembered phone."
+      },
+      {
+        "key": "family",
+        "label": "Bootloader family",
+        "status": "passed",
+        "message": "Known family observations must agree."
+      },
+      {
+        "key": "baseline",
+        "label": "Remembered phone information",
+        "status": "passed",
+        "message": "A recognized variant, family and firmware are required as the baseline."
+      }
+    ],
+    "recovery_authorized": false
+  },
+  "device_storage_written": false,
+  "mode_changed": false,
+  "scope": "One confirmed user-reported normal-mode browser reconnection cycle. Platform, Flash-mode transitions, other devices/hosts and all writing workflows remain unvalidated; experimental status retained.",
+  "privacy": "No USB serial, IMEI, host instance identifier or personal data included."
+}

@@ -16,6 +16,23 @@ establish hardware safety. A USB VID/PID identifies an interface, not a model.
 5. Import real local FFUs and compare parsed metadata and extracted partition
    hashes with the pinned upstream version. Do not commit proprietary images.
 
+## Observed normal-mode browser reconnection
+
+The user supplied `reconnection-check.json` and explicitly confirmed unplugging
+and reconnecting USB after **Remember this phone**, before **Check reconnection**.
+The report correlated the returning normal-mode interface: USB serial, variant,
+firmware and bootloader family checks passed; platform remained unverified.
+The sanitized record is
+[`lumia-1020-rm875-browser-normal-reconnection.json`](../tests/hardware/lumia-1020-rm875-browser-normal-reconnection.json).
+
+This is one user-confirmed cycle, with an exported comparison report rather than
+an independently captured USB event/wire transcript. Device and host identity
+context comes from earlier sessions; the export contains agreement checks rather
+than identity values. Exact browser name/version and timing were not recorded.
+It establishes an observed read-only reconnection result, not an authenticated
+identity, Flash-mode transition, validated firmware applicability or write support.
+Capability status remains experimental and recovery authorization remains false.
+
 ## Evidence required for writes
 
 Before enabling an operation, implement its entire state machine, identity and

@@ -97,3 +97,12 @@ The user's subsequent successful browser result is recorded separately in
 evidence, not a captured wire transcript. The browser name/version is unknown;
 Windows ARM64 host details come from the existing session context. No phone
 writing capability is enabled by this identification result.
+
+The subsequent browser comparison export reported `correlated` in normal mode.
+The user explicitly confirmed an unplug/replug after remembering the phone.
+`tests/hardware/lumia-1020-rm875-browser-normal-reconnection.json` preserves that
+report and its SHA-256, with the confirmed sequence and provenance limitations.
+USB serial, variant, firmware and family checks passed; platform stayed unverified.
+This is one user-confirmed normal-mode cycle. No raw event/wire transcript or exact
+browser version was captured, no phone mode was changed, and no writing capability
+was enabled.

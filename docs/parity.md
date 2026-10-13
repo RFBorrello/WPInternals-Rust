@@ -18,6 +18,7 @@ Later upstream changes are not implicitly accepted or enabled.
 | Root byte patches | Upstream hash-pinned catalog, reverse and obsolete-patch handling | Extracted files / copied FAT images only |
 | Stock FFU flashing/recovery | v1/v2 streaming workflow restricted to replay, preflight and interrupted-ack tests | Blocked; authenticated native executor and hardware validation pending |
 | Recovery preparation | Shared advisory checklist; native full-file/chunk verification, browser header preview | Offline only; exports cannot authorize execution |
+| Read-only reconnection correlation | Fresh information comparison with a remembered baseline; serial/variant/firmware/mode checks and redacted reports | One user-confirmed RM-875 normal-mode browser unplug/replug cycle on Windows ARM64; exact browser version unknown; no Flash transition or write authorization |
 | Spec A / Spec B unlocking | Separate profile families only | Not implemented; blocked |
 | Bootloader restore/relock | Not implemented | Blocked |
 | Root installation/removal | Offline target-file patching only | Phone workflow blocked |
