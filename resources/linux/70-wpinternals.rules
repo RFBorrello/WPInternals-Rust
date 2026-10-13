@@ -1,0 +1,10 @@
+# Lumia vendor-specific Flash interfaces only. No general Qualcomm 9008 access:
+# that VID/PID is shared by many non-Lumia devices and is enumeration-only here.
+SUBSYSTEM=="usb", ATTR{idVendor}=="0421", ATTR{idProduct}=="066e", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0421", ATTR{idProduct}=="0714", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0421", ATTR{idProduct}=="05ee", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="0a02", TAG+="uaccess"
+# Normal-mode Nokia Care Suite access. The adapter claims vendor interface 3 only.
+SUBSYSTEM=="usb", ATTR{idVendor}=="0421", ATTR{idProduct}=="0661", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="0421", ATTR{idProduct}=="06fc", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="045e", ATTR{idProduct}=="0a00", TAG+="uaccess"

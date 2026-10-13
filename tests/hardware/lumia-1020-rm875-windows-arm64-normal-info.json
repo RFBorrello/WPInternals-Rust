@@ -1,0 +1,48 @@
+{
+  "recorded_on": "2026-10-13",
+  "result": "observed_success",
+  "operation": "device_info",
+  "transport": "usb",
+  "host": {
+    "os": "Windows 11 Pro",
+    "version": "10.0.26200",
+    "architecture": "aarch64-pc-windows-msvc",
+    "application_version": "0.1.0"
+  },
+  "device": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "manufacturer_model": "RM-875_eu_euro1_267",
+    "product_code": "059T909",
+    "firmware": "3051.50009.1451.1003",
+    "family": "spec_a",
+    "mode": "normal",
+    "vendor_id": "0421",
+    "product_id": "0661",
+    "usb_product_string": "Nokia Lumia 909 (RM-875)",
+    "interfaces": [
+      { "number": 0, "class": 6, "subclass": 1, "protocol": 1 },
+      { "number": 1, "class": 255, "subclass": 255, "protocol": 255 },
+      { "number": 2, "class": 255, "subclass": 255, "protocol": 255 },
+      { "number": 3, "class": 255, "subclass": 255, "protocol": 255 }
+    ]
+  },
+  "accessed_interface": 3,
+  "driver": {
+    "service": "WINUSB",
+    "inf": "winusb.inf",
+    "provider": "Microsoft",
+    "version": "10.0.26100.9444"
+  },
+  "successful_queries": [
+    "ReadManufacturerModelName",
+    "ReadProductCode",
+    "ReadSwVersion"
+  ],
+  "evidence_kind": "USB descriptors and parsed live query responses; not a captured raw wire transcript",
+  "device_storage_written": false,
+  "mode_changed": false,
+  "driver_configuration_changed": false,
+  "scope": "One successful native normal-mode identification session on this device/firmware/host. Does not validate browser access, other hosts, flashing, unlocking, recovery or storage access.",
+  "privacy": "USB serial number, Windows instance identifiers and machine identity omitted. No IMEI was queried."
+}

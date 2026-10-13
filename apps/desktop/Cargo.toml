@@ -1,0 +1,22 @@
+[package]
+name = "wpi-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde.workspace = true
+serde_json.workspace = true
+wpi-types.workspace = true
+wpi-image.workspace = true
+wpi-core.workspace = true
+wpi-transport.workspace = true

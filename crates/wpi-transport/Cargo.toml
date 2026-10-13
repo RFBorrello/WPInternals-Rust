@@ -1,0 +1,14 @@
+[package]
+name = "wpi-transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+nusb.workspace = true
+wpi-types.workspace = true
+wpi-core.workspace = true
+wpi-protocol.workspace = true
+serialport = { version = "4.8", default-features = false }

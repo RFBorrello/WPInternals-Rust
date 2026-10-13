@@ -1,0 +1,81 @@
+name: Verify builds and offline operations
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/ui/package-lock.json
+      - name: Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+      - run: cargo fmt --all -- --check
+      - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo check --locked -p wpi-wasm --target wasm32-unknown-unknown
+      - run: npm --prefix apps/ui ci
+      - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked --no-default-features --root .tools
+      - run: npm run build
+      - run: npm --prefix apps/ui test
+      - run: cargo check --locked -p wpi-desktop
+      - run: cargo build --locked --release -p wpi-cli
+      - name: Package desktop executable
+        run: npm run desktop:build -- --no-bundle
+      - uses: actions/upload-artifact@v4
+        with:
+          name: development-${{ matrix.target }}
+          path: |
+            target/release/wpi
+            target/release/wpi.exe
+            target/release/wpi-desktop
+            target/release/wpi-desktop.exe
+          if-no-files-found: error
+  browser:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/ui/package-lock.json
+      - run: npm --prefix apps/ui ci
+      - run: cargo install wasm-bindgen-cli --version 0.2.129 --locked --no-default-features --root .tools
+      - run: npm run build
+      - name: Install browser test runtime
+        working-directory: apps/ui
+        run: npx playwright install --with-deps chromium
+      - name: Real WASM integration tests
+        working-directory: apps/ui
+        env:
+          WPI_BROWSER_CHANNEL: chromium
+        run: npm run test:browser
+      - uses: actions/upload-artifact@v4
+        with:
+          name: static-web-development
+          path: apps/ui/dist

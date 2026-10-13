@@ -1,0 +1,9 @@
+* text=auto eol=lf
+# Preserve the pinned upstream resources byte-for-byte.
+resources/upstream/* -text -whitespace
+*.png -text
+*.ico -text
+*.icns -text
+*.bin -text
+*.ffu -text
+*.img -text

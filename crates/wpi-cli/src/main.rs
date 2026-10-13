@@ -1,0 +1,209 @@
+use clap::{Parser, Subcommand};
+use std::{error::Error, path::PathBuf};
+use wpi_core::{artifacts, profiles};
+use wpi_types::*;
+
+#[derive(Parser)]
+#[command(
+    name = "wpi",
+    version,
+    about = "Local Lumia firmware and device tools. Device writes remain gated pending hardware validation."
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+#[derive(Subcommand)]
+enum Command {
+    /// List recognized USB interfaces without opening them.
+    Devices {
+        #[arg(long)]
+        serial: bool,
+    },
+    /// Send only read-only NOKV/FVER queries to a selected Lumia flash interface.
+    Probe { id: String },
+    /// Inspect a legacy FFU, GPT/raw disk image, or FAT/NTFS boot sector.
+    Inspect { input: PathBuf },
+    /// Check FFU SHA-256 chunk hashes (does not authenticate its signing catalog).
+    Verify { input: PathBuf },
+    /// Extract a named partition into a new local file, using bounded memory.
+    Extract {
+        input: PathBuf,
+        partition: String,
+        output: PathBuf,
+    },
+    /// Export GPT information to the upstream Partitions.xml format.
+    ConvertGpt { input: PathBuf, output: PathBuf },
+    /// List upstream patch definitions and supported firmware versions.
+    Patches,
+    /// Patch extracted files into a NEW directory; source files are preserved.
+    PatchFiles {
+        input: PathBuf,
+        output: PathBuf,
+        definition: String,
+        #[arg(long)]
+        reverse: bool,
+    },
+    /// Inspect a FAT/NTFS filesystem boot sector.
+    Filesystem { input: PathBuf },
+    /// List a directory in a FAT or NTFS partition image without host mounting.
+    Files {
+        input: PathBuf,
+        #[arg(default_value = "")]
+        path: String,
+    },
+    /// Extract a file from a FAT or NTFS partition image.
+    ExtractFile {
+        input: PathBuf,
+        path: String,
+        output: PathBuf,
+    },
+    /// Apply a catalog patch to a NEW copy of a FAT partition image.
+    PatchFat {
+        input: PathBuf,
+        output: PathBuf,
+        definition: String,
+        #[arg(long)]
+        reverse: bool,
+    },
+    /// Show model research targets; none are hardware verified yet.
+    Models,
+    /// Show implemented and blocked capabilities for this host.
+    Capabilities,
+    /// Prepare a preview. Never executes a device operation.
+    Plan {
+        #[arg(value_parser = parse_operation)]
+        operation: Operation,
+        #[arg(long)]
+        device_id: Option<String>,
+        #[arg(long)]
+        input: Option<PathBuf>,
+    },
+}
+fn parse_operation(s: &str) -> Result<Operation, String> {
+    serde_json::from_value(serde_json::Value::String(s.into())).map_err(|_| {
+        "Use a snake_case operation such as stock_flash, unlock_bootloader, or inspect_firmware"
+            .into()
+    })
+}
+fn print<T: serde::Serialize>(value: T) -> Result<(), Box<dyn Error>> {
+    println!("{}", serde_json::to_string_pretty(&value)?);
+    Ok(())
+}
+fn run() -> Result<(), Box<dyn Error>> {
+    match Cli::parse().command {
+        Command::Devices { serial: true } => print(wpi_transport::serial_candidates()?)?,
+        Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
+        Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
+        Command::Inspect { input } => print(artifacts::inspect_file(&input)?)?,
+        Command::Verify { input } => {
+            let mut file = artifacts::open_artifact(&input)?;
+            let ffu = wpi_image::ffu::FfuMetadata::open(&mut file)?;
+            ffu.verify_hashes(&mut file, |_, _| true)?;
+            print(
+                serde_json::json!({"chunk_hashes":"valid","catalog_authenticity":"not_verified"}),
+            )?;
+        }
+        Command::Extract {
+            input,
+            partition,
+            output,
+        } => {
+            artifacts::extract_partition(&input, &partition, &output, |_, _| true)?;
+            print(serde_json::json!({"output":output,"partition":partition}))?;
+        }
+        Command::ConvertGpt { input, output } => {
+            artifacts::convert_gpt(&input, &output)?;
+            print(serde_json::json!({"output":output}))?;
+        }
+        Command::Patches => print(wpi_image::patch::PatchCatalog::bundled()?.summaries())?,
+        Command::PatchFiles {
+            input,
+            output,
+            definition,
+            reverse,
+        } => print(artifacts::patch_directory(
+            &input,
+            &output,
+            &definition,
+            reverse,
+        )?)?,
+        Command::Filesystem { input } => print(wpi_image::filesystem::inspect(
+            &mut artifacts::open_artifact(&input)?,
+        )?)?,
+        Command::Files { input, path } => print(wpi_image::filesystem::list(
+            &mut artifacts::open_artifact(&input)?,
+            &path,
+        )?)?,
+        Command::ExtractFile {
+            input,
+            path,
+            output,
+        } => {
+            artifacts::extract_file(&input, &path, &output)?;
+            print(serde_json::json!({"output":output,"path":path}))?;
+        }
+        Command::PatchFat {
+            input,
+            output,
+            definition,
+            reverse,
+        } => {
+            let version = artifacts::patch_fat(&input, &output, &definition, reverse)?;
+            print(serde_json::json!({"output":output,"version":version,"definition":definition}))?;
+        }
+        Command::Models => print(profiles::known_models())?,
+        Command::Capabilities => print(profiles::capabilities(
+            None,
+            profiles::current_host(),
+            TransportKind::Usb,
+        ))?,
+        Command::Plan {
+            operation,
+            device_id,
+            input,
+        } => {
+            let device = if let Some(id) = device_id {
+                Some(
+                    wpi_transport::enumerate()?
+                        .into_iter()
+                        .find(|d| d.id == id)
+                        .ok_or("device disconnected or unknown")?,
+                )
+            } else {
+                None
+            };
+            let mut imports = Vec::new();
+            if let Some(path) = input {
+                let mut file = artifacts::open_artifact(&path)?;
+                let inspection = wpi_core::inspection::inspect(&mut file)?;
+                use std::io::{Seek, SeekFrom};
+                file.seek(SeekFrom::Start(0))?;
+                imports.push(ArtifactIdentity {
+                    name: path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                    size: file.metadata()?.len(),
+                    sha256: wpi_image::stream::sha256(&mut file)?,
+                    platform_id: inspection.ffu.map(|f| f.platform_id),
+                });
+            }
+            print(wpi_core::operations::prepare(
+                operation,
+                device,
+                profiles::current_host(),
+                TransportKind::Usb,
+                imports,
+            ))?;
+        }
+    }
+    Ok(())
+}
+fn main() {
+    if let Err(error) = run() {
+        eprintln!("{error}");
+        std::process::exit(1);
+    }
+}

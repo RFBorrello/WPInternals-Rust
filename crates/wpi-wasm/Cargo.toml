@@ -1,0 +1,22 @@
+[package]
+name = "wpi-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+serde.workspace = true
+serde_json.workspace = true
+wpi-types.workspace = true
+wpi-image.workspace = true
+wpi-core.workspace = true
+wpi-protocol.workspace = true
+wasm-bindgen-futures = "0.4"
+futures-util = "0.3"
+gloo-timers = { version = "0.3", features = ["futures"] }
+nusb.workspace = true

@@ -1,0 +1,16 @@
+[package]
+name = "wpi-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+wpi-types.workspace = true
+wpi-image.workspace = true
+wpi-protocol.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tempfile = "3"

@@ -1,0 +1,36 @@
+{
+  "recorded_on": "2026-10-13",
+  "result": "observed_success",
+  "operation": "device_info",
+  "transport": "web_usb",
+  "application_version": "0.1.0",
+  "origin": "http://127.0.0.1:1420/",
+  "host": {
+    "os": "Windows",
+    "architecture": "ARM64",
+    "provenance": "Existing workspace and native hardware-test context; not independently measured in the browser session"
+  },
+  "browser": {
+    "name": null,
+    "version": null,
+    "reason": "Exact browser identity and version were not included in the user's report"
+  },
+  "device": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "firmware": "3051.50009.1451.1003",
+    "family": "spec_a",
+    "mode": "normal",
+    "vendor_id": "0421",
+    "product_id": "0661",
+    "platform_id": null,
+    "usb_chooser_label_report": "909"
+  },
+  "evidence_kind": "User-reported browser UI result after USB selection and Read device information; no independently captured browser log or raw protocol transcript",
+  "matches_native_identification": true,
+  "device_storage_written": false,
+  "mode_changed": false,
+  "operation_scope_basis": "The implemented normal-mode adapter only sends three allowlisted information queries, plus standard USB descriptor requests",
+  "scope": "One successful user-reported browser normal-mode identification. Exact browser version, repeatability, other phones and hosts, mode transitions and writing workflows remain unvalidated. Experimental status retained.",
+  "privacy": "No USB serial, IMEI, host instance identifier or personal data included."
+}
