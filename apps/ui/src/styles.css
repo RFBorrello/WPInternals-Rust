@@ -13,6 +13,9 @@
 .reconnect-card > p, .reconnect-card li { color: var(--muted); line-height: 1.65; }
 .reconnect-card > p { margin-bottom: 16px; }
 .reconnect-card h4 { margin: 16px 0 8px; }
+.reconnect-notice{display:flex;align-items:flex-start;gap:9px;margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:6px;background:#f5f8f7;font-size:12px;line-height:1.6}
+.reconnect-notice svg{flex-shrink:0;margin-top:2px}
+.reconnect-notice.error{color:#8c3232;background:#fff4f3;border-color:#ecd1cc}
 @media(max-width:600px){
   .reconnect-card table,.reconnect-card tbody{display:block;width:100%}
   .reconnect-card thead{display:none}

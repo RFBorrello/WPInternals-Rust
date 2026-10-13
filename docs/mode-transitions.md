@@ -62,6 +62,12 @@ return-to-normal, or browser mode changes.
 5. Click **Check reconnection** to run fresh read-only information queries.
    Export the report if useful. A disconnect discards late probe results.
 
+The panel displays progress while reading and shows errors beside the button,
+including USB `NotFoundError` and `AbortError`. These are device failures, not
+silent file-picker cancellations. If a transfer is interrupted, unplug the phone,
+scan while disconnected, reconnect, and select it again before retrying. No mode
+change is sent by this check.
+
 The report says `correlated` only when nonempty USB serials match, the baseline
 has a known variant/family and firmware, the interface and application mode agree,
 and no available variant, firmware, platform or family observations contradict it.

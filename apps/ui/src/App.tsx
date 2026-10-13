@@ -26,6 +26,7 @@ export default function App() {
   const [targetMode, setTargetMode] = useState<DeviceMode>('flash');
   const [modePreparation, setModePreparation] = useState<ModeTransitionPreparation | null>(null);
   const [reconnection, setReconnection] = useState<ReconnectReport | null>(null);
+  const [reconnectNotice, setReconnectNotice] = useState<{ kind: 'working' | 'error' | 'info'; message: string } | null>(null);
   const lastProbe = useRef<{ device: DeviceIdentity; protocol?: number } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +37,7 @@ export default function App() {
   const connectionEpoch = useRef(0);
   useEffect(() => { setPreparation(null); }, [artifact, selected]);
   useEffect(() => { setModePreparation(null); setReconnection(null); }, [selected, targetMode, remembered]);
+  useEffect(() => { setReconnectNotice(null); }, [targetMode, remembered]);
   function log(message: string, kind: Activity['kind'] = 'info') {
     setActivity(items => [{ time: new Date().toLocaleTimeString(), message, kind }, ...items].slice(0, 200));
   }
@@ -54,15 +56,19 @@ export default function App() {
   useEffect(() => {
     if (backend.desktop) return;
     const usb = (navigator as Navigator & { usb?: EventTarget }).usb;
-    const disconnect = () => { connectionEpoch.current++; setSelected(null); setDevices([]); log('USB connection changed. Scan and reselect the device before continuing.'); };
+    const disconnect = () => {
+      connectionEpoch.current++; setSelected(null); setDevices([]);
+      setReconnectNotice({ kind: 'info', message: 'USB connection changed. Connect a device and select the phone again before checking reconnection.' });
+      log('USB connection changed. Scan and reselect the device before continuing.');
+    };
     usb?.addEventListener('disconnect', disconnect);
     return () => usb?.removeEventListener('disconnect', disconnect);
   }, []);
-  async function task(name: string, action: () => Promise<void>) {
+  async function task(name: string, action: () => Promise<void>, allowPickerCancellation = false) {
     if (busy) return;
     setBusy(name); setError(null);
     try { await action(); }
-    catch (e) { const message = e instanceof Error ? e.message : String(e); if (!message.includes('AbortError') && !message.includes('NotFoundError')) { setError(message); log(message, 'error'); } }
+    catch (e) { const message = e instanceof Error ? e.message : String(e); if (!allowPickerCancellation || (!message.includes('AbortError') && !message.includes('NotFoundError'))) { setError(message); log(message, 'error'); } }
     finally { setBusy(null); setProgress(null); }
   }
   async function scan() {
@@ -76,8 +82,8 @@ export default function App() {
   async function connect() {
     await task('Connecting to your phone', async () => {
       if (backend.desktop) { const found = await backend.discover(); setDevices(found); if (found.length === 1) setSelected(found[0]); log(found.length ? `Found ${found.length} device interface(s). Select one below.` : 'No Lumia connected. Try a data-capable USB cable and scan again.'); }
-      else { const device = await backend.connect(); if (!device) return; setSelected(device); setDevices(await backend.discover()); log('USB access granted. Device descriptors read locally.', 'success'); }
-    });
+      else { const device = await backend.connect(); if (!device) return; setSelected(device); setDevices(await backend.discover()); setReconnectNotice(null); log('USB access granted. Device descriptors read locally.', 'success'); }
+    }, true);
   }
   async function readDeviceInfo() {
     if (!selected) return;
@@ -94,7 +100,7 @@ export default function App() {
     await task('Inspecting local image', async () => {
       const imported = backend.desktop ? await backend.importDesktopFile() : file ? await backend.importBrowserFile(file) : null;
       if (imported) { setArtifact(imported); setPage('firmware'); log(`Inspected ${imported.name}. ${imported.inspection.gpt?.partitions.length ?? 0} partitions found.`, 'success'); }
-    });
+    }, true);
   }
   async function prepareRecovery() {
     if (!artifact) return;
@@ -115,15 +121,29 @@ export default function App() {
     });
   }
   async function checkReconnection() {
-    if (!selected || !remembered) return;
+    if (busy) return;
+    if (!selected || !remembered) {
+      setReconnectNotice({ kind: 'info', message: 'Read and remember a phone, then select the returning device before checking reconnection.' });
+      return;
+    }
     const epoch = connectionEpoch.current;
+    setReconnection(null);
+    setReconnectNotice({ kind: 'working', message: 'Reading fresh phone information and comparing it with the remembered phone…' });
     await task('Checking the returning phone', async () => {
-      const result = await backend.probe(selected);
-      if (epoch !== connectionEpoch.current) return;
-      const report = await backend.checkReconnect(remembered, result.device, targetMode);
-      if (epoch !== connectionEpoch.current) return;
-      setReconnection(report);
-      log(`Reconnection ${report.status}. No mode change or phone write was sent.`);
+      try {
+        const result = await backend.probe(selected);
+        if (epoch !== connectionEpoch.current) return;
+        const report = await backend.checkReconnect(remembered, result.device, targetMode);
+        if (epoch !== connectionEpoch.current) return;
+        setReconnection(report);
+        setReconnectNotice(null);
+        log(`Reconnection ${report.status}. No mode change or phone write was sent.`);
+      } catch (e) {
+        if (epoch !== connectionEpoch.current) return;
+        const detail = e instanceof Error ? e.message : String(e);
+        setReconnectNotice({ kind: 'error', message: `Reconnection check failed: ${detail}. Unplug the phone, scan while disconnected, then reconnect and select it again. No mode change or phone write was sent.` });
+        throw e;
+      }
     });
   }
   const disabled = !ready || Boolean(busy);
@@ -169,9 +189,10 @@ export default function App() {
               <div className="button-row">
                 <button className="secondary-button" disabled={disabled || !selected} onClick={() => void previewMode()}>Preview mode change</button>
                 <button className="secondary-button" disabled={disabled || !selected?.variant || !selected.firmware || lastProbe.current?.device !== selected} onClick={() => { setRemembered(selected); log('Phone remembered in this session. USB identifiers are kept locally and omitted from reports.'); }}>Remember this phone</button>
-                <button className="secondary-button" disabled={disabled || !remembered || !selected || !report?.capabilities.find(c => c.operation === 'device_info')?.executable} onClick={() => void checkReconnection()}>Check reconnection</button>
+                <button className="secondary-button" disabled={disabled || !remembered || !selected || !report?.capabilities.find(c => c.operation === 'device_info')?.executable} onClick={() => void checkReconnection()}>{busy === 'Checking the returning phone' ? <><LoaderCircle size={14} className="spin" /> Checking reconnection…</> : 'Check reconnection'}</button>
                 {remembered && <button className="text-button" disabled={disabled} onClick={() => setRemembered(null)}>Forget phone</button>}
               </div>
+              {reconnectNotice && <div className={`reconnect-notice ${reconnectNotice.kind}`} role={reconnectNotice.kind === 'error' ? 'alert' : 'status'}>{reconnectNotice.kind === 'working' ? <LoaderCircle size={16} className="spin" /> : <Info size={16} />}<span>{reconnectNotice.message}</span></div>}
               {remembered && <p className="info-note">Remembered {remembered.model ?? remembered.variant} · {remembered.firmware}. {remembered.serial?.trim() ? 'USB serial stays in memory for comparison.' : 'USB serial unavailable; physical identity cannot be correlated.'}</p>}
               {modePreparation && <div>
                 <h4>Mode-change preview · execution blocked</h4><p>{label(modePreparation.source)} → {label(modePreparation.target)} · {modePreparation.route ?? 'No reviewed route'}</p>

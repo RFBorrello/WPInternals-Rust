@@ -12,7 +12,7 @@ do not establish device support; this milestone's CI is recorded separately.
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 21 passed |
+| Real-WASM browser integration tests | 24 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -73,6 +73,11 @@ boundary tests, not hardware mode-change or reconnection evidence.
 The connected RM-875 also passed the native read-only mode-preparation preview;
 `tests/hardware/lumia-1020-rm875-native-mode-preview.json` records its blocked
 result separately. No mode command or hardware reconnection was performed.
+
+Three additional reconnection regressions cover USB `NotFoundError`, `AbortError`
+and timeout feedback within the panel. The NotFoundError case reproduced missing
+feedback before the fix. USB failures are no longer treated as silent picker
+cancellations, and read progress/disconnect instructions appear beside the button.
 
 Offline evidence for the local RM-875 `3051.50009.1424.0002` image is recorded in
 `tests/fixtures/rm875-validation.json`. Its EFIESP hash matched the independently

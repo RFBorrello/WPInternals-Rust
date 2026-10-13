@@ -6,7 +6,7 @@ type Behavior = 'success' | 'wrong-id' | 'short-write' | 'timeout' | 'disconnect
 // WASM protocol codecs, profile selection and React UI run in every test.
 async function mockLumia(page: Page, behavior: Behavior = 'success') {
   await page.addInitScript((behavior) => {
-    const state = { connected: true, serial: 'SYNTHETIC', firmware: '3051.50009.1451.1003', disconnectDuringRead: false, methods: [] as string[], claims: [] as number[], releases: [] as number[], controls: [] as number[] };
+    const state = { connected: true, serial: 'SYNTHETIC', firmware: '3051.50009.1451.1003', disconnectDuringRead: false, transferError: '', pauseRead: false, methods: [] as string[], claims: [] as number[], releases: [] as number[], controls: [] as number[] };
     const interfaces = [0, 1, 2, 3].map(interfaceNumber => ({
       interfaceNumber, claimed: false, alternates: [{ alternateSetting: 0,
         interfaceClass: interfaceNumber === 0 ? 6 : 255, interfaceSubclass: 255, interfaceProtocol: 255 }],
@@ -40,12 +40,13 @@ async function mockLumia(page: Page, behavior: Behavior = 'success') {
       claimInterface: async (i: number) => { state.claims.push(i); interfaces[i].claimed = true; },
       releaseInterface: async (i: number) => { state.releases.push(i); interfaces[i].claimed = false; },
       transferOut: async (endpoint: number, data: Uint8Array) => {
+        if (state.transferError) throw new DOMException('The USB device is no longer available', state.transferError);
         if (endpoint !== 3) throw new Error('Wrong normal-mode endpoint');
         request = JSON.parse(new TextDecoder().decode(data)); state.methods.push(request.method);
         return { status: 'ok', bytesWritten: behavior === 'short-write' ? data.length - 1 : data.length };
       },
       transferIn: async () => {
-        if (behavior === 'timeout') return new Promise(() => {});
+        if (behavior === 'timeout' || state.pauseRead) return new Promise(() => {});
         if (behavior === 'disconnect' || state.disconnectDuringRead) { state.connected = false; usb.dispatchEvent(new Event('disconnect')); }
         const fields = { ManufacturerModelName: 'RM-875_eu_euro1_267', ProductCode: '059T909', SwVersion: state.firmware };
         const bytes = new TextEncoder().encode(JSON.stringify({ jsonrpc: '2.0', id: behavior === 'wrong-id' ? 99 : request.id, result: fields }));
@@ -157,6 +158,7 @@ async function rememberAndReconnect(page: Page, change?: 'serial' | 'firmware' |
   await expect(page.getByRole('heading', { name: 'No device selected' })).toBeVisible();
   await page.evaluate(() => (window as unknown as { probeFixture: { reconnect(): void } }).probeFixture.reconnect());
   await page.getByRole('button', { name: 'Connect a device', exact: true }).click();
+  await expect(page.locator('.reconnect-card').getByText('USB connection changed.', { exact: false })).toHaveCount(0);
 }
 
 test('remembered phone survives reconnection and a fresh probe yields only serial correlation', async ({ page }) => {
@@ -197,4 +199,23 @@ test('disconnect discards a late reconnection check', async ({ page }) => {
   await page.getByRole('button', { name: 'Check reconnection' }).click();
   await expect(page.getByRole('heading', { name: 'No device selected' })).toBeVisible();
   await expect(page.getByText(/^Reconnection:/)).toHaveCount(0);
+});
+
+for (const errorName of ['NotFoundError', 'AbortError']) {
+  test(`reconnection ${errorName} displays actionable feedback in its own panel`, async ({ page }) => {
+    await rememberAndReconnect(page);
+    await page.evaluate(name => (window as unknown as { probeFixture: { state: { transferError: string } } }).probeFixture.state.transferError = name, errorName);
+    await page.getByRole('button', { name: 'Check reconnection', exact: true }).click();
+    await expect(page.locator('.reconnect-card').getByRole('alert')).toContainText('Reconnection check failed');
+    await expect(page.locator('.reconnect-card').getByRole('alert')).toContainText('select');
+    await expect(page.getByText(/^Reconnection:/)).toHaveCount(0);
+  });
+}
+test('reconnection progress and timeout are visible next to the button', async ({ page }) => {
+  await rememberAndReconnect(page);
+  await page.evaluate(() => (window as unknown as { probeFixture: { state: { pauseRead: boolean } } }).probeFixture.state.pauseRead = true);
+  await page.getByRole('button', { name: 'Check reconnection', exact: true }).click();
+  await expect(page.locator('.reconnect-card').getByRole('status')).toContainText('Reading fresh phone information');
+  await expect(page.locator('.reconnect-card').getByRole('alert')).toContainText('timed out', { timeout: 10000 });
+  await expect(page.getByRole('button', { name: 'Check reconnection', exact: true })).toBeEnabled();
 });
