@@ -129,7 +129,7 @@ pub fn list<R: Read + Seek>(reader: &mut R, path: &str) -> Result<Vec<DirectoryE
             }
         }
     }
-    output.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    output.sort_by_key(|entry| entry.name.to_lowercase());
     Ok(output)
 }
 pub fn extract_file<R: Read + Seek, W: Write, F: FnMut(u64, u64) -> bool>(
