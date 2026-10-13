@@ -1,18 +1,18 @@
 # Local validation — October 13, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. The preceding milestone at commit `06b5cc3` also passed
-GitHub CI on all four native host targets and Chromium. Those remote build results
+headless Microsoft Edge. The preceding milestone at commit `10d0fba` also passed
+GitHub CI on all four native host targets and Chromium (run `38476781716`). Those remote build results
 do not establish device support; this milestone's CI is recorded separately.
 
 | Check | Result |
 | --- | --- |
-| Rust integration tests | 32 passed |
+| Rust integration tests | 45 passed |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 15 passed |
+| Real-WASM browser integration tests | 21 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -58,6 +58,21 @@ The first real NTFS read exposed incorrect index VCN units in the `ntfs` depende
 when index records are smaller than clusters. A documented vendored patch fixes
 addressing and bounds traversal; original dependency licenses are preserved.
 All device writing workflows remain blocked.
+
+Mode-transition coverage includes fresh source contradictions, Spec A protocol-1
+removal requirements, Spec B protocol-2 in-place observation, Flash-to-Normal
+replay, acknowledged context changes, partial/uncertain command delivery, stale
+arrivals, permission renewal without deadline resets, wrong/ambiguous/missing
+identities, malformed or interrupted probes, monotonic/bounded observations,
+pre/post-command cancellation and coordinator-compatible event transitions.
+The normal native codec now validates each response before sending the next query.
+Six new browser tests cover blocked redacted previews, remembered baselines,
+fresh read-only correlation, serial/firmware contradictions, absent serials,
+late disconnect results and forgetting a baseline. These tests are simulated USB
+boundary tests, not hardware mode-change or reconnection evidence.
+The connected RM-875 also passed the native read-only mode-preparation preview;
+`tests/hardware/lumia-1020-rm875-native-mode-preview.json` records its blocked
+result separately. No mode command or hardware reconnection was performed.
 
 Offline evidence for the local RM-875 `3051.50009.1424.0002` image is recorded in
 `tests/fixtures/rm875-validation.json`. Its EFIESP hash matched the independently

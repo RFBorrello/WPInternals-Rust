@@ -42,12 +42,24 @@ pub fn parse(response: &[u8], id: u32, key: &str) -> Result<String> {
         .ok_or_else(|| ProtocolError::Invalid("missing JSON-RPC information field".into()))
 }
 pub fn read_info<T: MessageTransport>(transport: &mut T) -> Result<NormalInfo> {
-    let model = transport.exchange(&request(0, "ReadManufacturerModelName")?, 65536)?;
-    let product = transport.exchange(&request(1, "ReadProductCode")?, 65536)?;
-    let firmware = transport.exchange(&request(2, "ReadSwVersion")?, 65536)?;
+    let model = parse(
+        &transport.exchange(&request(0, "ReadManufacturerModelName")?, 65536)?,
+        0,
+        "ManufacturerModelName",
+    )?;
+    let product = parse(
+        &transport.exchange(&request(1, "ReadProductCode")?, 65536)?,
+        1,
+        "ProductCode",
+    )?;
+    let firmware = parse(
+        &transport.exchange(&request(2, "ReadSwVersion")?, 65536)?,
+        2,
+        "SwVersion",
+    )?;
     Ok(NormalInfo {
-        manufacturer_model: parse(&model, 0, "ManufacturerModelName")?,
-        product_code: parse(&product, 1, "ProductCode")?,
-        firmware: parse(&firmware, 2, "SwVersion")?,
+        manufacturer_model: model,
+        product_code: product,
+        firmware,
     })
 }

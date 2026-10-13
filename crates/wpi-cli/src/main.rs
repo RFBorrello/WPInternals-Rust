@@ -20,8 +20,23 @@ enum Command {
         #[arg(long)]
         serial: bool,
     },
-    /// Send only read-only NOKV/FVER queries to a selected Lumia flash interface.
+    /// Read normal-mode model/product/firmware or flash-mode NOKV/FVER information.
     Probe { id: String },
+    /// Read phone information and preview a mode change. Never sends a mode-change command.
+    PrepareMode {
+        id: String,
+        #[arg(value_parser = parse_mode)]
+        target: DeviceMode,
+    },
+    /// Compare a local probe JSON baseline with a fresh read-only probe. Never authorizes writes.
+    CheckReconnect {
+        baseline: PathBuf,
+        id: String,
+        #[arg(value_parser = parse_mode)]
+        target: DeviceMode,
+    },
+    /// Run a synthetic mode-transition scenario using replay only. No USB access.
+    ReplayMode { input: PathBuf },
     /// Inspect a legacy FFU, GPT/raw disk image, or FAT/NTFS boot sector.
     Inspect { input: PathBuf },
     /// Verify a local FFU and generate an advisory recovery checklist. Never starts recovery.
@@ -92,6 +107,27 @@ fn parse_operation(s: &str) -> Result<Operation, String> {
             .into()
     })
 }
+fn parse_mode(s: &str) -> Result<DeviceMode, String> {
+    serde_json::from_value(serde_json::Value::String(s.into()))
+        .map_err(|_| "Use normal, flash, boot_manager or phone_info".into())
+}
+fn read_json(path: &std::path::Path) -> Result<serde_json::Value, Box<dyn Error>> {
+    use std::io::Read;
+    let file = artifacts::open_artifact(path)?;
+    let mut bytes = Vec::new();
+    file.take(1024 * 1024 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > 1024 * 1024 {
+        return Err("JSON input exceeds 1 MiB".into());
+    }
+    Ok(serde_json::from_slice(&bytes)?)
+}
+#[derive(serde::Deserialize)]
+struct ModeScenario {
+    baseline: DeviceIdentity,
+    target: DeviceMode,
+    exchanges: Vec<wpi_protocol::replay::Exchange>,
+    observations: Vec<wpi_core::mode_replay::ReplayObservation>,
+}
 fn print<T: serde::Serialize>(value: T) -> Result<(), Box<dyn Error>> {
     println!("{}", serde_json::to_string_pretty(&value)?);
     Ok(())
@@ -101,6 +137,54 @@ fn run() -> Result<(), Box<dyn Error>> {
         Command::Devices { serial: true } => print(wpi_transport::serial_candidates()?)?,
         Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
         Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
+        Command::PrepareMode { id, target } => {
+            let p = wpi_transport::probe(&id)?;
+            print(wpi_core::reconnect::prepare(
+                Some(p.device),
+                target,
+                p.info.map(|i| i.protocol_major),
+                profiles::current_host(),
+                TransportKind::Usb,
+            ))?;
+        }
+        Command::CheckReconnect {
+            baseline,
+            id,
+            target,
+        } => {
+            let value = read_json(&baseline)?;
+            let before: DeviceIdentity =
+                serde_json::from_value(value.get("device").cloned().unwrap_or(value))?;
+            let after = wpi_transport::probe(&id)?.device;
+            print(wpi_core::reconnect::compare(&before, &after, target))?;
+        }
+        Command::ReplayMode { input } => {
+            let scenario: ModeScenario = serde_json::from_value(read_json(&input)?)?;
+            let mut transport = wpi_protocol::replay::ReplayTransport::new(scenario.exchanges);
+            let mut events = Vec::new();
+            let result = wpi_core::mode_replay::run(
+                &scenario.baseline,
+                scenario.target,
+                &mut transport,
+                scenario.observations,
+                |event| {
+                    events.push(event.clone());
+                    true
+                },
+            );
+            match result {
+                Ok(report) if transport.finished() => print(
+                    serde_json::json!({"source_kind":"replay_only","events":events,"reconnection":report}),
+                )?,
+                Ok(_) => return Err("replay contains unused source exchanges".into()),
+                Err(error) => {
+                    print(
+                        serde_json::json!({"source_kind":"replay_only","events":events,"error":error.to_string()}),
+                    )?;
+                    return Err(error.into());
+                }
+            }
+        }
         Command::Inspect { input } => print(artifacts::inspect_file(&input)?)?,
         Command::PrepareRecovery { input, device_id } => {
             let device = device_id

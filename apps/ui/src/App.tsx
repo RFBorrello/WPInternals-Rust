@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, ArrowRight, Check, ChevronRight, CircleHelp, Cpu, FileCode2, FileUp, FolderOpen, HardDrive, Info, Layers3, LoaderCircle, LockKeyhole, Monitor, Radio, RefreshCw, ShieldCheck, Smartphone, Terminal, Unplug, Usb, X } from 'lucide-react';
 import * as backend from './backend';
 import { bytes, hexId, label, partitionRange } from './format';
-import type { CapabilityReport, DeviceIdentity, ImportedArtifact, ModelProfile, RecoveryPreparation } from './types';
+import type { CapabilityReport, DeviceIdentity, DeviceMode, ImportedArtifact, ModelProfile, ModeTransitionPreparation, ReconnectReport, RecoveryPreparation } from './types';
 
 type Page = 'workspace' | 'firmware' | 'compatibility' | 'activity';
 interface Activity { time: string; message: string; kind: 'info' | 'success' | 'error' }
@@ -22,6 +22,11 @@ export default function App() {
   const [report, setReport] = useState<CapabilityReport | null>(null);
   const [artifact, setArtifact] = useState<ImportedArtifact | null>(null);
   const [preparation, setPreparation] = useState<RecoveryPreparation | null>(null);
+  const [remembered, setRemembered] = useState<DeviceIdentity | null>(null);
+  const [targetMode, setTargetMode] = useState<DeviceMode>('flash');
+  const [modePreparation, setModePreparation] = useState<ModeTransitionPreparation | null>(null);
+  const [reconnection, setReconnection] = useState<ReconnectReport | null>(null);
+  const lastProbe = useRef<{ device: DeviceIdentity; protocol?: number } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -30,6 +35,7 @@ export default function App() {
   const picker = useRef<HTMLInputElement>(null);
   const connectionEpoch = useRef(0);
   useEffect(() => { setPreparation(null); }, [artifact, selected]);
+  useEffect(() => { setModePreparation(null); setReconnection(null); }, [selected, targetMode, remembered]);
   function log(message: string, kind: Activity['kind'] = 'info') {
     setActivity(items => [{ time: new Date().toLocaleTimeString(), message, kind }, ...items].slice(0, 200));
   }
@@ -80,6 +86,7 @@ export default function App() {
       const result = await backend.probe(selected);
       if (epoch !== connectionEpoch.current) return;
       setSelected(result.device);
+      lastProbe.current = { device: result.device, protocol: typeof result.info?.protocol_major === 'number' ? result.info.protocol_major : undefined };
       log('Read device model and application information. No phone storage was written.', 'success');
     });
   }
@@ -100,6 +107,25 @@ export default function App() {
     });
   }
   const usbAvailable = backend.desktop || (Boolean((navigator as Navigator & { usb?: unknown }).usb) && window.isSecureContext);
+  async function previewMode() {
+    const epoch = connectionEpoch.current;
+    await task('Preparing mode-change preview', async () => {
+      const result = await backend.prepareMode(selected, targetMode, lastProbe.current?.device === selected ? lastProbe.current?.protocol : undefined);
+      if (epoch === connectionEpoch.current) setModePreparation(result);
+    });
+  }
+  async function checkReconnection() {
+    if (!selected || !remembered) return;
+    const epoch = connectionEpoch.current;
+    await task('Checking the returning phone', async () => {
+      const result = await backend.probe(selected);
+      if (epoch !== connectionEpoch.current) return;
+      const report = await backend.checkReconnect(remembered, result.device, targetMode);
+      if (epoch !== connectionEpoch.current) return;
+      setReconnection(report);
+      log(`Reconnection ${report.status}. No mode change or phone write was sent.`);
+    });
+  }
   const disabled = !ready || Boolean(busy);
   const title = navigation.find(n => n.page === page)!.label;
   const partitions = artifact?.inspection.gpt?.partitions ?? [];
@@ -132,9 +158,32 @@ export default function App() {
             <div className="phone-scene" aria-hidden="true"><div className="orb orb-one" /><div className="orb orb-two" /><div className="phone"><div className="phone-speaker" /><div className="phone-screen"><div className="phone-time">10:20</div><div className="tile-grid"><span /><span /><span /><span /><span /><span /></div><div className="phone-wordmark">LUMIA</div></div><div className="phone-bottom"><span>‹</span><span>⊞</span><span>⌕</span></div></div><div className="floating-tag"><span className="dot" /> Possibility, preserved.</div></div>
           </section>
           <div className="workspace-grid">
+
             <section className="card device-card"><div className="section-heading"><h3><Smartphone size={18} /> Your device</h3><button className="icon-button" aria-label="Scan USB devices" disabled={disabled || !usbAvailable} onClick={() => void scan()}><RefreshCw size={16} /></button></div>{selected ? <DeviceDetails device={selected} /> : <div className="empty-device"><div className="empty-icon"><Unplug size={25} /></div><h4>No device selected</h4><p>Connect your Lumia with a USB data cable.<br />Then grant access or scan for interfaces.</p><button className="text-button" disabled={disabled || !usbAvailable} onClick={() => void connect()}>Connect a Lumia <ArrowRight size={14} /></button></div>}{devices.length > 1 && <label className="select-label">Select interface<select disabled={disabled} value={selected?.id ?? ''} onChange={e => setSelected(devices.find(d => d.id === e.target.value) ?? null)}><option value="">Choose device</option>{devices.map(d => <option key={d.id} value={d.id}>{d.product ?? 'Lumia interface'} · {label(d.mode)}</option>)}</select></label>}{selected && <button className="secondary-button wide" disabled={disabled || !report?.capabilities.find(c => c.operation === 'device_info')?.executable} onClick={() => void readDeviceInfo()}><Radio size={16} /> Read device information</button>}</section>
             <section className="card import-card" onDragOver={e => { if (!backend.desktop) e.preventDefault(); }} onDrop={e => { e.preventDefault(); if (!backend.desktop && !disabled && e.dataTransfer.files[0]) void load(e.dataTransfer.files[0]); }}><div className="section-heading"><h3><FileCode2 size={18} /> Explore firmware</h3><span className="subtle-badge">OFFLINE</span></div><div className="import-body"><div className="import-icon"><FileUp size={29} /></div><h4>Start with a local image</h4><p>Inspect firmware, browse partitions, and extract<br />the pieces you need. Your originals stay intact.</p><button className="secondary-button" disabled={disabled} onClick={chooseFile}><FolderOpen size={16} /> Browse files</button><span className="supported-files">FFU · GPT / BIN · RAW IMG · FAT / NTFS</span></div></section>
           </div>
+            <section className="card capability-card reconnect-card">
+              <div className="section-heading"><h3><RefreshCw size={18} /> Mode changes & reconnection</h3><span className="subtle-badge">READ ONLY</span></div>
+              <p>Preview a mode change, or remember a phone after reading its information and compare it after reconnection. Live mode switching is awaiting hardware validation.</p>
+              <label className="select-label">Expected mode<select aria-label="Expected mode" disabled={disabled} value={targetMode} onChange={e => setTargetMode(e.target.value as DeviceMode)}>{(['normal', 'flash', 'boot_manager', 'phone_info'] as DeviceMode[]).map(mode => <option value={mode} key={mode}>{label(mode)}</option>)}</select></label>
+              <div className="button-row">
+                <button className="secondary-button" disabled={disabled || !selected} onClick={() => void previewMode()}>Preview mode change</button>
+                <button className="secondary-button" disabled={disabled || !selected?.variant || !selected.firmware || lastProbe.current?.device !== selected} onClick={() => { setRemembered(selected); log('Phone remembered in this session. USB identifiers are kept locally and omitted from reports.'); }}>Remember this phone</button>
+                <button className="secondary-button" disabled={disabled || !remembered || !selected || !report?.capabilities.find(c => c.operation === 'device_info')?.executable} onClick={() => void checkReconnection()}>Check reconnection</button>
+                {remembered && <button className="text-button" disabled={disabled} onClick={() => setRemembered(null)}>Forget phone</button>}
+              </div>
+              {remembered && <p className="info-note">Remembered {remembered.model ?? remembered.variant} · {remembered.firmware}. {remembered.serial?.trim() ? 'USB serial stays in memory for comparison.' : 'USB serial unavailable; physical identity cannot be correlated.'}</p>}
+              {modePreparation && <div>
+                <h4>Mode-change preview · execution blocked</h4><p>{label(modePreparation.source)} → {label(modePreparation.target)} · {modePreparation.route ?? 'No reviewed route'}</p>
+                <p>{modePreparation.requires_disconnect ? 'The phone must disconnect and return. Select it again if USB permission is required.' : 'A fresh application probe is required even when the USB interface stays connected.'}</p>
+                <ul>{modePreparation.plan.blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul>
+                <button className="secondary-button" disabled={disabled} onClick={() => backend.download(new Blob([JSON.stringify(modePreparation, null, 2)], { type: 'application/json' }), 'mode-preparation.json')}>Export mode preview</button>
+              </div>}
+              {reconnection && <div><h4>Reconnection: {label(reconnection.status)}</h4><p>USB serial correlation is not authenticated identity. Recovery remains blocked.</p>
+                <div className="table-scroll"><table><thead><tr><th>Check</th><th>Status</th><th>Result</th></tr></thead><tbody>{reconnection.checks.map(check => <tr key={check.key}><td>{check.label}</td><td>{label(check.status)}</td><td>{check.message}</td></tr>)}</tbody></table></div>
+                <button className="secondary-button" disabled={disabled} onClick={() => backend.download(new Blob([JSON.stringify(reconnection, null, 2)], { type: 'application/json' }), 'reconnection-check.json')}>Export reconnection check</button>
+              </div>}
+            </section>
           <section className="validation-note"><div className="validation-icon"><LockKeyhole size={20} /></div><div><h4>Built carefully, validated honestly.</h4><p>Unlocking, flashing, and phone backup/restore are not available in this development release. The Lumia 1020 and 730 are the first hardware validation targets.</p></div><button className="text-button" onClick={() => setPage('compatibility')}>View capabilities <ArrowRight size={15} /></button></section>
         </>}
 

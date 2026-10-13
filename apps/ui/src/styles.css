@@ -5,3 +5,19 @@
 @media(max-width:800px){.sidebar{width:68px;padding:25px 9px}.brand{padding:0 5px 32px}.brand>span:last-child,.sidebar-label,.nav-item>span,.local-note,.help-button,.version{display:none}.nav-item{font-size:0;justify-content:center;padding:13px 9px}.nav-item svg{width:21px;height:21px;flex-shrink:0}.main-shell{margin-left:68px;width:calc(100% - 68px)}.topbar{height:60px;padding:0 20px}.runtime{display:none}main{padding:25px 20px}h1{font-size:27px}.hero-card{min-height:320px}.hero-content{padding:28px 24px}.hero-content h2{font-size:29px}.phone-scene{display:none}.workspace-grid{grid-template-columns:1fr}.page-heading{margin-bottom:22px}.card{padding:20px}.artifact-heading{flex-wrap:wrap}.artifact-heading .secondary-button{margin-left:69px}.stat-grid{gap:10px}.page-footer{flex-wrap:wrap}.validation-note{align-items:flex-start}.table-scroll{padding:0}th,td{padding:12px 16px}.model-grid{gap:10px}.model-card{padding:16px}.model-card h3{font-size:14px}.breadcrumb{font-size:10px}.topbar-right{font-size:9px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important}}
 .recovery-card{margin-top:20px}.recovery-card>p,.recovery-card>.info-note{margin:12px 24px}.recovery-card>.secondary-button{margin:16px 24px}.recovery-card .section-heading h3{display:flex;align-items:center;gap:8px}
+/* Reconnection checks follow the device cards. */
+.reconnect-card { margin-top: 20px; padding: 24px; }
+.reconnect-card .section-heading { padding: 0; }
+.reconnect-card .button-row { flex-wrap: wrap; margin: 16px 0; }
+.reconnect-card .select-label { max-width: 320px; }
+.reconnect-card > p, .reconnect-card li { color: var(--muted); line-height: 1.65; }
+.reconnect-card > p { margin-bottom: 16px; }
+.reconnect-card h4 { margin: 16px 0 8px; }
+@media(max-width:600px){
+  .reconnect-card table,.reconnect-card tbody{display:block;width:100%}
+  .reconnect-card thead{display:none}
+  .reconnect-card tr{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:14px 0;border-bottom:1px solid var(--border)}
+  .reconnect-card td{display:block;border:0;padding:0;white-space:normal}
+  .reconnect-card td:nth-child(2){text-align:right}
+  .reconnect-card td:last-child{grid-column:1 / -1;max-width:none;padding-top:4px}
+}

@@ -223,3 +223,31 @@ pub struct RecoveryPreparation {
     pub plan: OperationPlan,
     pub checks: Vec<PreparationCheck>,
 }
+
+/// Advisory mode-change preview. Never grants live USB execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModeTransitionPreparation {
+    pub plan: OperationPlan,
+    pub source: DeviceMode,
+    pub target: DeviceMode,
+    pub route: Option<String>,
+    pub requires_disconnect: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReconnectStatus {
+    Correlated,
+    Mismatch,
+    Unverified,
+}
+
+/// USB serial correlation is not authenticated identity or write authorization.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReconnectReport {
+    pub status: ReconnectStatus,
+    pub expected_mode: DeviceMode,
+    pub observed_mode: DeviceMode,
+    pub checks: Vec<PreparationCheck>,
+    pub recovery_authorized: bool,
+}

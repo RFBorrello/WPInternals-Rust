@@ -1,4 +1,4 @@
-import type { CapabilityReport, DeviceIdentity, ImportedArtifact, Inspection, ModelProfile, ProbeResult, RecoveryPreparation, WorkerReply, WorkerRequest } from './types';
+import type { CapabilityReport, DeviceIdentity, DeviceMode, ImportedArtifact, Inspection, ModelProfile, ModeTransitionPreparation, ProbeResult, ReconnectReport, RecoveryPreparation, WorkerReply, WorkerRequest } from './types';
 import { initialize, wasm } from './engine';
 
 export const desktop = Boolean(window.__TAURI_INTERNALS__);
@@ -30,6 +30,12 @@ export async function discover(): Promise<DeviceIdentity[]> { return desktop ? i
 export async function connect(): Promise<DeviceIdentity | null> { return desktop ? (await discover())[0] ?? null : JSON.parse(await wasm.request_device_json()); }
 export async function probe(device: DeviceIdentity): Promise<ProbeResult> { return desktop ? invoke('probe', { id: device.id }) : JSON.parse(await wasm.probe_json(device.id)); }
 export async function capabilities(device: DeviceIdentity | null): Promise<CapabilityReport> { return desktop ? invoke('capabilities', { device }) : JSON.parse(wasm.capabilities_json(JSON.stringify(device))); }
+export async function prepareMode(device: DeviceIdentity | null, target: DeviceMode, protocolMajor?: number): Promise<ModeTransitionPreparation> {
+  return desktop ? invoke('prepare_mode', { device, target, protocolMajor: protocolMajor ?? null }) : JSON.parse(wasm.mode_preparation_json(JSON.stringify(device), JSON.stringify(target), protocolMajor));
+}
+export async function checkReconnect(before: DeviceIdentity, after: DeviceIdentity, target: DeviceMode): Promise<ReconnectReport> {
+  return desktop ? invoke('check_reconnect', { before, after, target }) : JSON.parse(wasm.reconnect_json(JSON.stringify(before), JSON.stringify(after), JSON.stringify(target)));
+}
 export async function importBrowserFile(file: File): Promise<ImportedArtifact> { return { name: file.name, file, inspection: await request<Inspection>({ action: 'inspect', file }) }; }
 export async function prepareRecovery(artifact: ImportedArtifact, device: DeviceIdentity | null, progress: (done: number, total: number) => void): Promise<RecoveryPreparation> {
   if (desktop && artifact.path) {

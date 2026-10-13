@@ -77,3 +77,53 @@ fn stock_flash_builders_never_set_security_skip_options() {
     assert_eq!(payload[8], 50);
     assert!(flash::ffu_payload_v1(&[4, 5], 101).is_err());
 }
+
+#[test]
+fn mode_routes_match_pinned_reference_and_preserve_version_distinctions() {
+    use wpi_types::{BootloaderFamily::*, DeviceMode::*};
+    let c = wpi_protocol::mode::command(Normal, Flash, SpecA, None).unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&c.request).unwrap();
+    assert_eq!(
+        v,
+        serde_json::json!({"jsonrpc":"2.0","id":3,"method":"SetDeviceMode","params":{"DeviceMode":"Flash","ResetMethod":"HwReset","MessageVersion":0}})
+    );
+    assert!(c.requires_disconnect);
+    assert!(normal_request_is_blocked());
+    for (major, disconnect) in [(1, true), (2, false)] {
+        let c = wpi_protocol::mode::command(BootManager, Flash, SpecA, Some(major)).unwrap();
+        assert_eq!(c.request, b"NOKS");
+        assert_eq!(c.requires_disconnect, disconnect);
+        assert!(c.status_signature.is_none());
+    }
+    assert!(wpi_protocol::mode::command(BootManager, Flash, SpecB, None).is_err());
+    assert!(wpi_protocol::mode::command(BootManager, Flash, SpecB, Some(3)).is_err());
+    assert!(wpi_protocol::mode::command(Flash, Flash, SpecA, Some(1)).is_err());
+    assert!(wpi_protocol::mode::command(Flash, BootManager, SpecA, Some(1)).is_err());
+    for (from, to, bytes) in [
+        (Flash, Normal, &b"NOKR"[..]),
+        (Flash, BootManager, &b"NOKXCBB"[..]),
+        (Flash, PhoneInfo, &b"NOKXCBP"[..]),
+        (PhoneInfo, Flash, &b"NOKXCBF"[..]),
+    ] {
+        assert_eq!(
+            wpi_protocol::mode::command(from, to, SpecB, Some(2))
+                .unwrap()
+                .request,
+            bytes
+        );
+    }
+    for family in [Wp7, wpi_types::BootloaderFamily::Unknown] {
+        assert!(wpi_protocol::mode::command(Normal, Flash, family, None).is_err());
+    }
+    for target in [
+        Emergency,
+        MassStorage,
+        wpi_types::DeviceMode::Unknown,
+        Normal,
+    ] {
+        assert!(wpi_protocol::mode::command(Normal, target, SpecA, None).is_err());
+    }
+}
+fn normal_request_is_blocked() -> bool {
+    wpi_protocol::normal::request(3, "SetDeviceMode").is_err()
+}

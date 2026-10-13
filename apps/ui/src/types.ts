@@ -30,5 +30,15 @@ export interface RecoveryPreparation {
 export interface WorkerRequest { id: number; action: 'inspect' | 'extract' | 'gpt_xml' | 'cancel' | 'recovery_prepare'; file?: File; device?: DeviceIdentity | null; partition?: string; handle?: FileSystemFileHandle; gpt?: Gpt }
 export interface WorkerReply { id: number; kind: 'result' | 'error' | 'progress'; result?: Inspection | RecoveryPreparation | string | Blob; error?: string; completed?: number; total?: number }
 declare global {
+  // Frontend globals only; reconnection identifiers remain in React memory.
   interface Window { __TAURI_INTERNALS__?: unknown; showSaveFilePicker?: (options: { suggestedName: string }) => Promise<FileSystemFileHandle>; }
+}
+
+export interface ModeTransitionPreparation {
+  plan: { operation: 'switch_mode'; executable: boolean; blockers: string[]; steps: string[]; device: DeviceIdentity | null };
+  source: DeviceMode; target: DeviceMode; route: string | null; requires_disconnect: boolean;
+}
+export interface ReconnectReport {
+  status: 'correlated' | 'mismatch' | 'unverified'; expected_mode: DeviceMode; observed_mode: DeviceMode;
+  checks: RecoveryPreparation['checks']; recovery_authorized: boolean;
 }

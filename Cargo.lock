@@ -4803,6 +4803,7 @@ dependencies = [
  "serde_json",
  "wpi-core",
  "wpi-image",
+ "wpi-protocol",
  "wpi-transport",
  "wpi-types",
 ]

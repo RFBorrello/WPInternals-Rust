@@ -20,6 +20,16 @@ impl ReplayTransport {
     pub fn finished(&self) -> bool {
         self.exchanges.is_empty()
     }
+    /// Replay a send-only reboot. This never performs a response read or retry.
+    pub fn send(&mut self, request: &[u8]) -> Result<()> {
+        let response = self.exchange(request, 0)?;
+        if !response.is_empty() {
+            return Err(ProtocolError::Invalid(
+                "send-only replay has a response".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 impl MessageTransport for ReplayTransport {
     fn exchange(&mut self, request: &[u8], maximum_response: usize) -> Result<Vec<u8>> {

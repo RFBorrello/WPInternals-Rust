@@ -2,6 +2,7 @@
 //! Copyright (c) 2018 Rene Lergner. See THIRD_PARTY_NOTICES.md.
 pub mod block_replay;
 pub mod flash;
+pub mod mode;
 pub mod normal;
 pub mod qualcomm;
 pub mod replay;

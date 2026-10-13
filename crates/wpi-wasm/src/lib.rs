@@ -15,6 +15,29 @@ pub fn models_json() -> Result<String, JsValue> {
     json(&wpi_core::known_models())
 }
 #[wasm_bindgen]
+pub fn mode_preparation_json(
+    device: &str,
+    target: &str,
+    protocol_major: Option<u8>,
+) -> Result<String, JsValue> {
+    let device: Option<DeviceIdentity> = serde_json::from_str(device).map_err(js_error)?;
+    let target: DeviceMode = serde_json::from_str(target).map_err(js_error)?;
+    json(&wpi_core::reconnect::prepare(
+        device,
+        target,
+        protocol_major,
+        Host::Browser,
+        TransportKind::WebUsb,
+    ))
+}
+#[wasm_bindgen]
+pub fn reconnect_json(before: &str, after: &str, target: &str) -> Result<String, JsValue> {
+    let before: DeviceIdentity = serde_json::from_str(before).map_err(js_error)?;
+    let after: DeviceIdentity = serde_json::from_str(after).map_err(js_error)?;
+    let target: DeviceMode = serde_json::from_str(target).map_err(js_error)?;
+    json(&wpi_core::reconnect::compare(&before, &after, target))
+}
+#[wasm_bindgen]
 pub fn capabilities_json(device: &str) -> Result<String, JsValue> {
     let selected: Option<DeviceIdentity> = serde_json::from_str(device).map_err(js_error)?;
     json(&wpi_core::capabilities(

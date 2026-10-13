@@ -1,0 +1,30 @@
+{
+  "record_kind": "read_only_mode_preparation",
+  "date": "2026-10-13",
+  "host": "windows",
+  "architecture": "aarch64",
+  "transport": "native_usb",
+  "device": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "family": "spec_a",
+    "firmware": "3051.50009.1451.1003",
+    "mode": "normal",
+    "usb_vendor_id": "0421",
+    "usb_product_id": "0661"
+  },
+  "read_only_methods": ["ReadManufacturerModelName", "ReadProductCode", "ReadSwVersion"],
+  "preview": {
+    "source": "normal",
+    "target": "flash",
+    "route": "Normal to Flash: SetDeviceMode / HwReset",
+    "requires_disconnect": true,
+    "executable": false,
+    "serial_exported": false
+  },
+  "limits": [
+    "The preview read phone information and did not send SetDeviceMode or any reboot command.",
+    "No hardware mode transition, reconnection or phone write was tested.",
+    "This is a software preview result, not a validated recovery or switching profile."
+  ]
+}

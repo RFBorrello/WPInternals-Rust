@@ -36,3 +36,10 @@ must be established before a real flash executor is exposed.
 
 The Spec A, Spec B, and WP7 family values are distinct research/profile categories.
 They are not implementation claims. The complete unlock state machines are pending.
+
+Mode-transition orchestration is also restricted to concrete replay transports.
+It distinguishes send-only reboot requests from acknowledged context changes,
+requires removal only for routes that reconnect, and re-probes each returning
+candidate. USB serial correlation never grants authenticated identity or a device
+write capability. Shared frontends expose previews and read-only comparisons;
+native mode-change execution/monitoring is not implemented.

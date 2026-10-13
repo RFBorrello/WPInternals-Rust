@@ -29,3 +29,16 @@ ReplayBlockSource is a concrete simulated read-only disk with bounded fixtures.
 The backup engine cannot accept native USB or raw block devices. Successful replay
 backups produce a `replay_only` manifest and atomically publish a new local image;
 interruptions discard temporary outputs and never retry uncertain transfers.
+
+ModeTransitionPreparation wraps a blocked `switch_mode` plan with source/target,
+the reviewed route and whether removal is required. Previews redact USB serials
+and instance IDs. ReconnectReport has `correlated`, `mismatch` or `unverified`
+status and per-field checks, with `recovery_authorized=false` in every case.
+Reports do not contain serial values. Matching USB serials only correlates
+unauthenticated descriptors. Missing mode-specific fields remain unverified.
+
+Mode replay observations have monotonic elapsed milliseconds and bounded
+read-only exchanges. A returning application mode comes from NOKV or normal
+JSON-RPC, not from a remembered identity or a USB PID. Permission renewal does
+not restart the deadline. `awaiting_reconnect` can emit progress in the same state;
+after uncertain command delivery, interruption requires inspection and never retry.

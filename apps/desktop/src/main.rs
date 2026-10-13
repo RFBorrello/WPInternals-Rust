@@ -21,6 +21,28 @@ struct DesktopState {
     cancellation: Arc<Mutex<Option<Arc<AtomicBool>>>>,
 }
 #[tauri::command]
+fn prepare_mode(
+    device: Option<DeviceIdentity>,
+    target: DeviceMode,
+    protocol_major: Option<u8>,
+) -> ModeTransitionPreparation {
+    wpi_core::reconnect::prepare(
+        device,
+        target,
+        protocol_major,
+        profiles::current_host(),
+        TransportKind::Usb,
+    )
+}
+#[tauri::command]
+fn check_reconnect(
+    before: DeviceIdentity,
+    after: DeviceIdentity,
+    target: DeviceMode,
+) -> ReconnectReport {
+    wpi_core::reconnect::compare(&before, &after, target)
+}
+#[tauri::command]
 fn startup() -> serde_json::Value {
     serde_json::json!({"models":profiles::known_models(),"capabilities":profiles::capabilities(None,profiles::current_host(),TransportKind::Usb)})
 }
@@ -299,6 +321,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(DesktopState::default())
         .invoke_handler(tauri::generate_handler![
+            prepare_mode,
+            check_reconnect,
             startup,
             capabilities,
             devices,

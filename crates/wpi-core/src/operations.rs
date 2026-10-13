@@ -154,7 +154,7 @@ impl OperationSession {
                 )
                 | (
                     AwaitingReconnect,
-                    Running | RecoveryRequired | Failed | Cancelling
+                    AwaitingReconnect | Running | RecoveryRequired | Failed | Cancelling
                 )
                 | (Cancelling, Cancelled | RecoveryRequired | Failed)
         );

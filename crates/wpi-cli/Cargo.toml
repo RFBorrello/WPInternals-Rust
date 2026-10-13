@@ -13,6 +13,7 @@ clap = { version = "4.5", features = ["derive"] }
 serde.workspace = true
 serde_json.workspace = true
 wpi-types.workspace = true
+wpi-protocol.workspace = true
 wpi-image.workspace = true
 wpi-core.workspace = true
 wpi-transport.workspace = true

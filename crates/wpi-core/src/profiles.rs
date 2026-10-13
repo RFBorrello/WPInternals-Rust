@@ -79,6 +79,8 @@ pub fn capabilities(
                 Some(_) => (SupportStatus::Unknown, false, "USB descriptors are available; an application-level probe is not implemented for this mode."),
                 None => (SupportStatus::Unknown, false, "Connect a device to determine available information queries."),
             }
+        } else if operation == Operation::SwitchMode {
+            (SupportStatus::Unknown, false, "Mode routes, reconnection checks and interruption handling are implemented in replay only. Live mode switching requires a native executor and hardware validation.")
         } else if host == Host::Browser && matches!(operation, Operation::Backup | Operation::Restore) {
             (SupportStatus::Unsupported, false, "Raw storage access requires the desktop app.")
         } else {

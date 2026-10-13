@@ -29,6 +29,9 @@ hardware validation.
   native extraction cancellation, and a capability matrix that blocks phone writes.
 - Recovery preparation checklist in CLI, browser and desktop; native preparation
   verifies full-file/chunk hashes, while browser previews leave those checks unverified.
+- Mode-change previews and read-only reconnection checks in all frontends;
+  version-specific transition routes run only in replay, with cancellation,
+  permission, identity and deadline checks. Live mode switching remains blocked.
 
 NTFS directory and kernel reads have been validated on one real RM-875 MainOS
 image. A small patched dependency handles index records smaller than clusters;
@@ -62,6 +65,8 @@ not need WebUSB. For local browser experiments, use the generated images in
 `tests/fixtures/`. **They are synthetic test data, not flashable firmware.**
 See [browser identification](docs/browser-identification.md) for the normal-mode
 read-only check and recovery after an interrupted USB query.
+See [mode transitions and reconnection](docs/mode-transitions.md) for a read-only
+unplug/replug check, replay routes and remaining hardware prerequisites.
 
 The wasm-bindgen CLI version must match the `wasm-bindgen` version in Cargo.lock.
 The build script looks in `.tools/bin` first, then PATH. Rust’s cargo must be on
@@ -85,6 +90,8 @@ See [platform setup](docs/platforms.md) for WebView/runtime, USB and packaging d
 ```sh
 cargo run -p wpi-cli -- devices
 cargo run -p wpi-cli -- probe '<device-id-from-devices>'
+cargo run -p wpi-cli -- prepare-mode '<device-id-from-devices>' flash
+cargo run -p wpi-cli -- replay-mode tests/fixtures/mode-normal-to-flash.json
 cargo run -p wpi-cli -- inspect path/to/firmware.ffu
 cargo run -p wpi-cli -- prepare-recovery path/to/firmware.ffu
 cargo run -p wpi-cli -- verify path/to/firmware.ffu
