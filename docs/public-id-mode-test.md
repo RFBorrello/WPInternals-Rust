@@ -55,8 +55,9 @@ authorization because execution reboots the phone. Keep other phone clients idle
    receive a terminal query or command, and cannot complete the identity check.
    After observing an intermediate interface once, the harness retires it until
    a fresh removal/arrival or the Normal USB descriptor appears. It does not keep
-   polling NOKV or full USB enumeration while that boot stage is active. Native
-   hotplug events wake enumeration; open/claim readiness can still retry before
+   polling NOKV while that boot stage is active. Native
+   hotplug events wake enumeration; a two-second discovery fallback handles missing
+   notifications without unretiring the boot interface. Open/claim readiness can retry before
    any query. Observation starts before the query so events during it are retained.
    The deadline is not reset.
 
@@ -81,7 +82,8 @@ not exposed through the UI.
 
 ## Interruption
 
-Flash arrival has an absolute 30-second deadline; Normal boot has 90 seconds.
+Flash arrival has an absolute 30-second deadline; Normal USB reconnection has a
+90-second maximum. This is a software observation bound, not a measured boot time.
 The preview exposes both bounds. Open/claim readiness
 may retry before any query. Failed/malformed queries never automatically repeat.
 An uncertain OUT is inspected without resending; only fresh validated observations
@@ -128,3 +130,21 @@ uses hotplug notifications during retired-interface waits, allows 90 seconds for
 Normal boot, and records monotonic `elapsed_ms` in CLI events/outcomes. Timing and
 enumeration as causes remain hypotheses; this last correction has software tests
 and has not been run live. No further cycle is covered by the one-cycle approval.
+
+The user subsequently reported that visible boot completed quickly, well under
+90 seconds. Neither earlier journal timed Windows USB availability, so these
+failures do not establish slow phone boot. Read-only checks currently find Normal
+in both Windows PnP and native discovery.
+
+Inspection of the pinned nusb 0.2.7 Windows hotplug implementation found that an
+arrival consumed before `probe_device` can produce metadata yields no Connected
+event; callback property/instance lookup failures can also discard notifications.
+This makes hotplug-only waiting insufficient, but does not prove the cause of the
+earlier failures (those revisions still polled enumeration). Retired waits now
+rediscover at most every two seconds without an event, retaining all port, serial,
+profile and public-ID checks. They never repeat a query to the retired boot
+generation solely because a timer elapsed. Journal discovery events record trigger,
+enumeration duration, observed USB modes and source removal; probe events distinguish
+opening readiness from a read-only query attempt. Identifier values stay private.
+The fallback has a missing-notification regression, including reused IDs and a
+contradictory public ID; hardware validation remains pending.

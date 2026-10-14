@@ -6,6 +6,9 @@ pub const CONFIRMATION: &str = "RM875-PUBLIC-ID-ROUNDTRIP";
 pub const EXPERIMENT: &str = "rm875_public_id_normal_flash_normal";
 const FLASH_PLATFORM: &str = "Nokia.MSM8960.P5217.3.2.1";
 const NORMAL_RECONNECT_LIMIT: Duration = Duration::from_secs(90);
+// Hotplug is a hint: Windows arrivals can precede descriptor availability.
+// Rediscovery must not repeat protocol queries to a retired boot interface.
+const REDISCOVERY_INTERVAL: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Serialize)]
 pub struct Preview {
@@ -562,17 +565,43 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
     let mut removed = false;
     let mut retired_return_interfaces = HashSet::new();
     let mut retry_open = false;
+    let mut next_rediscovery = driver.now();
     while driver.now() < deadline {
         if cancelled.load(Ordering::Acquire) {
             return Err("Cancelled while awaiting reconnection".into());
         }
-        if !retry_open && !retired_return_interfaces.is_empty() && !driver.changed()? {
+        let trigger = if retry_open {
+            "open_readiness_retry"
+        } else if retired_return_interfaces.is_empty() {
+            "awaiting_arrival"
+        } else if driver.changed()? {
+            "hotplug"
+        } else if driver.now() >= next_rediscovery {
+            "periodic_fallback"
+        } else {
             driver.pause();
             continue;
-        }
+        };
         retry_open = false;
+        let enumeration_start = driver.now();
         let devices = driver.devices()?;
+        let enumeration_ms =
+            u64::try_from(driver.now().duration_since(enumeration_start).as_millis())
+                .unwrap_or(u64::MAX);
+        next_rediscovery = driver.now() + REDISCOVERY_INTERVAL;
         removed |= driver.removed(source)? || !devices.iter().any(|d| d.id == source);
+        if !(reporter.emit)(&ModeTestEvent::ReconnectDiscovery {
+            expected_mode: mode,
+            trigger,
+            enumeration_ms,
+            observed_modes: devices.iter().map(|d| d.mode).collect(),
+            source_removal_observed: removed,
+        }) {
+            return Err("Discovery journal failed or cancellation requested".into());
+        }
+        if driver.now() >= deadline {
+            return Err("Reconnection deadline expired during USB discovery".into());
+        }
         if devices.len() > 1 {
             return Err("Multiple returning interfaces; no candidate queried".into());
         }
@@ -604,9 +633,23 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                 if mode == DeviceMode::Normal {
                     driver.arm(&d.id)?;
                 }
+                if cancelled.load(Ordering::Acquire)
+                    || !(reporter.emit)(&ModeTestEvent::ReconnectProbe {
+                        observed_mode: d.mode,
+                        readiness: "attempting_read_only_probe",
+                    })
+                {
+                    return Err("Cancelled or journal failed before read-only probe".into());
+                }
                 let observation = match driver.probe(d, deadline, mode == DeviceMode::Normal) {
                     Ok(s) => s,
                     Err(DriverError::NotReady(_)) => {
+                        if !(reporter.emit)(&ModeTestEvent::ReconnectProbe {
+                            observed_mode: d.mode,
+                            readiness: "interface_not_ready_no_query_sent",
+                        }) {
+                            return Err("Readiness journal failed or cancellation requested".into());
+                        }
                         retry_open = true; // Readiness before any protocol request can retry without another hotplug event.
                         driver.pause();
                         continue;

@@ -13,6 +13,11 @@
   "boot_observation_count": 1,
   "normal_return_public_id_verification_completed": false,
   "harness_completed": false,
+  "user_follow_up": {
+    "visible_boot": "User reports boot took very little time, well under 90 seconds",
+    "precise_duration_measured": false,
+    "usb_availability_timed": false
+  },
   "recovery_authorized": false,
   "manual_restart_requested": false,
   "subsequent_read_only_probe": {
@@ -305,8 +310,8 @@
     "Normal/Flash public ID and port matched again; both mode OUT transfers completed once.",
     "One BootManager observation was recorded; its interface was not probed again without removal. Full USB enumeration still ran during the wait in this revision.",
     "The 30-second return deadline expired before final Normal identity verification. A separate read-only probe found Normal with unchanged firmware.",
-    "Whether enumeration affected boot timing or Normal simply arrived after the deadline is not established.",
-    "Subsequent software changes use hotplug-driven waiting, a 90-second Normal deadline and elapsed-time diagnostics; those changes have not been tested live.",
+    "The user reports quick visible boot. Earlier journals do not time USB availability, so the timeout does not establish slow boot or its cause.",
+    "Subsequent software changes use hotplug hints with a two-second discovery fallback, a 90-second maximum Normal observation window and timing diagnostics; those changes have not been tested live.",
     "No public-ID bytes, USB serial or Windows instance identifiers are exported."
   ]
 }

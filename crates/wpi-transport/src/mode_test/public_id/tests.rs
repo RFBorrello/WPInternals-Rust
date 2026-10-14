@@ -76,6 +76,7 @@ struct Frame {
     removed: bool,
     port_matches: bool,
     unrelated_event: bool,
+    suppress_hotplug: bool,
 }
 fn frame(mode: DeviceMode, id: &str) -> Frame {
     Frame {
@@ -85,6 +86,7 @@ fn frame(mode: DeviceMode, id: &str) -> Frame {
         removed: false,
         port_matches: true,
         unrelated_event: false,
+        suppress_hotplug: false,
     }
 }
 fn empty() -> Frame {
@@ -95,6 +97,7 @@ fn empty() -> Frame {
         removed: false,
         port_matches: true,
         unrelated_event: false,
+        suppress_hotplug: false,
     }
 }
 fn direct() -> Vec<Frame> {
@@ -107,6 +110,7 @@ struct Fake {
     frames: VecDeque<Frame>,
     current: Frame,
     clock: Instant,
+    pause_step: Duration,
     actions: Vec<Action>,
     probes: usize,
     enumerations: usize,
@@ -122,6 +126,7 @@ impl Fake {
             frames: frames.into(),
             current: empty(),
             clock: Instant::now(),
+            pause_step: Duration::from_secs(5),
             actions: vec![],
             probes: 0,
             enumerations: 0,
@@ -175,7 +180,8 @@ impl IdentityDriver for Fake {
                 .collect()
         }
         let next = self.frames.pop_front().unwrap_or_else(empty);
-        let changed = next.removed || next.unrelated_event || keys(&next) != keys(&self.current);
+        let changed = !next.suppress_hotplug
+            && (next.removed || next.unrelated_event || keys(&next) != keys(&self.current));
         self.current = next;
         self.prefetched = true;
         Ok(changed)
@@ -236,7 +242,7 @@ impl IdentityDriver for Fake {
         self.clock
     }
     fn pause(&mut self) {
-        self.clock += Duration::from_secs(5);
+        self.clock += self.pause_step;
     }
 }
 fn run_fake(fake: &mut Fake) -> Result<Summary, String> {
@@ -758,15 +764,48 @@ fn matching_flash_transient_also_retires_without_querying_it_again_or_masking_wr
 }
 
 #[test]
-fn quiet_boot_wait_performs_no_enumeration_or_probe_without_a_topology_event() {
+fn quiet_boot_wait_limits_rediscovery_and_never_repeats_the_retired_probe() {
     let boot = boot_frame(1);
     let mut frames = vec![frame(DeviceMode::Flash, "flash")];
-    frames.extend(vec![boot; 20]);
+    frames.extend(vec![boot; 1000]);
     let mut fake = Fake::new(frames);
+    fake.pause_step = Duration::from_millis(100);
     assert!(run_fake(&mut fake).unwrap_err().contains("90-second"));
-    assert_eq!(fake.enumerations, 2);
+    assert!(fake.enumerations > 2);
+    assert!(fake.enumerations <= 2 + 90 / REDISCOVERY_INTERVAL.as_secs() as usize);
     assert_eq!(fake.probes, 2);
     assert_eq!(fake.actions.len(), 2);
+}
+#[test]
+fn missed_normal_notification_is_recovered_by_bounded_discovery_with_identity_checks() {
+    for wrong_id in [false, true] {
+        let mut normal = frame(DeviceMode::Normal, "boot-stage"); // OS may reuse an ID.
+        normal.suppress_hotplug = true;
+        if wrong_id {
+            normal.observations[0].public_id = public_id(43);
+        }
+        let mut frames = vec![frame(DeviceMode::Flash, "flash")];
+        frames.extend(vec![boot_frame(1); 5]);
+        frames.extend(vec![normal; 30]);
+        let mut fake = Fake::new(frames);
+        fake.pause_step = Duration::from_millis(100);
+        let started = fake.clock;
+        let mut log = vec![];
+        let result = round_trip(&mut fake, baseline(), &AtomicBool::new(false), |e| {
+            log.push(serde_json::to_value(e).unwrap());
+            true
+        });
+        assert_eq!(result.is_err(), wrong_id);
+        assert!(fake.clock - started <= REDISCOVERY_INTERVAL + fake.pause_step);
+        assert_eq!(fake.probes, 3); // Flash, Boot once, fresh Normal; never query retired Boot again.
+        assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+        assert!(log.iter().any(|e| e["kind"] == "reconnect_discovery"
+            && e["trigger"] == "periodic_fallback"
+            && e["observed_modes"] == serde_json::json!(["normal"])));
+        let text = serde_json::to_string(&log).unwrap();
+        assert!(!text.contains("PRIVATE-NORMAL"));
+        assert!(!text.contains("boot-stage"));
+    }
 }
 #[test]
 fn normal_interface_readiness_retries_before_queries_without_requiring_more_events() {

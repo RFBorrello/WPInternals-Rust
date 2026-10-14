@@ -133,6 +133,17 @@ pub enum ModeTestEvent {
         physical_port_matches: bool,
         recovery_authorized: bool,
     },
+    ReconnectDiscovery {
+        expected_mode: DeviceMode,
+        trigger: &'static str,
+        enumeration_ms: u64,
+        observed_modes: Vec<DeviceMode>,
+        source_removal_observed: bool,
+    },
+    ReconnectProbe {
+        observed_mode: DeviceMode,
+        readiness: &'static str,
+    },
 }
 #[derive(Debug, Serialize)]
 pub struct ModeTestSummary {

@@ -71,8 +71,13 @@ completes the operation.
 An intermediate return interface is queried once, then retired locally. Reusing
 its identifier cannot permit another query without a fresh removal or a Normal
 USB descriptor; native binding and the final public-ID check still apply.
-Retired return waits use native hotplug generations rather than continuous device
-enumeration. Unrelated events may trigger enumeration, but cannot unretire the
+Retired return waits use native hotplug generations plus a two-second discovery
+fallback for missing notifications. Unrelated events or the timer cannot unretire the
 same boot generation. Readiness before a protocol request can retry without a new
 event. The public-ID preview exposes separate 30-second Flash and 90-second Normal
 limits; CLI journal events/outcomes include monotonic elapsed_ms without identity values.
+ReconnectDiscovery events record the trigger, enumeration_ms, observed_modes and
+source_removal_observed. ReconnectProbe events record observed_mode and readiness
+(attempting_read_only_probe or interface_not_ready_no_query_sent). These events
+carry no instance IDs or serials and cannot authorize commands. The Normal limit
+is an observation bound, not a measured boot time.

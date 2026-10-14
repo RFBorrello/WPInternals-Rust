@@ -10,7 +10,7 @@ or its information-query allowlist. New remote CI results are pending separately
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 86 passed on Windows: 50 integration tests and 36 native transport/harness unit tests |
+| Rust tests | 87 passed on Windows: 50 integration tests and 37 native transport/harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -208,10 +208,20 @@ mode requests once. Only one BootManager observation was queried, but the then
 firmware and matching serial. The sanitized record is
 `tests/hardware/lumia-1020-rm875-public-id-mode-test-retired-deadline.json`.
 
-Four new tests verify that retired waits do not enumerate/probe without a topology
-event, unrelated events do not unretire a boot interface, new interface readiness
+Four new tests verify that retired waits limit enumeration and never repeat the retired
+probe, unrelated events do not unretire a boot interface, new interface readiness
 can retry without another event, and a longer Normal window leaves Flash arrival
 bounded at 30 seconds. The Normal deadline is now 90 seconds and previews expose
 both limits. CLI journals include monotonic elapsed times. Hotplug observation is
 armed before queries to retain events arriving during them. These changes have
 not been tested live; no third cycle was run under the one-cycle approval.
+
+The user reports quick visible boot, well below 90 seconds; the timeout cannot be
+interpreted as measured boot duration. Current read-only Windows PnP/native checks
+both find Normal. Hotplug-only waiting has a notification-loss gap: nusb 0.2.7's
+Windows adapter can discard an arrival when metadata is not ready. A two-second
+fallback now discovers Normal without another notification, while retaining the
+retired-interface guard. A new regression checks recovery with a reused ID and
+rejection of a wrong public ID. Discovery/probe journal events expose enumeration
+timing and readiness without identifiers. This fixes a software gap, not a proven
+hardware root cause; no further live mode cycle was run.
