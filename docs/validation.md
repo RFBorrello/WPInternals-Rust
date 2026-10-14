@@ -1,9 +1,9 @@
 # Local validation — October 13, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. The preceding milestone at commit `4348457` also passed
-GitHub CI on all four native host targets and Chromium (run `38481275034`). Those remote build results
-do not establish device support; this milestone's CI is recorded separately.
+headless Microsoft Edge. Commit `7a81c19` passed GitHub CI on all four native host
+targets and Chromium ([run `38497203810`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38497203810)).
+Those remote build results do not establish device support.
 
 | Check | Result |
 | --- | --- |
@@ -18,7 +18,8 @@ do not establish device support; this milestone's CI is recorded separately.
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
 | Hardware identification | Model, product code and firmware read successfully through native interface 3 / Microsoft WinUSB |
 | Browser hardware identification | User reported Lumia 1020 / RM-875 / Spec A / 3051.50009.1451.1003 in normal mode, matching native results; exact browser version not recorded |
-| Phone writes / mode changes | Not performed |
+| Phone firmware / partition writes | Not performed |
+| Live native mode experiment | One Normal-to-Flash request sent; identity guard stopped automatic return; user reported normal boot after manual restart |
 | Real RM-875 FFU | 1,716,256,768-byte image: headers, 28 GPT partitions and SHA-256 chunk table validated |
 | Real EFIESP extraction | 64 MiB; SHA-256 matched independent upstream-algorithm translation; FAT16 EFI directory read |
 | Real FFU browser inspection | Headless Edge and real WASM worker matched the native platform ID and 28 partitions |
@@ -72,7 +73,7 @@ late disconnect results and forgetting a baseline. These tests are simulated USB
 boundary tests, not hardware mode-change or reconnection evidence.
 The connected RM-875 also passed the native read-only mode-preparation preview;
 `tests/hardware/lumia-1020-rm875-native-mode-preview.json` records its blocked
-result separately. No mode command or hardware reconnection was performed.
+result separately. That earlier preview sent no mode command and performed no hardware reconnection.
 
 Three additional reconnection regressions cover USB `NotFoundError`, `AbortError`
 and timeout feedback within the panel. The NotFoundError case reproduced missing
@@ -121,3 +122,18 @@ Windows ARM64 host. The Windows binding now uses nusb's parent hub instance and
 connection index directly. Both physical binding and native hotplug readiness
 passed in the updated preview. A Windows-only regression covers absent, matching
 and changed hub/port keys. This check did not reboot the phone.
+
+The first explicitly approved live native experiment at `7a81c19` sent one
+`SetDeviceMode(Flash, HwReset)` request. The returning USB interface failed the
+combined serial/physical-port check, so the harness stopped with recovery required
+without NOKS, NOKR or any firmware/partition write. A separate read-only probe
+observed FlashApp 2.2, protocol 1.18, platform `Nokia.MSM8960.P5217.3.2.1`, and no
+FVER value. That inspection did not correlate the interface with the baseline.
+The separate Flash probe exposed no USB serial, while the initial and returning
+Normal probes had a serial. The journal's combined binding error does not reveal
+whether the physical-port check also failed. The user reported a normal boot
+after the requested manual restart; a native read-only recheck confirmed Normal
+mode, Lumia 1020 RM-875 and the unchanged installed firmware. The sanitized result and journal
+digest are recorded in
+`tests/hardware/lumia-1020-rm875-native-mode-test-first.json`.
+This is an interrupted experiment, not a validated round trip or recovery profile.

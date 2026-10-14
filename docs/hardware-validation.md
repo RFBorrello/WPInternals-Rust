@@ -33,6 +33,24 @@ It establishes an observed read-only reconnection result, not an authenticated
 identity, Flash-mode transition, validated firmware applicability or write support.
 Capability status remains experimental and recovery authorization remains false.
 
+## First native mode experiment
+
+The explicitly approved Windows ARM64 RM-875 experiment sent one Normal-to-Flash
+request, then stopped because the returning USB serial or physical port did not
+match. The combined error does not identify which binding component failed.
+No automatic return request, context switch or firmware/partition write followed.
+A separate read-only probe observed FlashApp, but did not establish identity
+correlation. That probe had no USB serial, unlike Normal mode. The user reported
+booting normally after a manual restart; a subsequent native read-only recheck
+confirmed Lumia 1020 RM-875, Normal mode and firmware `3051.50009.1451.1003`.
+
+The sanitized record is
+[`lumia-1020-rm875-native-mode-test-first.json`](../tests/hardware/lumia-1020-rm875-native-mode-test-first.json).
+The Flash platform suffix and unavailable firmware value require further review,
+in addition to the USB binding failure. Do not automatically repeat this experiment
+or relax identity checks on the basis of a matching platform label. Capability
+gates remain unchanged.
+
 ## Evidence required for writes
 
 Before enabling an operation, implement its entire state machine, identity and

@@ -83,3 +83,17 @@ until its metadata/error messages have been reviewed for publication. Serial/por
 correlation is not cryptographic authentication; results always keep
 `recovery_authorized=false`. One successful round trip does not enable firmware
 writing or establish support for a different phone, firmware, host or transport.
+
+## First live result
+
+The first approved RM-875 test at revision `7a81c19` sent the Normal-to-Flash
+request, then stopped at USB identity binding. A separate read-only Flash probe
+exposed no USB serial, platform `Nokia.MSM8960.P5217.3.2.1` and no FVER value.
+No NOKS or NOKR was sent. After a manual restart, the native read-only probe
+confirmed the original model, variant and installed firmware in Normal mode.
+See the [sanitized evidence](../tests/hardware/lumia-1020-rm875-native-mode-test-first.json).
+
+Do not repeat the current harness on this phone expecting a completed round trip.
+Cross-mode identity binding, the platform suffix and unavailable FVER need review
+before another live experiment. The strict checks remain in place; this result
+does not authorize recovery or firmware writes.

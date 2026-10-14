@@ -1,0 +1,75 @@
+{
+  "record_kind": "interrupted_native_mode_experiment",
+  "recorded_on": "2026-10-13",
+  "application_revision": "7a81c19d34bd8a892da92d5fec1ba8d543c5de17",
+  "host": {
+    "os": "Windows 11 Pro",
+    "version": "10.0.26200",
+    "architecture": "aarch64-pc-windows-msvc",
+    "provenance": "Host context recorded in the preceding native identification session"
+  },
+  "transport": "native_usb",
+  "baseline": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "family": "spec_a",
+    "firmware": "3051.50009.1451.1003",
+    "mode": "normal",
+    "usb_vendor_id": "0421",
+    "usb_product_id": "0661"
+  },
+  "authorization": "User explicitly approved the Normal to Flash to Normal experiment",
+  "journal_sha256": "7e92445e429d05511a17b18ba4a9933408f5ba08438e81da239b267e892e8e99",
+  "experiment": {
+    "result": "stopped_before_automatic_return",
+    "mode_commands_attempted": 1,
+    "command": "SetDeviceMode(Flash, HwReset)",
+    "delivery": "complete_out_once",
+    "stop_state": "recovery_required",
+    "stop_reason": "A returning device has a different serial or physical USB port; no command was sent to it",
+    "binding_failure_component": "unknown: the harness combined serial and physical-port checks in its error message",
+    "noks_sent": false,
+    "nokr_sent": false,
+    "automatically_retried": false,
+    "firmware_or_partition_writes_sent": false,
+    "recovery_authorized": false
+  },
+  "separate_read_only_inspection_after_stop": {
+    "correlated_with_baseline": false,
+    "usb_vendor_id": "0421",
+    "usb_product_id": "066e",
+    "usb_product_string": "NOKIA FLASH",
+    "usb_serial_present": false,
+    "observed_application": "flash",
+    "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+    "protocol_version": "1.18",
+    "application_version": "2.2",
+    "emmc_sectors": 61071360,
+    "secure_ffu": true,
+    "secure_boot": true,
+    "firmware": null,
+    "firmware_observation": "The general read-only probe returned no FVER value; it does not preserve the reason",
+    "limits": "NOKV succeeded on the separately selected Flash interface; this does not establish that its identity matches the original phone"
+  },
+  "manual_return": {
+    "user_report": "Booted normally after the requested Volume Down and Power restart",
+    "native_identity_rechecked": true,
+    "read_only_recheck": {
+      "model": "Lumia 1020",
+      "variant": "RM-875",
+      "mode": "normal",
+      "firmware": "3051.50009.1451.1003",
+      "usb_serial_present": true,
+      "usb_vendor_id": "0421",
+      "usb_product_id": "0661",
+      "baseline_serial_equality_rechecked": false
+    }
+  },
+  "limits": [
+    "The Normal to Flash to Normal round trip was not completed or validated.",
+    "The journal records one complete USB OUT, not a device acknowledgement or a raw wire transcript.",
+    "The observed Flash platform includes a suffix beyond the harness's exact expected platform; applicability remains unreviewed.",
+    "USB identifiers and serials are omitted. No IMEI was queried.",
+    "No capability profile was promoted and all production writing gates remain blocked."
+  ]
+}
