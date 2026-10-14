@@ -1,8 +1,8 @@
 # Local validation — October 13, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. The preceding commit `7a81c19` passed GitHub CI on all four native host
-targets and Chromium ([run `38497203810`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38497203810)).
+headless Microsoft Edge. The preceding commit `865e6d2` passed GitHub CI on all four native host
+targets and Chromium ([run `38503254982`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38503254982)).
 Those remote build results do not establish device support.
 Browser/UI checks below are retained from the preceding milestone; this change
 adds native-only inspection and protocol codecs without changing the browser UI
@@ -10,7 +10,7 @@ or its information-query allowlist. New remote CI results are pending separately
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 65 passed on Windows: 50 integration tests and 15 native transport/harness unit tests |
+| Rust tests | 76 passed on Windows: 50 integration tests and 26 native transport/harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -154,3 +154,18 @@ Normal mode without exporting its bytes or sending a mode change. The sanitized
 record is `tests/hardware/lumia-1020-rm875-normal-public-id.json`. Live Flash
 terminal parsing and cross-mode equality are still unvalidated. The old experiment
 is blocked before any mode command; its private synthetic driver remains testable.
+
+Eleven new native tests exercise a separate public-ID mode experiment: missing
+Flash serial with matching public ID, wrong IDs/ports/available serials, fresh
+command-handle contradictions, exact Flash versions/platform, changed Normal
+firmware/serial/variant, stale arrivals, malformed/interrupted queries, deadlines,
+uncertain delivery without retries, readiness before queries, boot transients,
+safe cancellation and journal failure. Replay verifies Normal query ID 4 and
+Flash NOKV/terminal order without FVER; an unexpected NOKV profile stops before
+the terminal query. These are synthetic tests, not a live Flash identity result.
+
+The connected RM-875 passed the new release binary's read-only preview: exact
+Normal admission, public-ID availability, physical-port metadata and hotplug
+watch readiness passed with no blockers. The sanitized evidence is
+`tests/hardware/lumia-1020-rm875-public-id-mode-preview.json`. No mode command
+was sent by the preview; live approval and validation remain separate.

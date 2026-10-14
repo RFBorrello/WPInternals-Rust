@@ -61,6 +61,13 @@ and [the probe's limits](public-identity.md). No mode change or firmware write w
 sent. The known failed native mode-test profile is now blocked in preview and
 execution; hardware cross-mode binding must be validated separately.
 
+The new CLI public-ID mode experiment's read-only preview also passed on the
+connected RM-875. See
+[`lumia-1020-rm875-public-id-mode-preview.json`](../tests/hardware/lumia-1020-rm875-public-id-mode-preview.json).
+This confirms Normal-mode readiness only. The original serial-only test stays
+blocked, and the [new experiment](public-id-mode-test.md) requires distinct explicit
+confirmation before any live mode request. Cross-mode public-ID equality remains pending.
+
 ## Evidence required for writes
 
 Before enabling an operation, implement its entire state machine, identity and

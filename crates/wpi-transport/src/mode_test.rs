@@ -84,6 +84,7 @@ fn windows_port(hub: &std::ffi::OsStr, number: u32) -> Option<PhysicalPort> {
         })
     }
 }
+pub mod public_id;
 #[cfg(test)]
 mod tests;
 
@@ -115,6 +116,15 @@ pub enum ModeTestEvent {
     Command {
         action: &'static str,
         delivery: &'static str,
+    },
+    IdentityObservation {
+        device: Box<DeviceIdentity>,
+        info: Option<wpi_protocol::flash::FlashInfo>,
+        public_id_matches: bool,
+        normal_serial_matches: Option<bool>,
+        physical_port_matches: bool,
+        identity_authenticated: bool,
+        recovery_authorized: bool,
     },
 }
 #[derive(Debug, Serialize)]

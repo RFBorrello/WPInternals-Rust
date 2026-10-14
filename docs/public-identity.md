@@ -65,3 +65,9 @@ continuity, the observed Flash platform suffix and FVER behavior remain unvalida
 Before another live mode attempt, integrate those checks into a reviewed harness,
 test interruption and wrong-device cases, and obtain explicit approval for the
 mode change. A presence report or a manually edited JSON report cannot enable it.
+
+The separate [public-ID mode experiment](public-id-mode-test.md) now implements
+in-memory comparisons and command-handle revalidation. It requires a distinct
+confirmation phrase and new journal; the original experiment stays blocked.
+Live Flash validation is pending. FVER is excluded from the mode-only sequence
+and remains a separate diagnostic without firmware-write authorization.

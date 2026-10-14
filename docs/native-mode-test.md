@@ -11,6 +11,8 @@ USB serial, so the known RM-875 admission profile now receives a blocker in both
 preview and execution before any mode command. Existing flags cannot bypass it.
 Use the separate [read-only public-ID probe](public-identity.md) for identity research.
 The sequence below documents the original experiment and its simulated tests.
+The replacement [public-ID experiment](public-id-mode-test.md) uses a separate
+CLI command and different confirmation phrase; this command is not re-enabled.
 
 ## Preview and execution
 

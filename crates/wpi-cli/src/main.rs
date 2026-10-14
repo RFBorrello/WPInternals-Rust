@@ -50,6 +50,16 @@ enum Command {
         #[arg(long, requires = "execute")]
         report: Option<PathBuf>,
     },
+    /// Preview a public-ID/physical-port mode experiment; never writes firmware.
+    ModePublicIdTest {
+        id: String,
+        #[arg(long, requires_all = ["confirm", "report"])]
+        execute: bool,
+        #[arg(long, requires = "execute")]
+        confirm: Option<String>,
+        #[arg(long, requires = "execute")]
+        report: Option<PathBuf>,
+    },
     /// Inspect a legacy FFU, GPT/raw disk image, or FAT/NTFS boot sector.
     Inspect { input: PathBuf },
     /// Verify a local FFU and generate an advisory recovery checklist. Never starts recovery.
@@ -145,6 +155,87 @@ fn print<T: serde::Serialize>(value: T) -> Result<(), Box<dyn Error>> {
     println!("{}", serde_json::to_string_pretty(&value)?);
     Ok(())
 }
+fn execute_experiment<T: serde::Serialize>(
+    confirmation: Option<String>,
+    report: Option<PathBuf>,
+    expected_confirmation: &str,
+    experiment: &str,
+    execute: impl FnOnce(
+        &str,
+        &std::sync::atomic::AtomicBool,
+        &mut dyn FnMut(&wpi_transport::mode_test::ModeTestEvent) -> bool,
+    ) -> Result<T, String>,
+) -> Result<(), Box<dyn Error>> {
+    use std::{
+        io::Write,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
+    };
+    let confirmation = confirmation
+        .as_deref()
+        .ok_or("Experimental confirmation is required")?;
+    if confirmation != expected_confirmation {
+        return Err("Experimental confirmation phrase does not match".into());
+    }
+    let path = report.ok_or("A new .jsonl report path is required")?;
+    if path.extension().is_none_or(|e| e != "jsonl") {
+        return Err("The experiment journal must be a new .jsonl file".into());
+    }
+    let mut journal = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)?;
+    writeln!(
+        journal,
+        "{}",
+        serde_json::json!({"kind":"experiment_header","application_version":wpi_core::VERSION,"experiment":experiment,"recovery_authorized":false,"firmware_or_partition_write_commands":false})
+    )?;
+    journal.flush()?;
+    journal.sync_all()?;
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let signal = cancelled.clone();
+    ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+    let mut journal_error = None;
+    let result = execute(confirmation, &cancelled, &mut |event| {
+        if let wpi_transport::mode_test::ModeTestEvent::Progress { event } = event {
+            eprintln!("{:?}: {}", event.state, event.message);
+        }
+        let write = (|| -> Result<(), Box<dyn Error>> {
+            serde_json::to_writer(&mut journal, event)?;
+            writeln!(journal)?;
+            journal.flush()?;
+            journal.sync_all()?;
+            Ok(())
+        })();
+        if let Err(e) = write {
+            journal_error = Some(e.to_string());
+            return false;
+        }
+        !cancelled.load(Ordering::Acquire)
+    });
+    let outcome = match &result {
+        Ok(summary) => serde_json::json!({"kind":"experiment_result","summary":summary}),
+        Err(error) => {
+            serde_json::json!({"kind":"experiment_result","error":error,"recovery_authorized":false})
+        }
+    };
+    if journal_error.is_none() {
+        writeln!(journal, "{outcome}")?;
+        journal.flush()?;
+        journal.sync_all()?;
+    }
+    if let Some(e) = journal_error {
+        return Err(format!(
+            "Experiment journal failed: {e}. Inspect phone state before any further command"
+        )
+        .into());
+    }
+    print(&outcome)?;
+    result?;
+    Ok(())
+}
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
         Command::Devices { serial: true } => print(wpi_transport::serial_candidates()?)?,
@@ -228,6 +319,27 @@ fn run() -> Result<(), Box<dyn Error>> {
                 }
                 print(&outcome)?;
                 result?;
+            }
+        }
+        Command::ModePublicIdTest {
+            id,
+            execute,
+            confirm,
+            report,
+        } => {
+            use wpi_transport::mode_test::public_id;
+            if !execute {
+                print(public_id::preview(&id)?)?;
+            } else {
+                execute_experiment(
+                    confirm,
+                    report,
+                    public_id::CONFIRMATION,
+                    public_id::EXPERIMENT,
+                    |confirmation, cancelled, events| {
+                        public_id::run(&id, confirmation, cancelled, events)
+                    },
+                )?;
             }
         }
         Command::PrepareMode { id, target } => {

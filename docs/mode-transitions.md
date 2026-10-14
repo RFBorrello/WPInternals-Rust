@@ -7,6 +7,9 @@ A separate [native RM-875 validation experiment](native-mode-test.md) requires
 explicit CLI execution/confirmation; it does not promote a production capability.
 Its known RM-875 profile is now blocked after the first interrupted hardware test.
 The [read-only public-ID probe](public-identity.md) supports further identity research.
+The separate [public-ID mode experiment](public-id-mode-test.md) permits a missing
+Flash serial only for inspection on the remembered port, requiring fresh public-ID
+equality before the return request. It remains CLI-only experimental.
 No preview or comparison can authorize flashing.
 
 ## Reviewed routes

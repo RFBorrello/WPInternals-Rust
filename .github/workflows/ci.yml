@@ -61,6 +61,7 @@ jobs:
             docs/validation.md
             docs/native-mode-test.md
             docs/public-identity.md
+            docs/public-id-mode-test.md
           if-no-files-found: error
   browser:
     runs-on: ubuntu-24.04

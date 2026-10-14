@@ -1,0 +1,87 @@
+{
+  "record_kind": "read_only_public_id_mode_experiment_preview",
+  "recorded_on": "2026-10-13",
+  "source_baseline_revision": "865e6d2",
+  "source_files_sha256": {
+    "crates/wpi-cli/src/main.rs": "0d021328ceb5d476db20ad09112c9753ba569657dd45af4c720ed280f22ca3c8",
+    "crates/wpi-transport/src/mode_test.rs": "156acfed198a73e00cb924bf42a260246e41a30ced2031972d5d5fb56e783d6d",
+    "crates/wpi-transport/src/mode_test/public_id.rs": "43d7c1eb3d941b2a64f68538641e63ba517f2e09d5130bb2571401592001f49c",
+    "crates/wpi-protocol/src/identity.rs": "29122f77abee7105490201d60179b6a2737c15dde23e441cd1db931088fb4cf0"
+  },
+  "report_sha256": "75a149da10b079a2620d8cb0952402e8c4ca6cd604f9dcfeab26e31f3f2572c2",
+  "host": "windows-arm64",
+  "transport": "native_usb",
+  "successful_queries": [
+    "ReadManufacturerModelName",
+    "ReadProductCode",
+    "ReadSwVersion",
+    "ReadPublicId"
+  ],
+  "report": {
+    "experiment": "rm875_public_id_normal_flash_normal",
+    "device": {
+      "id": "selected-device",
+      "vendor_id": 1057,
+      "product_id": 1633,
+      "manufacturer": null,
+      "product": "Nokia Lumia 909 (RM-875)",
+      "serial": null,
+      "model": "Lumia 1020",
+      "variant": "RM-875",
+      "firmware": "3051.50009.1451.1003",
+      "platform_id": null,
+      "family": "spec_a",
+      "mode": "normal",
+      "interfaces": [
+        {
+          "number": 0,
+          "class": 6,
+          "subclass": 1,
+          "protocol": 1
+        },
+        {
+          "number": 1,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 2,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 3,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        }
+      ]
+    },
+    "eligible_for_experiment": true,
+    "blockers": [],
+    "public_id_available": true,
+    "public_id_bytes_exported": false,
+    "physical_port_binding_available": true,
+    "hotplug_watch_available": true,
+    "actions": [
+      "Fresh Normal model/firmware/serial/public-ID admission",
+      "Send SetDeviceMode(Flash, HwReset) once",
+      "Require removal, one arrival on the same physical port and matching public ID",
+      "Require exact FlashApp 2.2 / protocol 1.18 / Nokia.MSM8960.P5217.3.2.1",
+      "Re-read identity on the command handle before NOKR once",
+      "Require fresh Normal serial, model, firmware and public-ID equality"
+    ],
+    "confirmation_phrase": "RM875-PUBLIC-ID-ROUNDTRIP",
+    "flash_firmware_query_included": false,
+    "production_mode_switching_available": false,
+    "recovery_authorized": false
+  },
+  "mode_command_sent": false,
+  "limits": [
+    "A readiness preview is not a live mode transition or cross-mode public-ID equality result.",
+    "Identifier bytes and USB instance IDs are omitted.",
+    "FVER is not part of this mode-only experiment; firmware-writing capabilities stay blocked."
+  ]
+}

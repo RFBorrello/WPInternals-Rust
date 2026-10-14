@@ -56,3 +56,10 @@ public-ID presence, serial/port availability and final FVER-query diagnostics,
 not identifier values or cross-mode equality. The local typed PublicId is neither
 serializable nor part of DeviceIdentity; Debug is redacted. The presence report
 keeps identity_authenticated, mode_change_sent and recovery_authorized false.
+
+The separate public-ID mode experiment holds nonserializable snapshots in memory.
+ModeTestEvent.identity_observation records public-ID equality, Normal serial equality
+and physical-port checks alongside redacted fresh metadata. Native commands re-read
+their own USB handle and enforce the exact profile; caller-provided reports cannot
+authorize execution. Results keep identity_authenticated and recovery_authorized
+false. General ReconnectReport semantics remain unchanged.

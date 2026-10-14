@@ -39,6 +39,9 @@ hardware validation.
 - CLI-only [public-ID inspection](docs/public-identity.md), using a dedicated
   read-only query and redacted report. Normal-mode public-ID presence has been
   observed on the connected RM-875; cross-mode equality is not yet hardware-validated.
+- A separate [public-ID mode-validation harness](docs/public-id-mode-test.md)
+  requires fresh public-ID equality and physical-port continuity before its return
+  request. Preview is read-only; explicit execution is a hardware experiment.
 
 NTFS directory and kernel reads have been validated on one real RM-875 MainOS
 image. A small patched dependency handles index records smaller than clusters;
@@ -100,6 +103,7 @@ cargo run -p wpi-cli -- probe '<device-id-from-devices>'
 cargo run -p wpi-cli -- identity-probe '<device-id-from-devices>'
 cargo run -p wpi-cli -- prepare-mode '<device-id-from-devices>' flash
 cargo run -p wpi-cli -- mode-test '<device-id-from-devices>'
+cargo run -p wpi-cli -- mode-public-id-test '<device-id-from-devices>'
 cargo run -p wpi-cli -- replay-mode tests/fixtures/mode-normal-to-flash.json
 cargo run -p wpi-cli -- inspect path/to/firmware.ffu
 cargo run -p wpi-cli -- prepare-recovery path/to/firmware.ffu
