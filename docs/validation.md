@@ -7,7 +7,7 @@ do not establish device support; this milestone's CI is recorded separately.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 55 passed: 45 integration tests and 10 native-harness unit tests |
+| Rust tests | 56 passed on Windows: 45 integration tests and 11 native-harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -115,3 +115,9 @@ journal failures, exact admission and native-probe exclusion. A new read-only
 preview on the connected RM-875 succeeded using the direct bulk adapter; no mode
 request is sent by a preview. These unit tests and preview do not establish live
 Flash-mode hardware support. Live test evidence, when obtained, is recorded separately.
+
+The final read-only readiness check found an empty generic USB port chain on this
+Windows ARM64 host. The Windows binding now uses nusb's parent hub instance and
+connection index directly. Both physical binding and native hotplug readiness
+passed in the updated preview. A Windows-only regression covers absent, matching
+and changed hub/port keys. This check did not reboot the phone.

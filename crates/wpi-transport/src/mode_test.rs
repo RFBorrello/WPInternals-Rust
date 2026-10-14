@@ -17,6 +17,46 @@ pub const CONFIRMATION: &str = "RM875-NORMAL-FLASH-NORMAL";
 const FIRMWARE: &str = "3051.50009.1451.1003";
 const PLATFORM: &str = "Nokia.MSM8960.P5217";
 const RECONNECT_LIMIT: Duration = Duration::from_secs(30);
+#[derive(Clone, PartialEq, Eq)]
+enum PhysicalPort {
+    #[cfg(target_os = "windows")]
+    Windows {
+        hub: std::ffi::OsString,
+        number: u32,
+    },
+    #[cfg(not(target_os = "windows"))]
+    Native { bus: String, chain: Vec<u8> },
+}
+fn physical_port(d: &nusb::DeviceInfo) -> Option<PhysicalPort> {
+    #[cfg(target_os = "windows")]
+    {
+        windows_port(d.parent_instance_id(), d.port_number())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if d.bus_id().is_empty() || d.port_chain().is_empty() {
+            None
+        } else {
+            Some(PhysicalPort::Native {
+                bus: d.bus_id().into(),
+                chain: d.port_chain().into(),
+            })
+        }
+    }
+}
+#[cfg(target_os = "windows")]
+fn windows_port(hub: &std::ffi::OsStr, number: u32) -> Option<PhysicalPort> {
+    // nusb already uses this hub/ConnectionIndex pair to retrieve device descriptors.
+    // ARM ACPI location paths need not parse as a generic bus/port chain.
+    if hub.is_empty() || number == 0 {
+        None
+    } else {
+        Some(PhysicalPort::Windows {
+            hub: hub.into(),
+            number,
+        })
+    }
+}
 #[cfg(test)]
 mod tests;
 
@@ -110,7 +150,7 @@ pub fn preview(id: &str) -> Result<ModeTestPreview, String> {
         .wait()
         .map_err(|e| e.to_string())?
         .find(|d| format!("{:?}", d.id()) == id)
-        .is_some_and(|d| !d.port_chain().is_empty());
+        .is_some_and(|d| physical_port(&d).is_some());
     if !physical_port_binding_available {
         blockers.push("The selected phone has no usable physical USB port binding.".into());
     }
@@ -169,7 +209,7 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
         .filter(|d| format!("{:?}", d.id()) == id)
         .ok_or("Selected phone changed; prepare a new preview")?;
     if selected.serial_number().is_none_or(|s| s.trim().is_empty())
-        || selected.port_chain().is_empty()
+        || physical_port(selected).is_none()
     {
         return Err("Serial and physical USB port binding are required".into());
     }
@@ -177,8 +217,7 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
         watch,
         removed: HashSet::new(),
         serial: selected.serial_number().unwrap().into(),
-        bus: selected.bus_id().into(),
-        ports: selected.port_chain().to_vec(),
+        port: physical_port(selected).unwrap(),
     };
     let descriptor = identity(selected, DeviceMode::Normal);
     let baseline = driver
@@ -231,8 +270,7 @@ struct NativeDriver {
     watch: nusb::hotplug::HotplugWatch,
     removed: HashSet<String>,
     serial: String,
-    bus: String,
-    ports: Vec<u8>,
+    port: PhysicalPort,
 }
 impl NativeDriver {
     fn check_binding(&self, id: &str) -> Result<(), DriverError> {
@@ -242,8 +280,7 @@ impl NativeDriver {
             .find(|d| format!("{:?}", d.id()) == id)
             .ok_or_else(|| DriverError::NotReady("Selected interface is not present".into()))?;
         if d.serial_number() != Some(self.serial.as_str())
-            || d.bus_id() != self.bus
-            || d.port_chain() != self.ports
+            || physical_port(&d).as_ref() != Some(&self.port)
         {
             return Err(DriverError::Fatal(
                 "Serial or physical port changed before opening the interface".into(),
@@ -272,8 +309,7 @@ impl Driver for NativeDriver {
         for d in nusb::list_devices().wait().map_err(|e| e.to_string())? {
             if let Some(mode) = wpi_core::classify_usb(d.vendor_id(), d.product_id()) {
                 if d.serial_number() != Some(self.serial.as_str())
-                    || d.bus_id() != self.bus
-                    || d.port_chain() != self.ports
+                    || physical_port(&d).as_ref() != Some(&self.port)
                 {
                     return Err("A returning device has a different serial or physical USB port; no command was sent to it".into());
                 }

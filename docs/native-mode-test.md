@@ -37,7 +37,9 @@ and does not automatically repeat or undo that command.
 2. Arm native hotplug observation before the request, then send the upstream
    JSON-RPC `SetDeviceMode` with `DeviceMode=Flash`, `ResetMethod=HwReset` once.
 3. Observe removal and probe the returning interface only when its USB serial
-   and physical bus/port match. Read NOKV and, in FlashApp, FVER.
+   and physical port match. Windows binds the parent hub instance and connection
+   index already used by nusb to retrieve descriptors. This works when ARM ACPI
+   location paths do not produce a generic bus/port chain. Read NOKV and, in FlashApp, FVER.
 4. If a correlated BootManager is observed, require protocol 1 or 2 and re-read
    it before sending NOKS once. Protocol 1 requires removal; protocol 2 permits
    an in-place application change. NOKS is never sent from FlashApp.

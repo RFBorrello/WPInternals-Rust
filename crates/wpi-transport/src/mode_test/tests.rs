@@ -349,3 +349,16 @@ fn native_access_lock_blocks_parallel_probes_and_releases_on_drop() {
     drop(lock);
     assert!(PHONE_ACCESS.try_lock().is_ok());
 }
+
+#[cfg(target_os = "windows")]
+#[test]
+fn windows_physical_binding_uses_hub_and_connection_index_not_location_parser() {
+    use std::ffi::OsStr;
+    let hub = OsStr::new("USB\\ROOT_HUB30\\SYNTHETIC");
+    let other = OsStr::new("USB\\ROOT_HUB30\\OTHER");
+    assert!(windows_port(OsStr::new(""), 1).is_none());
+    assert!(windows_port(hub, 0).is_none());
+    assert!(windows_port(hub, 2) == windows_port(hub, 2));
+    assert!(windows_port(hub, 2) != windows_port(hub, 3));
+    assert!(windows_port(hub, 2) != windows_port(other, 2));
+}
