@@ -16,5 +16,12 @@ verified support. The application retains experimental status while repeatabilit
 and raw protocol fixtures are collected. Do not infer broader support from a model
 profile, a successful CI build, or this read-only result.
 
+`lumia-1020-rm875-public-id-mode-test-completed.json` records one complete approved
+Normal/Flash/Normal cycle on native Windows ARM64, with all public-ID and final
+serial/firmware checks passing. It includes command-relative USB timing, readiness
+counts and a compact sanitized journal. Both mode commands completed once; no
+firmware or partition writes occurred. This establishes one experiment's result
+on the exact recorded combination, not repeatability or production write support.
+
 See `docs/hardware-validation.md` for the first read-only sessions and evidence
 requirements. Personal phone identifiers must be redacted before publication.

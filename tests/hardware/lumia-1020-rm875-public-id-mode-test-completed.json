@@ -1,0 +1,322 @@
+{
+  "record_kind": "native_public_id_mode_test_completed",
+  "recorded_on": "2026-10-14",
+  "application_revision": "8f6c8ca48a9df976f42f74de585900ed531a8cea",
+  "binary_sha256": "66370d2a6e7f01326c2577161fea4e4e86aab9cb610da4133ba8c9e5f9a31670",
+  "journal_sha256": "02cd00ce8871ecbe66de2a6d58476ad0cadf9ba51ed77e5a920034babf82fc6d",
+  "transport": "native_usb",
+  "host": "windows-arm64",
+  "authorization": "User explicitly approved one new observer cycle",
+  "mode_commands_attempted": 2,
+  "firmware_or_partition_writes_sent": false,
+  "failed_protocol_transfer_retried": false,
+  "fver_queried": false,
+  "boot_observation_count": 1,
+  "normal_return_public_id_verification_completed": true,
+  "harness_completed": true,
+  "recovery_authorized": false,
+  "manual_restart_requested": false,
+  "timings": {
+    "clock": "CLI monotonic elapsed_ms",
+    "entry_request_ms": 62,
+    "return_request_ms": 16364,
+    "first_normal_usb_descriptor_ms": 51343,
+    "final_normal_identity_ms": 54248,
+    "experiment_completed_ms": 54252,
+    "normal_usb_arrival_after_return_request_ms": 34979,
+    "normal_identity_after_return_request_ms": 37884,
+    "readiness_after_normal_descriptor_ms": 2905,
+    "normal_pre_query_open_readiness_failures": 24,
+    "discovery_count": 231,
+    "enumeration_min_ms": 2.0,
+    "enumeration_max_ms": 10.0,
+    "normal_arrival_trigger": "hotplug"
+  },
+  "user_observation": {
+    "during_cycle": "User confirmed the normal lock/home screen",
+    "precise_visible_boot_duration_measured": false
+  },
+  "windows_pnp_snapshot": {
+    "present_usb_functions": [],
+    "clock": "wall_clock_not_monotonic",
+    "observed_at_utc": "2026-10-14T20:45:30.7866693Z",
+    "elapsed_since_journal_creation_ms": 42892
+  },
+  "critical_events": [
+    {
+      "device": {
+        "family": "spec_a",
+        "firmware": "3051.50009.1451.1003",
+        "id": "selected-device",
+        "interfaces": [
+          {
+            "class": 6,
+            "number": 0,
+            "protocol": 1,
+            "subclass": 1
+          },
+          {
+            "class": 255,
+            "number": 1,
+            "protocol": 255,
+            "subclass": 255
+          },
+          {
+            "class": 255,
+            "number": 2,
+            "protocol": 255,
+            "subclass": 255
+          },
+          {
+            "class": 255,
+            "number": 3,
+            "protocol": 255,
+            "subclass": 255
+          }
+        ],
+        "manufacturer": null,
+        "mode": "normal",
+        "model": "Lumia 1020",
+        "platform_id": null,
+        "product": "Nokia Lumia 909 (RM-875)",
+        "product_id": 1633,
+        "serial": null,
+        "variant": "RM-875",
+        "vendor_id": 1057
+      },
+      "elapsed_ms": 30,
+      "identity_authenticated": false,
+      "info": null,
+      "kind": "identity_observation",
+      "normal_serial_matches": true,
+      "physical_port_matches": true,
+      "public_id_matches": true,
+      "recovery_authorized": false
+    },
+    {
+      "action": "SetDeviceMode(Flash, HwReset)",
+      "delivery": "complete_out_once",
+      "elapsed_ms": 62,
+      "kind": "command"
+    },
+    {
+      "device": {
+        "family": "unknown",
+        "firmware": null,
+        "id": "selected-device",
+        "interfaces": [
+          {
+            "class": 255,
+            "number": 0,
+            "protocol": 255,
+            "subclass": 255
+          }
+        ],
+        "manufacturer": null,
+        "mode": "flash",
+        "model": null,
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "product": "NOKIA FLASH",
+        "product_id": 1646,
+        "serial": null,
+        "variant": null,
+        "vendor_id": 1057
+      },
+      "elapsed_ms": 15846,
+      "identity_authenticated": false,
+      "info": {
+        "emmc_sectors": 61071360,
+        "mode": "flash",
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "protocol_major": 1,
+        "protocol_mask": 31,
+        "protocol_minor": 18,
+        "secure_boot": true,
+        "secure_ffu": true,
+        "transfer_size": 2363392,
+        "version_major": 2,
+        "version_minor": 2,
+        "write_buffer_size": 2359296
+      },
+      "kind": "identity_observation",
+      "normal_serial_matches": null,
+      "physical_port_matches": true,
+      "public_id_matches": true,
+      "recovery_authorized": false
+    },
+    {
+      "action": "NOKR from public-ID-validated FlashApp",
+      "delivery": "complete_out_once",
+      "elapsed_ms": 16364,
+      "kind": "command"
+    },
+    {
+      "device": {
+        "family": "unknown",
+        "firmware": null,
+        "id": "selected-device",
+        "interfaces": [
+          {
+            "class": 255,
+            "number": 0,
+            "protocol": 255,
+            "subclass": 255
+          }
+        ],
+        "manufacturer": null,
+        "mode": "boot_manager",
+        "model": null,
+        "platform_id": null,
+        "product": "NOKIA BOOTMGR",
+        "product_id": 1646,
+        "serial": null,
+        "variant": null,
+        "vendor_id": 1057
+      },
+      "elapsed_ms": 21652,
+      "info": {
+        "emmc_sectors": null,
+        "mode": "boot_manager",
+        "platform_id": null,
+        "protocol_major": 1,
+        "protocol_mask": null,
+        "protocol_minor": 1,
+        "secure_boot": null,
+        "secure_ffu": null,
+        "transfer_size": 2363392,
+        "version_major": 1,
+        "version_minor": 16,
+        "write_buffer_size": null
+      },
+      "kind": "boot_observation",
+      "physical_port_matches": true,
+      "public_id_verified": false,
+      "recovery_authorized": false
+    },
+    {
+      "device": {
+        "family": "spec_a",
+        "firmware": "3051.50009.1451.1003",
+        "id": "selected-device",
+        "interfaces": [
+          {
+            "class": 6,
+            "number": 0,
+            "protocol": 1,
+            "subclass": 1
+          },
+          {
+            "class": 255,
+            "number": 1,
+            "protocol": 255,
+            "subclass": 255
+          },
+          {
+            "class": 255,
+            "number": 2,
+            "protocol": 255,
+            "subclass": 255
+          },
+          {
+            "class": 255,
+            "number": 3,
+            "protocol": 255,
+            "subclass": 255
+          }
+        ],
+        "manufacturer": null,
+        "mode": "normal",
+        "model": "Lumia 1020",
+        "platform_id": null,
+        "product": "Nokia Lumia 909 (RM-875)",
+        "product_id": 1633,
+        "serial": null,
+        "variant": "RM-875",
+        "vendor_id": 1057
+      },
+      "elapsed_ms": 54248,
+      "identity_authenticated": false,
+      "info": null,
+      "kind": "identity_observation",
+      "normal_serial_matches": true,
+      "physical_port_matches": true,
+      "public_id_matches": true,
+      "recovery_authorized": false
+    },
+    {
+      "elapsed_ms": 54252,
+      "kind": "experiment_result",
+      "summary": {
+        "identity_authenticated": false,
+        "mode_commands_attempted": 2,
+        "normal_reconnection": {
+          "checks": [
+            {
+              "key": "usb",
+              "label": "Recognized USB interface",
+              "message": "USB IDs identify an interface, not a physical phone.",
+              "status": "passed"
+            },
+            {
+              "key": "mode",
+              "label": "Observed application mode",
+              "message": "A fresh application-level probe must establish the expected mode.",
+              "status": "passed"
+            },
+            {
+              "key": "serial",
+              "label": "USB serial correlation",
+              "message": "USB serials match locally. This is not cryptographic authentication.",
+              "status": "passed"
+            },
+            {
+              "key": "variant",
+              "label": "Hardware variant",
+              "message": "Fresh observations agree.",
+              "status": "passed"
+            },
+            {
+              "key": "firmware",
+              "label": "Installed firmware",
+              "message": "Fresh observations agree.",
+              "status": "passed"
+            },
+            {
+              "key": "platform",
+              "label": "Platform",
+              "message": "This field is unavailable in one of the modes; it was not copied from the remembered phone.",
+              "status": "unverified"
+            },
+            {
+              "key": "family",
+              "label": "Bootloader family",
+              "message": "Known family observations must agree.",
+              "status": "passed"
+            },
+            {
+              "key": "baseline",
+              "label": "Remembered phone information",
+              "message": "A recognized variant, family and firmware are required as the baseline.",
+              "status": "passed"
+            }
+          ],
+          "expected_mode": "normal",
+          "observed_mode": "normal",
+          "recovery_authorized": false,
+          "status": "correlated"
+        },
+        "public_id_matched_in_both_modes": true,
+        "recovery_authorized": false,
+        "result": "public_id_normal_flash_normal_observed"
+      }
+    }
+  ],
+  "limits": [
+    "One successful cycle on one RM-875 / firmware 3051.50009.1451.1003 / native Windows ARM64 USB combination; no repeatability or other-host evidence.",
+    "Exactly two reviewed mode OUTs completed once; intermediate BootManager was observed once and not commanded.",
+    "Normal arrival used a hotplug event; periodic fallback was not necessary to recover this arrival, so its hardware effect is not established.",
+    "Visible boot and USB availability are distinct; the PnP snapshot uses wall-clock alignment, not the CLI monotonic clock.",
+    "Identity and port correlation are unauthenticated observations; production mode switching and all firmware writes remain blocked.",
+    "No public-ID bytes, USB serials or Windows instance identifiers are exported."
+  ]
+}

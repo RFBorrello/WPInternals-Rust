@@ -1,12 +1,13 @@
-# Local validation — October 13, 2026
+# Local validation — October 13–14, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. The preceding commit `865e6d2` passed GitHub CI on all four native host
-targets and Chromium ([run `38503254982`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38503254982)).
+headless Microsoft Edge. Tested source revision `8f6c8ca` passed GitHub CI on all
+four native host targets and Chromium ([run `38565887540`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38565887540)).
 Those remote build results do not establish device support.
 Browser/UI checks below are retained from the preceding milestone; this change
 adds native-only inspection and protocol codecs without changing the browser UI
-or its information-query allowlist. New remote CI results are pending separately.
+or its information-query allowlist. The latest evidence/documentation changes do
+not change executable source.
 
 | Check | Result |
 | --- | --- |
@@ -177,15 +178,15 @@ rejected an observation during return before final Normal public-ID verification
 A separate native read-only probe then found Normal RM-875, unchanged firmware
 and a serial matching the earlier Normal session. No manual restart was requested
 or reported. The journal omitted failing NOKV details, so the boot-stage cause is
-inferred, not established. Full round-trip harness success remains unvalidated.
+inferred, not established. At that milestone, full harness success was unvalidated.
 The sanitized journal/digest and recheck are in
 `tests/hardware/lumia-1020-rm875-public-id-mode-test-first.json`.
 
 Three new tests cover unverified BootManager 1/2 observations during the return
 wait, NOKV-only probing without terminal or mode requests, source BootManager
 rejection before NOKR, and deadlines/unknown protocols/changed topology. Fresh
-profile rejection now records safe mode/version/match flags. No live repeat was
-performed after this correction; firmware-writing capabilities stay blocked.
+profile rejection records safe mode/version/match flags. The subsequent attempts
+are recorded below; firmware-writing capabilities stay blocked.
 
 On October 14, the approved corrected run again matched the Flash public ID and
 port and delivered both mode requests once. It recorded 49 BootManager NOKV
@@ -214,14 +215,28 @@ can retry without another event, and a longer Normal window leaves Flash arrival
 bounded at 30 seconds. The Normal deadline is now 90 seconds and previews expose
 both limits. CLI journals include monotonic elapsed times. Hotplug observation is
 armed before queries to retain events arriving during them. These changes have
-not been tested live; no third cycle was run under the one-cycle approval.
+not yet been tested live at that milestone; another cycle required new approval.
 
 The user reports quick visible boot, well below 90 seconds; the timeout cannot be
-interpreted as measured boot duration. Current read-only Windows PnP/native checks
+interpreted as measured boot duration. Read-only Windows PnP/native checks at that point
 both find Normal. Hotplug-only waiting has a notification-loss gap: nusb 0.2.7's
 Windows adapter can discard an arrival when metadata is not ready. A two-second
 fallback now discovers Normal without another notification, while retaining the
 retired-interface guard. A new regression checks recovery with a reused ID and
 rejection of a wrong public ID. Discovery/probe journal events expose enumeration
 timing and readiness without identifiers. This fixes a software gap, not a proven
-hardware root cause; no further live mode cycle was run.
+hardware root cause; no further cycle had run at that correction milestone.
+
+A newly approved single cycle at revision `8f6c8ca` completed in 54.252 seconds,
+with all Normal/Flash/returning Normal public-ID checks matching, serial/port
+correlation and unchanged firmware. Exactly two mode OUTs completed once; one
+BootManager observation authorized no command. Normal USB was discovered 34.979
+seconds after NOKR, then 24 pre-query interface-readiness failures preceded final
+identity confirmation 2.905 seconds later. Discovery calls took 2–10 ms. A Windows
+PnP snapshot during the wait found no Lumia functions; the user reported the normal
+screen during the wait. Visible boot duration was not measured. No firmware or
+partition writes or manual restart occurred. The record is
+`tests/hardware/lumia-1020-rm875-public-id-mode-test-completed.json`.
+This is one complete native Windows ARM64/RM-875 cycle, not repeatability or broader
+operation/host evidence. Production capabilities remain blocked. Normal arrival
+used hotplug, so the fallback's causal effect was not established by this run.

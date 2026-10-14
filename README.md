@@ -39,10 +39,13 @@ hardware validation.
 - CLI-only [public-ID inspection](docs/public-identity.md), using a dedicated
   read-only query and redacted report. Normal-mode public-ID presence has been
   observed on the connected RM-875. A subsequent native experiment matched the
-  Normal/Flash IDs; complete in-harness return verification remains pending.
+  Normal/Flash IDs; one complete native round trip also verified the returning
+  Normal identity on Windows ARM64.
 - A separate [public-ID mode-validation harness](docs/public-id-mode-test.md)
   requires fresh public-ID equality and physical-port continuity before its return
-  request. Preview is read-only; explicit execution is a hardware experiment.
+  request. One RM-875 cycle completed with unchanged firmware and two mode
+  requests sent once. See [the timing/evidence record](tests/hardware/lumia-1020-rm875-public-id-mode-test-completed.json).
+  Preview is read-only; explicit execution remains a hardware experiment.
 
 NTFS directory and kernel reads have been validated on one real RM-875 MainOS
 image. A small patched dependency handles index records smaller than clusters;

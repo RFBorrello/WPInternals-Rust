@@ -108,10 +108,9 @@ unchanged firmware and a serial matching the earlier Normal session. No manual
 restart was requested or reported, and no firmware writes occurred.
 
 See [the sanitized live record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-first.json).
-The software now supports unverified BootManager observations during return and
-reports safe mode/version diagnostics on profile rejection. That correction has
-synthetic tests and has not been repeated on live hardware. Full in-harness
-Normal/Flash/Normal public-ID verification remains pending.
+Subsequent software added unverified BootManager observations during return and
+safe mode/version diagnostics on profile rejection. At this first milestone,
+full in-harness Normal/Flash/Normal public-ID verification was still pending.
 
 An approved October 14 run confirmed BootManager protocol `1.1`, application
 `1.16` during return. Both mode OUTs completed once, but 49 repeated successful
@@ -125,11 +124,10 @@ The explicitly approved next cycle at `b28ea9f` recorded one BootManager
 observation and did not query it repeatedly. It still reached the then-30-second
 return deadline; a separate probe again confirmed Normal and unchanged firmware.
 See [the second October 14 record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-retired-deadline.json).
-That revision continued full USB enumeration while waiting. The latest software
-uses hotplug notifications during retired-interface waits, allows 90 seconds for
-Normal boot, and records monotonic `elapsed_ms` in CLI events/outcomes. Timing and
-enumeration as causes remain hypotheses; this last correction has software tests
-and has not been run live. No further cycle is covered by the one-cycle approval.
+That revision continued full USB enumeration while waiting. Subsequent software
+added hotplug hints during retired-interface waits, a 90-second Normal USB
+observation window, and monotonic `elapsed_ms` in CLI events/outcomes. Timing and
+enumeration as causes remained hypotheses; further testing required fresh approval.
 
 The user subsequently reported that visible boot completed quickly, well under
 90 seconds. Neither earlier journal timed Windows USB availability, so these
@@ -147,4 +145,30 @@ generation solely because a timer elapsed. Journal discovery events record trigg
 enumeration duration, observed USB modes and source removal; probe events distinguish
 opening readiness from a read-only query attempt. Identifier values stay private.
 The fallback has a missing-notification regression, including reused IDs and a
-contradictory public ID; hardware validation remains pending.
+contradictory public ID.
+
+## First complete cycle — October 14
+
+After explicit approval for one new cycle, revision `8f6c8ca` completed the entire
+Normal/Flash/Normal identity sequence on native Windows ARM64 RM-875 / firmware
+`3051.50009.1451.1003`. Both mode OUTs completed once. Flash public ID and physical
+port matched, BootManager was observed once without a command, and returning
+Normal public ID, serial, model and firmware matched. No firmware or partition
+writes, failed protocol-transfer retries or manual restart were used.
+
+The full experiment took 54.252 seconds. Normal USB was first discovered 34.979
+seconds after NOKR; opening readiness delayed final identity confirmation another
+2.905 seconds (24 pre-query readiness failures). Discovery calls took 2–10 ms.
+A Windows PnP snapshot about 42.9 seconds after journal creation found no present
+Lumia functions; its time alignment is wall-clock, separate from CLI monotonic
+timing. The user confirmed reaching the normal lock/home screen during the wait;
+visible boot duration was not measured.
+
+These observations place the delay before Normal USB discovery and then interface
+readiness. They do not establish its Windows/phone/driver cause or retrospectively
+explain every earlier failure. This arrival was triggered by hotplug, so live
+success does not establish a causal benefit from the fallback itself. One cycle
+does not validate repeatability, the Lumia 730, browser mode changes, other hosts
+or firmware writing. Production capabilities remain blocked.
+
+See [the sanitized complete-cycle record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-completed.json).

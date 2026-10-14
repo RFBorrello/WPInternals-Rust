@@ -76,8 +76,8 @@ harness stopped during return before its final Normal identity comparison. A
 separate read-only probe confirmed Normal, the unchanged installed firmware and
 serial correlation with the earlier Normal session. The rejected boot-stage
 profile was not captured; updated software keeps BootManager return observations
-unverified and records safe diagnostics. Full harness completion and repeatability
-remain unvalidated, and no general mode or firmware-writing profile is enabled.
+unverified and records safe diagnostics. At that first milestone, full harness
+completion was unvalidated. No general mode or firmware-writing profile is enabled.
 
 Two October 14 runs also matched the Flash public ID and sent the return request
 once, followed by separate successful Normal information probes. The first timed
@@ -85,8 +85,15 @@ out during repeated BootManager probing; the second observed BootManager once
 but reached the return deadline. Their sanitized records are
 [`boot timeout`](../tests/hardware/lumia-1020-rm875-public-id-mode-test-boot-timeout.json)
 and [`retired-interface deadline`](../tests/hardware/lumia-1020-rm875-public-id-mode-test-retired-deadline.json).
-The latest event-driven wait and longer Normal window are software-tested only.
-Full in-harness return public-ID verification is still pending.
+Those failures preceded the subsequently approved complete cycle at `8f6c8ca`.
+See [the successful timing record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-completed.json):
+all three identity checks matched, firmware stayed unchanged, and both mode OUTs
+completed once. Normal USB appeared 34.979 seconds after NOKR and the final
+identity check completed 2.905 seconds later after interface-readiness retries.
+The user confirmed the normal screen during the wait; visible boot duration was
+not measured. Only this exact native Windows ARM64/RM-875/firmware combination
+has one complete-cycle result. Repeatability, other profiles and hosts, browser
+mode changes and firmware-writing operations remain unvalidated.
 
 ## Evidence required for writes
 
