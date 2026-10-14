@@ -263,6 +263,7 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
     let mut driver = NativeDriver {
         watch,
         removed: HashSet::new(),
+        change_generation: 0,
         serial: selected.serial_number().unwrap().into(),
         port: physical_port(selected).unwrap(),
     };
@@ -319,6 +320,7 @@ trait Driver {
 struct NativeDriver {
     watch: nusb::hotplug::HotplugWatch,
     removed: HashSet<String>,
+    change_generation: u64,
     serial: String,
     port: PhysicalPort,
 }
@@ -343,9 +345,18 @@ impl NativeDriver {
         for _ in 0..256 {
             match Pin::new(&mut self.watch).poll_next(&mut cx) {
                 Poll::Ready(Some(HotplugEvent::Disconnected(id))) => {
+                    self.change_generation = self
+                        .change_generation
+                        .checked_add(1)
+                        .ok_or("USB hotplug generation overflow")?;
                     self.removed.insert(format!("{id:?}"));
                 }
-                Poll::Ready(Some(HotplugEvent::Connected(_))) => {}
+                Poll::Ready(Some(HotplugEvent::Connected(_))) => {
+                    self.change_generation = self
+                        .change_generation
+                        .checked_add(1)
+                        .ok_or("USB hotplug generation overflow")?;
+                }
                 Poll::Pending => return Ok(()),
                 Poll::Ready(None) => return Err("USB hotplug watch ended".into()),
             }

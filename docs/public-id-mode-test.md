@@ -55,7 +55,10 @@ authorization because execution reboots the phone. Keep other phone clients idle
    receive a terminal query or command, and cannot complete the identity check.
    After observing an intermediate interface once, the harness retires it until
    a fresh removal/arrival or the Normal USB descriptor appears. It does not keep
-   polling NOKV while that boot stage is active. The deadline is not reset.
+   polling NOKV or full USB enumeration while that boot stage is active. Native
+   hotplug events wake enumeration; open/claim readiness can still retry before
+   any query. Observation starts before the query so events during it are retained.
+   The deadline is not reset.
 
 Only those two mode requests are accepted. No firmware files, partitions, loaders,
 security/authentication payloads, NOKS/context switches, mass storage or implicit
@@ -78,7 +81,8 @@ not exposed through the UI.
 
 ## Interruption
 
-Each reconnection wait has an absolute 30-second deadline. Open/claim readiness
+Flash arrival has an absolute 30-second deadline; Normal boot has 90 seconds.
+The preview exposes both bounds. Open/claim readiness
 may retry before any query. Failed/malformed queries never automatically repeat.
 An uncertain OUT is inspected without resending; only fresh validated observations
 permit the next planned request. Synchronous enumeration/open/cleanup may extend
@@ -114,3 +118,13 @@ probe again found Normal with unchanged firmware. See
 [the compact failure record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-boot-timeout.json).
 Interface retirement now prevents repeated queries on that same boot generation;
 the effect of the earlier polling on boot timing itself is not established.
+
+The explicitly approved next cycle at `b28ea9f` recorded one BootManager
+observation and did not query it repeatedly. It still reached the then-30-second
+return deadline; a separate probe again confirmed Normal and unchanged firmware.
+See [the second October 14 record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-retired-deadline.json).
+That revision continued full USB enumeration while waiting. The latest software
+uses hotplug notifications during retired-interface waits, allows 90 seconds for
+Normal boot, and records monotonic `elapsed_ms` in CLI events/outcomes. Timing and
+enumeration as causes remain hypotheses; this last correction has software tests
+and has not been run live. No further cycle is covered by the one-cycle approval.

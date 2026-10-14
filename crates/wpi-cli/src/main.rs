@@ -198,12 +198,23 @@ fn execute_experiment<T: serde::Serialize>(
     let signal = cancelled.clone();
     ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
     let mut journal_error = None;
+    let started = std::time::Instant::now();
     let result = execute(confirmation, &cancelled, &mut |event| {
         if let wpi_transport::mode_test::ModeTestEvent::Progress { event } = event {
             eprintln!("{:?}: {}", event.state, event.message);
         }
         let write = (|| -> Result<(), Box<dyn Error>> {
-            serde_json::to_writer(&mut journal, event)?;
+            let mut value = serde_json::to_value(event)?;
+            value
+                .as_object_mut()
+                .ok_or("Invalid experiment event")?
+                .insert(
+                    "elapsed_ms".into(),
+                    serde_json::json!(
+                        u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+                    ),
+                );
+            serde_json::to_writer(&mut journal, &value)?;
             writeln!(journal)?;
             journal.flush()?;
             journal.sync_all()?;
@@ -215,12 +226,19 @@ fn execute_experiment<T: serde::Serialize>(
         }
         !cancelled.load(Ordering::Acquire)
     });
-    let outcome = match &result {
+    let mut outcome = match &result {
         Ok(summary) => serde_json::json!({"kind":"experiment_result","summary":summary}),
         Err(error) => {
             serde_json::json!({"kind":"experiment_result","error":error,"recovery_authorized":false})
         }
     };
+    outcome
+        .as_object_mut()
+        .ok_or("Invalid experiment outcome")?
+        .insert(
+            "elapsed_ms".into(),
+            serde_json::json!(u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)),
+        );
     if journal_error.is_none() {
         writeln!(journal, "{outcome}")?;
         journal.flush()?;

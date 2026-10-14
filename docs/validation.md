@@ -10,7 +10,7 @@ or its information-query allowlist. New remote CI results are pending separately
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 82 passed on Windows: 50 integration tests and 32 native transport/harness unit tests |
+| Rust tests | 86 passed on Windows: 50 integration tests and 36 native transport/harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -199,3 +199,19 @@ or a Normal USB descriptor, including reused IDs, repeated boot/Flash observatio
 wrong returning public IDs, fresh generations and fixed deadlines. Readiness may
 still retry before any query; failed queries remain fatal. Query-stage diagnostics
 now identify Normal, public-ID, NOKV or terminal phases without payload logging.
+
+A fresh cycle was blocked before process launch by automatic approval review,
+which required a new explicit approval after the earlier run. The user approved
+one new cycle. That run at `b28ea9f` matched Flash identity again and delivered both
+mode requests once. Only one BootManager observation was queried, but the then
+30-second return deadline expired. A separate probe found Normal with unchanged
+firmware and matching serial. The sanitized record is
+`tests/hardware/lumia-1020-rm875-public-id-mode-test-retired-deadline.json`.
+
+Four new tests verify that retired waits do not enumerate/probe without a topology
+event, unrelated events do not unretire a boot interface, new interface readiness
+can retry without another event, and a longer Normal window leaves Flash arrival
+bounded at 30 seconds. The Normal deadline is now 90 seconds and previews expose
+both limits. CLI journals include monotonic elapsed times. Hotplug observation is
+armed before queries to retain events arriving during them. These changes have
+not been tested live; no third cycle was run under the one-cycle approval.

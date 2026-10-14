@@ -75,6 +75,7 @@ struct Frame {
     error: Option<&'static str>,
     removed: bool,
     port_matches: bool,
+    unrelated_event: bool,
 }
 fn frame(mode: DeviceMode, id: &str) -> Frame {
     Frame {
@@ -83,6 +84,7 @@ fn frame(mode: DeviceMode, id: &str) -> Frame {
         error: None,
         removed: false,
         port_matches: true,
+        unrelated_event: false,
     }
 }
 fn empty() -> Frame {
@@ -92,6 +94,7 @@ fn empty() -> Frame {
         error: None,
         removed: false,
         port_matches: true,
+        unrelated_event: false,
     }
 }
 fn direct() -> Vec<Frame> {
@@ -106,6 +109,8 @@ struct Fake {
     clock: Instant,
     actions: Vec<Action>,
     probes: usize,
+    enumerations: usize,
+    prefetched: bool,
     source_before_flash: Snapshot,
     source_before_normal: Snapshot,
     uncertain: bool,
@@ -119,6 +124,8 @@ impl Fake {
             clock: Instant::now(),
             actions: vec![],
             probes: 0,
+            enumerations: 0,
+            prefetched: false,
             source_before_flash: baseline(),
             source_before_normal: snapshot(DeviceMode::Flash, "flash"),
             uncertain: false,
@@ -128,7 +135,11 @@ impl Fake {
 }
 impl IdentityDriver for Fake {
     fn devices(&mut self) -> Result<Vec<DeviceIdentity>, String> {
-        self.current = self.frames.pop_front().unwrap_or_else(empty);
+        self.enumerations += 1;
+        if !self.prefetched {
+            self.current = self.frames.pop_front().unwrap_or_else(empty);
+        }
+        self.prefetched = false;
         if !self.current.port_matches {
             return Err("Physical USB port changed".into());
         }
@@ -151,6 +162,23 @@ impl IdentityDriver for Fake {
     }
     fn removed(&mut self, _: &str) -> Result<bool, String> {
         Ok(self.current.removed)
+    }
+    fn changed(&mut self) -> Result<bool, String> {
+        fn keys(frame: &Frame) -> Vec<(String, u16, u16, Option<String>)> {
+            frame
+                .observations
+                .iter()
+                .map(|s| {
+                    let d = &s.probe.device;
+                    (d.id.clone(), d.vendor_id, d.product_id, d.serial.clone())
+                })
+                .collect()
+        }
+        let next = self.frames.pop_front().unwrap_or_else(empty);
+        let changed = next.removed || next.unrelated_event || keys(&next) != keys(&self.current);
+        self.current = next;
+        self.prefetched = true;
+        Ok(changed)
     }
     fn probe(
         &mut self,
@@ -698,13 +726,13 @@ fn retired_interface_requires_new_removal_before_another_boot_probe_and_deadline
     run_fake(&mut fake).unwrap();
     assert_eq!(fake.probes, 4);
     let mut frames = vec![frame(DeviceMode::Flash, "flash")];
-    frames.extend(vec![boot; 8]);
+    frames.extend(vec![boot; 20]);
     frames.push(frame(DeviceMode::Normal, "too-late"));
     let mut fake = Fake::new(frames);
     let start = fake.clock;
-    assert!(run_fake(&mut fake).unwrap_err().contains("30-second"));
+    assert!(run_fake(&mut fake).unwrap_err().contains("90-second"));
     assert_eq!(fake.probes, 2);
-    assert_eq!(fake.clock - start, RECONNECT_LIMIT);
+    assert_eq!(fake.clock - start, NORMAL_RECONNECT_LIMIT);
     assert_eq!(fake.actions.len(), 2);
 }
 #[test]
@@ -727,4 +755,65 @@ fn matching_flash_transient_also_retires_without_querying_it_again_or_masking_wr
         assert_eq!(fake.probes, 3);
         assert_eq!(fake.actions.len(), 2);
     }
+}
+
+#[test]
+fn quiet_boot_wait_performs_no_enumeration_or_probe_without_a_topology_event() {
+    let boot = boot_frame(1);
+    let mut frames = vec![frame(DeviceMode::Flash, "flash")];
+    frames.extend(vec![boot; 20]);
+    let mut fake = Fake::new(frames);
+    assert!(run_fake(&mut fake).unwrap_err().contains("90-second"));
+    assert_eq!(fake.enumerations, 2);
+    assert_eq!(fake.probes, 2);
+    assert_eq!(fake.actions.len(), 2);
+}
+#[test]
+fn normal_interface_readiness_retries_before_queries_without_requiring_more_events() {
+    let mut early = frame(DeviceMode::Normal, "normal-after");
+    early.not_ready = true;
+    let mut fake = Fake::new(vec![
+        frame(DeviceMode::Flash, "flash"),
+        boot_frame(1),
+        early,
+        frame(DeviceMode::Normal, "normal-after"),
+    ]);
+    run_fake(&mut fake).unwrap();
+    assert_eq!(fake.enumerations, 4);
+    assert_eq!(fake.probes, 4);
+    assert_eq!(fake.actions.len(), 2);
+}
+#[test]
+fn unrelated_hotplug_event_does_not_unretire_or_query_the_boot_interface() {
+    let boot = boot_frame(1);
+    let mut noise = boot.clone();
+    noise.unrelated_event = true;
+    let mut fake = Fake::new(vec![
+        frame(DeviceMode::Flash, "flash"),
+        boot,
+        noise,
+        frame(DeviceMode::Normal, "normal-after"),
+    ]);
+    run_fake(&mut fake).unwrap();
+    assert_eq!(fake.enumerations, 4);
+    assert_eq!(fake.probes, 3);
+    assert_eq!(fake.actions.len(), 2);
+}
+
+#[test]
+fn longer_normal_boot_window_does_not_extend_flash_arrival_deadline() {
+    let mut frames = vec![frame(DeviceMode::Flash, "flash")];
+    frames.extend(vec![boot_frame(1); 9]);
+    frames.push(frame(DeviceMode::Normal, "normal-after"));
+    let mut fake = Fake::new(frames);
+    let start = fake.clock;
+    run_fake(&mut fake).unwrap();
+    assert!(fake.clock - start > RECONNECT_LIMIT);
+    assert!(fake.clock - start < NORMAL_RECONNECT_LIMIT);
+    assert_eq!(fake.probes, 3);
+    let mut frames = vec![empty(); 7];
+    frames.extend(direct());
+    let mut fake = Fake::new(frames);
+    assert!(run_fake(&mut fake).unwrap_err().contains("30-second"));
+    assert_eq!(fake.actions, [Action::EnterFlash]);
 }

@@ -5,6 +5,7 @@ use wpi_protocol::{identity as public_identity, MessageTransport};
 pub const CONFIRMATION: &str = "RM875-PUBLIC-ID-ROUNDTRIP";
 pub const EXPERIMENT: &str = "rm875_public_id_normal_flash_normal";
 const FLASH_PLATFORM: &str = "Nokia.MSM8960.P5217.3.2.1";
+const NORMAL_RECONNECT_LIMIT: Duration = Duration::from_secs(90);
 
 #[derive(Debug, Serialize)]
 pub struct Preview {
@@ -19,6 +20,8 @@ pub struct Preview {
     pub actions: Vec<&'static str>,
     pub confirmation_phrase: &'static str,
     pub flash_firmware_query_included: bool,
+    pub flash_reconnect_timeout_seconds: u64,
+    pub normal_reconnect_timeout_seconds: u64,
     pub production_mode_switching_available: bool,
     pub recovery_authorized: bool,
 }
@@ -249,6 +252,8 @@ pub fn preview(id: &str) -> Result<Preview, String> {
         ],
         confirmation_phrase: CONFIRMATION,
         flash_firmware_query_included: false,
+        flash_reconnect_timeout_seconds: RECONNECT_LIMIT.as_secs(),
+        normal_reconnect_timeout_seconds: NORMAL_RECONNECT_LIMIT.as_secs(),
         production_mode_switching_available: false,
         recovery_authorized: false,
     })
@@ -297,9 +302,11 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
         native: NativeDriver {
             watch,
             removed: HashSet::new(),
+            change_generation: 0,
             serial,
             port,
         },
+        observed_generation: 0,
     };
     let descriptor = identity(selected, DeviceMode::Normal);
     let baseline = match driver
@@ -316,6 +323,7 @@ trait IdentityDriver {
     fn devices(&mut self) -> Result<Vec<DeviceIdentity>, String>;
     fn arm(&mut self, id: &str) -> Result<(), String>;
     fn removed(&mut self, id: &str) -> Result<bool, String>;
+    fn changed(&mut self) -> Result<bool, String>;
     fn probe(
         &mut self,
         d: &DeviceIdentity,
@@ -334,6 +342,7 @@ trait IdentityDriver {
 }
 struct PublicDriver {
     native: NativeDriver,
+    observed_generation: u64,
 }
 impl PublicDriver {
     fn binding(&self, id: &str) -> Result<(), DriverError> {
@@ -384,10 +393,18 @@ impl IdentityDriver for PublicDriver {
         Ok(result)
     }
     fn arm(&mut self, id: &str) -> Result<(), String> {
-        self.native.arm(id)
+        self.native.arm(id)?;
+        self.observed_generation = self.native.change_generation;
+        Ok(())
     }
     fn removed(&mut self, id: &str) -> Result<bool, String> {
         self.native.removed(id)
+    }
+    fn changed(&mut self) -> Result<bool, String> {
+        self.native.drain()?;
+        let changed = self.native.change_generation != self.observed_generation;
+        self.observed_generation = self.native.change_generation;
+        Ok(changed)
     }
     fn probe(
         &mut self,
@@ -536,13 +553,24 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
     cancelled: &AtomicBool,
     reporter: &mut Reporter<F>,
 ) -> Result<Snapshot, String> {
-    let deadline = driver.now() + RECONNECT_LIMIT;
+    let limit = if mode == DeviceMode::Normal {
+        NORMAL_RECONNECT_LIMIT
+    } else {
+        RECONNECT_LIMIT
+    };
+    let deadline = driver.now() + limit;
     let mut removed = false;
     let mut retired_return_interfaces = HashSet::new();
+    let mut retry_open = false;
     while driver.now() < deadline {
         if cancelled.load(Ordering::Acquire) {
             return Err("Cancelled while awaiting reconnection".into());
         }
+        if !retry_open && !retired_return_interfaces.is_empty() && !driver.changed()? {
+            driver.pause();
+            continue;
+        }
+        retry_open = false;
         let devices = driver.devices()?;
         removed |= driver.removed(source)? || !devices.iter().any(|d| d.id == source);
         if devices.len() > 1 {
@@ -572,9 +600,14 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                     }
                     retired_return_interfaces.remove(&d.id);
                 }
+                // Arm before the query, so arrivals occurring during it are not discarded.
+                if mode == DeviceMode::Normal {
+                    driver.arm(&d.id)?;
+                }
                 let observation = match driver.probe(d, deadline, mode == DeviceMode::Normal) {
                     Ok(s) => s,
                     Err(DriverError::NotReady(_)) => {
+                        retry_open = true; // Readiness before any protocol request can retry without another hotplug event.
                         driver.pause();
                         continue;
                     }
@@ -609,7 +642,6 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                                 "Boot observation journal failed or cancellation requested".into(),
                             );
                         }
-                        driver.arm(&d.id)?; // Discard old removal notifications before retiring this generation.
                         retired_return_interfaces.insert(d.id.clone());
                         driver.pause();
                         continue;
@@ -624,13 +656,15 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                 if mode != DeviceMode::Normal || snapshot.probe.device.mode != DeviceMode::Flash {
                     return Err("Unexpected returning application; no context command sent".into());
                 }
-                driver.arm(&d.id)?;
                 retired_return_interfaces.insert(d.id.clone());
             }
         }
         driver.pause();
     }
-    Err("No validated public-ID reconnection before the 30-second deadline".into())
+    Err(format!(
+        "No validated public-ID reconnection before the {}-second deadline",
+        limit.as_secs()
+    ))
 }
 fn round_trip<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
     driver: &mut D,

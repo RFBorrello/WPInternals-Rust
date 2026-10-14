@@ -1,0 +1,312 @@
+{
+  "record_kind": "native_public_id_mode_test_retired_boot_deadline",
+  "recorded_on": "2026-10-14",
+  "application_revision": "b28ea9f691d47643e5f41c4814a639086c1c99ff",
+  "transport": "native_usb",
+  "host": "windows-arm64",
+  "authorization": "User explicitly approved one new cycle after automatic approval review blocked an earlier launch; the blocked launch executed no command",
+  "journal_sha256": "609c6814152c8374d5b5cdd27867063a9a7948f8a57b7417ddc04529288db063",
+  "mode_commands_attempted": 2,
+  "firmware_or_partition_writes_sent": false,
+  "failed_transfer_retried": false,
+  "fver_queried": false,
+  "boot_observation_count": 1,
+  "normal_return_public_id_verification_completed": false,
+  "harness_completed": false,
+  "recovery_authorized": false,
+  "manual_restart_requested": false,
+  "subsequent_read_only_probe": {
+    "device": {
+      "id": "selected-device",
+      "vendor_id": 1057,
+      "product_id": 1633,
+      "manufacturer": null,
+      "product": "Nokia Lumia 909 (RM-875)",
+      "serial": null,
+      "model": "Lumia 1020",
+      "variant": "RM-875",
+      "firmware": "3051.50009.1451.1003",
+      "platform_id": null,
+      "family": "spec_a",
+      "mode": "normal",
+      "interfaces": [
+        {
+          "number": 0,
+          "class": 6,
+          "subclass": 1,
+          "protocol": 1
+        },
+        {
+          "number": 1,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 2,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 3,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        }
+      ]
+    },
+    "info": null,
+    "normal": {
+      "manufacturer_model": "RM-875_eu_euro1_267",
+      "product_code": "059T909",
+      "firmware": "3051.50009.1451.1003"
+    },
+    "firmware": "3051.50009.1451.1003"
+  },
+  "serial_matches_earlier_normal_session": true,
+  "journal": [
+    {
+      "application_version": "0.1.0",
+      "experiment": "rm875_public_id_normal_flash_normal",
+      "firmware_or_partition_write_commands": false,
+      "kind": "experiment_header",
+      "recovery_authorized": false
+    },
+    {
+      "kind": "identity_observation",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1633,
+        "manufacturer": null,
+        "product": "Nokia Lumia 909 (RM-875)",
+        "serial": null,
+        "model": "Lumia 1020",
+        "variant": "RM-875",
+        "firmware": "3051.50009.1451.1003",
+        "platform_id": null,
+        "family": "spec_a",
+        "mode": "normal",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 6,
+            "subclass": 1,
+            "protocol": 1
+          },
+          {
+            "number": 1,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 2,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 3,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": null,
+      "public_id_matches": true,
+      "normal_serial_matches": true,
+      "physical_port_matches": true,
+      "identity_authenticated": false,
+      "recovery_authorized": false
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 1,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Revalidate public ID, profile and port before one mode request"
+      }
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 2,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "About to attempt one mode command; interruption requires inspection"
+      }
+    },
+    {
+      "kind": "command",
+      "action": "SetDeviceMode(Flash, HwReset)",
+      "delivery": "complete_out_once"
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 3,
+        "operation": "switch_mode",
+        "state": "awaiting_reconnect",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Command attempted once; await removal and fresh public-ID observation"
+      }
+    },
+    {
+      "kind": "identity_observation",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1646,
+        "manufacturer": null,
+        "product": "NOKIA FLASH",
+        "serial": null,
+        "model": null,
+        "variant": null,
+        "firmware": null,
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "family": "unknown",
+        "mode": "flash",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": {
+        "mode": "flash",
+        "protocol_major": 1,
+        "protocol_minor": 18,
+        "version_major": 2,
+        "version_minor": 2,
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "transfer_size": 2363392,
+        "write_buffer_size": 2359296,
+        "emmc_sectors": 61071360,
+        "secure_ffu": true,
+        "secure_boot": true,
+        "protocol_mask": 31
+      },
+      "public_id_matches": true,
+      "normal_serial_matches": null,
+      "physical_port_matches": true,
+      "identity_authenticated": false,
+      "recovery_authorized": false
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 4,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Revalidate public ID, profile and port before one mode request"
+      }
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 5,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "About to attempt one mode command; interruption requires inspection"
+      }
+    },
+    {
+      "kind": "command",
+      "action": "NOKR from public-ID-validated FlashApp",
+      "delivery": "complete_out_once"
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 6,
+        "operation": "switch_mode",
+        "state": "awaiting_reconnect",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Command attempted once; await removal and fresh public-ID observation"
+      }
+    },
+    {
+      "kind": "boot_observation",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1646,
+        "manufacturer": null,
+        "product": "NOKIA BOOTMGR",
+        "serial": null,
+        "model": null,
+        "variant": null,
+        "firmware": null,
+        "platform_id": null,
+        "family": "unknown",
+        "mode": "boot_manager",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": {
+        "mode": "boot_manager",
+        "protocol_major": 1,
+        "protocol_minor": 1,
+        "version_major": 1,
+        "version_minor": 16,
+        "platform_id": null,
+        "transfer_size": 2363392,
+        "write_buffer_size": null,
+        "emmc_sectors": null,
+        "secure_ffu": null,
+        "secure_boot": null,
+        "protocol_mask": null
+      },
+      "public_id_verified": false,
+      "physical_port_matches": true,
+      "recovery_authorized": false
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 7,
+        "operation": "switch_mode",
+        "state": "recovery_required",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "No validated public-ID reconnection before the 30-second deadline"
+      }
+    },
+    {
+      "error": "No validated public-ID reconnection before the 30-second deadline. A mode command may have reached the phone. Inspect its state; do not automatically retry. No firmware write was sent",
+      "kind": "experiment_result",
+      "recovery_authorized": false
+    }
+  ],
+  "limits": [
+    "Normal/Flash public ID and port matched again; both mode OUT transfers completed once.",
+    "One BootManager observation was recorded; its interface was not probed again without removal. Full USB enumeration still ran during the wait in this revision.",
+    "The 30-second return deadline expired before final Normal identity verification. A separate read-only probe found Normal with unchanged firmware.",
+    "Whether enumeration affected boot timing or Normal simply arrived after the deadline is not established.",
+    "Subsequent software changes use hotplug-driven waiting, a 90-second Normal deadline and elapsed-time diagnostics; those changes have not been tested live.",
+    "No public-ID bytes, USB serial or Windows instance identifiers are exported."
+  ]
+}

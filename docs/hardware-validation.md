@@ -79,6 +79,15 @@ profile was not captured; updated software keeps BootManager return observations
 unverified and records safe diagnostics. Full harness completion and repeatability
 remain unvalidated, and no general mode or firmware-writing profile is enabled.
 
+Two October 14 runs also matched the Flash public ID and sent the return request
+once, followed by separate successful Normal information probes. The first timed
+out during repeated BootManager probing; the second observed BootManager once
+but reached the return deadline. Their sanitized records are
+[`boot timeout`](../tests/hardware/lumia-1020-rm875-public-id-mode-test-boot-timeout.json)
+and [`retired-interface deadline`](../tests/hardware/lumia-1020-rm875-public-id-mode-test-retired-deadline.json).
+The latest event-driven wait and longer Normal window are software-tested only.
+Full in-harness return public-ID verification is still pending.
+
 ## Evidence required for writes
 
 Before enabling an operation, implement its entire state machine, identity and
