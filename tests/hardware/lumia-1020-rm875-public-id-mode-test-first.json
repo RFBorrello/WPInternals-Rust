@@ -1,0 +1,290 @@
+{
+  "record_kind": "native_public_id_mode_experiment_with_return_phase_stop",
+  "recorded_on": "2026-10-13",
+  "application_revision": "953f7e8bc7a13339637af09d7e18a49a657b2e2d",
+  "host": {
+    "os": "Windows 11 Pro",
+    "version": "10.0.26200",
+    "architecture": "aarch64-pc-windows-msvc",
+    "provenance": "Existing native hardware-session context"
+  },
+  "transport": "native_usb",
+  "authorization": "User explicitly approved the revised public-ID Normal to Flash to Normal test",
+  "journal_sha256": "ea05da801f7154fc8cc7d1ec8138103b841583e7113f2d8dc0f584e42019d1ad",
+  "result": {
+    "harness_completed": false,
+    "normal_to_flash_public_id_matched": true,
+    "physical_port_matched": true,
+    "mode_commands_attempted": 2,
+    "nokr_attempted_once": true,
+    "noks_sent": false,
+    "firmware_or_partition_writes_sent": false,
+    "flash_fver_queried": false,
+    "automatic_retry": false,
+    "normal_return_public_id_verification_completed": false,
+    "recovery_authorized": false
+  },
+  "stop": {
+    "phase": "Awaiting fresh Normal identity after NOKR",
+    "reason": "Unexpected FlashApp, USB identity, protocol/version or full platform; no terminal query or mode command is permitted. A mode command may have reached the phone. Inspect its state; do not automatically retry. No firmware write was sent",
+    "failing_nokv_metadata_captured": false,
+    "cause": "Unclassified Flash profile rejection during return; boot-stage transition suspected, not established by the journal"
+  },
+  "subsequent_read_only_recheck": {
+    "probe": {
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1633,
+        "manufacturer": null,
+        "product": "Nokia Lumia 909 (RM-875)",
+        "serial": null,
+        "model": "Lumia 1020",
+        "variant": "RM-875",
+        "firmware": "3051.50009.1451.1003",
+        "platform_id": null,
+        "family": "spec_a",
+        "mode": "normal",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 6,
+            "subclass": 1,
+            "protocol": 1
+          },
+          {
+            "number": 1,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 2,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 3,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": null,
+      "normal": {
+        "manufacturer_model": "RM-875_eu_euro1_267",
+        "product_code": "059T909",
+        "firmware": "3051.50009.1451.1003"
+      },
+      "firmware": "3051.50009.1451.1003"
+    },
+    "usb_serial_matches_earlier_normal_session": true,
+    "serial_comparison_provenance": "Earlier native Normal probe after the original manual restart, not a saved baseline from this new experiment",
+    "manual_restart_requested": false,
+    "manual_restart_reported": false,
+    "public_id_queried": false
+  },
+  "journal": [
+    {
+      "application_version": "0.1.0",
+      "experiment": "rm875_public_id_normal_flash_normal",
+      "firmware_or_partition_write_commands": false,
+      "kind": "experiment_header",
+      "recovery_authorized": false
+    },
+    {
+      "kind": "identity_observation",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1633,
+        "manufacturer": null,
+        "product": "Nokia Lumia 909 (RM-875)",
+        "serial": null,
+        "model": "Lumia 1020",
+        "variant": "RM-875",
+        "firmware": "3051.50009.1451.1003",
+        "platform_id": null,
+        "family": "spec_a",
+        "mode": "normal",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 6,
+            "subclass": 1,
+            "protocol": 1
+          },
+          {
+            "number": 1,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 2,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 3,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": null,
+      "public_id_matches": true,
+      "normal_serial_matches": true,
+      "physical_port_matches": true,
+      "identity_authenticated": false,
+      "recovery_authorized": false
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 1,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Revalidate public ID, profile and port before one mode request"
+      }
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 2,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "About to attempt one mode command; interruption requires inspection"
+      }
+    },
+    {
+      "kind": "command",
+      "action": "SetDeviceMode(Flash, HwReset)",
+      "delivery": "complete_out_once"
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 3,
+        "operation": "switch_mode",
+        "state": "awaiting_reconnect",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Command attempted once; await removal and fresh public-ID observation"
+      }
+    },
+    {
+      "kind": "identity_observation",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1646,
+        "manufacturer": null,
+        "product": "NOKIA FLASH",
+        "serial": null,
+        "model": null,
+        "variant": null,
+        "firmware": null,
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "family": "unknown",
+        "mode": "flash",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": {
+        "mode": "flash",
+        "protocol_major": 1,
+        "protocol_minor": 18,
+        "version_major": 2,
+        "version_minor": 2,
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "transfer_size": 2363392,
+        "write_buffer_size": 2359296,
+        "emmc_sectors": 61071360,
+        "secure_ffu": true,
+        "secure_boot": true,
+        "protocol_mask": 31
+      },
+      "public_id_matches": true,
+      "normal_serial_matches": null,
+      "physical_port_matches": true,
+      "identity_authenticated": false,
+      "recovery_authorized": false
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 4,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Revalidate public ID, profile and port before one mode request"
+      }
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 5,
+        "operation": "switch_mode",
+        "state": "running",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "About to attempt one mode command; interruption requires inspection"
+      }
+    },
+    {
+      "kind": "command",
+      "action": "NOKR from public-ID-validated FlashApp",
+      "delivery": "complete_out_once"
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 6,
+        "operation": "switch_mode",
+        "state": "awaiting_reconnect",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Command attempted once; await removal and fresh public-ID observation"
+      }
+    },
+    {
+      "kind": "progress",
+      "event": {
+        "sequence": 7,
+        "operation": "switch_mode",
+        "state": "recovery_required",
+        "completed_bytes": 0,
+        "total_bytes": 0,
+        "message": "Unexpected FlashApp, USB identity, protocol/version or full platform; no terminal query or mode command is permitted"
+      }
+    },
+    {
+      "error": "Unexpected FlashApp, USB identity, protocol/version or full platform; no terminal query or mode command is permitted. A mode command may have reached the phone. Inspect its state; do not automatically retry. No firmware write was sent",
+      "kind": "experiment_result",
+      "recovery_authorized": false
+    }
+  ],
+  "limits": [
+    "One live Normal/Flash public-ID equality and physical-port observation; unauthenticated identifiers, not a raw wire capture.",
+    "Two mode requests were delivered once; the harness stopped before its final Normal public-ID comparison.",
+    "A separate native read-only probe observed Normal RM-875 with unchanged firmware and a serial matching the earlier Normal session.",
+    "No recovery or production mode-switching profile is enabled by this record.",
+    "Identifier bytes and USB instance identifiers are omitted; no IMEI was queried."
+  ]
+}

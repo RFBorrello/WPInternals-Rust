@@ -38,7 +38,8 @@ hardware validation.
   Execution is now blocked pending further identity validation; read-only previews remain available.
 - CLI-only [public-ID inspection](docs/public-identity.md), using a dedicated
   read-only query and redacted report. Normal-mode public-ID presence has been
-  observed on the connected RM-875; cross-mode equality is not yet hardware-validated.
+  observed on the connected RM-875. A subsequent native experiment matched the
+  Normal/Flash IDs; complete in-harness return verification remains pending.
 - A separate [public-ID mode-validation harness](docs/public-id-mode-test.md)
   requires fresh public-ID equality and physical-port continuity before its return
   request. Preview is read-only; explicit execution is a hardware experiment.

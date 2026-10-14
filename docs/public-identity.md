@@ -17,8 +17,9 @@ The Normal method has a dedicated builder; it does not extend the three-method
 allowlist used by normal browser/device-information operations. The terminal
 parser checks a bounded response, wrapper/root lengths, byte order, node bounds,
 duplicates, a 256-node limit and a nonblank 20-byte ID. It rejects invalid request
-IDs, errors and nonbyte JSON arrays. The terminal signature/status checks are strict
-assumptions awaiting live Flash responses; synthetic success is not hardware evidence.
+IDs, errors and nonbyte JSON arrays. Strict terminal signature/status checks accepted
+one live Flash response in the new experiment; other profiles remain unvalidated.
+Synthetic success is not hardware evidence.
 
 Public IDs can be compared locally with the typed `PublicId` value. That type has
 no serialization implementation or byte getter; its debug representation is
@@ -60,8 +61,9 @@ successfully in Normal mode on Windows ARM64. Only presence was exported, with
 no mode or firmware writes. See
 [`lumia-1020-rm875-normal-public-id.json`](../tests/hardware/lumia-1020-rm875-normal-public-id.json).
 
-Live terminal response parsing, equality of the Normal and Flash IDs, physical-port
-continuity, the observed Flash platform suffix and FVER behavior remain unvalidated.
+One native experiment subsequently parsed a live terminal response and observed
+matching Normal/Flash IDs and physical-port continuity. The full in-harness return
+identity check, repeatability, other profiles/hosts and FVER behavior remain unvalidated.
 Before another live mode attempt, integrate those checks into a reviewed harness,
 test interruption and wrong-device cases, and obtain explicit approval for the
 mode change. A presence report or a manually edited JSON report cannot enable it.
@@ -69,5 +71,7 @@ mode change. A presence report or a manually edited JSON report cannot enable it
 The separate [public-ID mode experiment](public-id-mode-test.md) now implements
 in-memory comparisons and command-handle revalidation. It requires a distinct
 confirmation phrase and new journal; the original experiment stays blocked.
-Live Flash validation is pending. FVER is excluded from the mode-only sequence
+The first live run matched the Flash ID but stopped during return; see its
+[evidence](../tests/hardware/lumia-1020-rm875-public-id-mode-test-first.json).
+FVER is excluded from the mode-only sequence
 and remains a separate diagnostic without firmware-write authorization.

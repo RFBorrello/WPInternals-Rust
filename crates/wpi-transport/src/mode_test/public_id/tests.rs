@@ -136,7 +136,13 @@ impl IdentityDriver for Fake {
             .current
             .observations
             .iter()
-            .map(|s| s.probe.device.clone())
+            .map(|s| {
+                let mut d = s.probe.device.clone();
+                if d.mode == DeviceMode::BootManager {
+                    d.mode = DeviceMode::Flash;
+                }
+                d
+            })
             .collect())
     }
     fn arm(&mut self, _: &str) -> Result<(), String> {
@@ -145,7 +151,12 @@ impl IdentityDriver for Fake {
     fn removed(&mut self, _: &str) -> Result<bool, String> {
         Ok(self.current.removed)
     }
-    fn probe(&mut self, _: &DeviceIdentity, _: Instant) -> Result<Snapshot, DriverError> {
+    fn probe(
+        &mut self,
+        _: &DeviceIdentity,
+        _: Instant,
+        allow_boot: bool,
+    ) -> Result<Observation, DriverError> {
         self.probes += 1;
         if self.current.not_ready {
             return Err(DriverError::NotReady("WinUSB not yet ready".into()));
@@ -153,7 +164,19 @@ impl IdentityDriver for Fake {
         if let Some(e) = self.current.error {
             return Err(DriverError::Fatal(e.into()));
         }
-        Ok(self.current.observations[0].clone())
+        let snapshot = self.current.observations[0].clone();
+        if allow_boot
+            && snapshot.probe.device.mode == DeviceMode::BootManager
+            && snapshot
+                .probe
+                .info
+                .as_ref()
+                .is_some_and(|i| matches!(i.protocol_major, 1 | 2))
+        {
+            Ok(Observation::Boot(snapshot.probe))
+        } else {
+            Ok(Observation::Identity(snapshot))
+        }
     }
     fn send(
         &mut self,
@@ -239,7 +262,7 @@ fn wrong_public_id_port_available_serial_or_usb_mode_stops_before_return_reset()
         let mut fake = Fake::new(vec![f]);
         assert!(run_fake(&mut fake).is_err(), "{kind}");
         assert_eq!(fake.actions, [Action::EnterFlash]);
-        if matches!(kind, "port" | "serial" | "usb" | "multiple" | "bootmanager") {
+        if matches!(kind, "port" | "serial" | "usb" | "multiple") {
             assert_eq!(fake.probes, 0);
         }
     }
@@ -548,4 +571,87 @@ fn unexpected_flash_profile_stops_after_nokv_without_terminal_query() {
     )
     .is_err());
     assert!(replay.finished());
+}
+
+fn boot_frame(major: u8) -> Frame {
+    let mut frame = frame(DeviceMode::Flash, "boot-stage");
+    frame.observations[0].probe.device.mode = DeviceMode::BootManager;
+    let info = frame.observations[0].probe.info.as_mut().unwrap();
+    info.mode = DeviceMode::BootManager;
+    info.protocol_major = major;
+    frame
+}
+#[test]
+fn bootmanager_observation_after_nokr_remains_unverified_and_never_adds_a_command() {
+    for major in [1, 2] {
+        let mut fake = Fake::new(vec![
+            frame(DeviceMode::Flash, "flash"),
+            boot_frame(major),
+            frame(DeviceMode::Normal, "normal-after"),
+        ]);
+        let mut boot_records = vec![];
+        let summary = round_trip(&mut fake, baseline(), &AtomicBool::new(false), |event| {
+            if matches!(event, ModeTestEvent::BootObservation { .. }) {
+                boot_records.push(serde_json::to_value(event).unwrap());
+            }
+            true
+        })
+        .unwrap();
+        assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+        assert_eq!(summary.mode_commands_attempted, 2);
+        assert_eq!(boot_records.len(), 1);
+        assert_eq!(boot_records[0]["public_id_verified"], false);
+        assert_eq!(boot_records[0]["device"]["serial"], serde_json::Value::Null);
+    }
+}
+#[test]
+fn bootmanager_codec_only_sends_nokv_and_never_becomes_a_command_snapshot() {
+    for major in [1, 2] {
+        let response = vec![b'N', b'O', b'K', b'V', 0, 1, major, 0, 1, 0, 0];
+        let mut replay = ReplayTransport::new(vec![Exchange {
+            request: b"NOKV".to_vec(),
+            response: response.clone(),
+            error: None,
+        }]);
+        assert!(matches!(
+            read_observation(
+                snapshot(DeviceMode::Flash, "boot").probe.device,
+                &mut replay,
+                true
+            )
+            .unwrap_or_else(|e| panic!("{e}")),
+            Observation::Boot(_)
+        ));
+        assert!(replay.finished());
+        let mut replay = ReplayTransport::new(vec![Exchange {
+            request: b"NOKV".to_vec(),
+            response,
+            error: None,
+        }]);
+        assert!(read_snapshot(
+            snapshot(DeviceMode::Flash, "boot").probe.device,
+            &mut replay
+        )
+        .is_err());
+        assert!(replay.finished());
+    }
+    let mut fake = Fake::new(direct());
+    fake.source_before_normal = boot_frame(1).observations.remove(0);
+    assert!(run_fake(&mut fake).is_err());
+    assert_eq!(fake.actions, [Action::EnterFlash]);
+}
+#[test]
+fn boot_observation_timeout_unknown_protocol_and_topology_changes_cannot_complete_or_reset() {
+    for kind in ["timeout", "protocol", "port", "multiple"] {
+        let mut boot = boot_frame(if kind == "protocol" { 3 } else { 1 });
+        if kind == "port" {
+            boot.port_matches = false;
+        }
+        if kind == "multiple" {
+            boot.observations.push(boot.observations[0].clone());
+        }
+        let mut fake = Fake::new(vec![frame(DeviceMode::Flash, "flash"), boot]);
+        assert!(run_fake(&mut fake).is_err(), "{kind}");
+        assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+    }
 }

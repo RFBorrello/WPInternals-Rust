@@ -63,3 +63,8 @@ and physical-port checks alongside redacted fresh metadata. Native commands re-r
 their own USB handle and enforce the exact profile; caller-provided reports cannot
 authorize execution. Results keep identity_authenticated and recovery_authorized
 false. General ReconnectReport semantics remain unchanged.
+During the return wait only, ModeTestEvent.boot_observation records a fresh
+BootManager NOKV result as public_id_verified=false. It cannot become a Snapshot
+or authorize a terminal/context/reset request. Final Normal identity still requires
+the original public ID, serial, firmware and variant; observing a boot stage never
+completes the operation.

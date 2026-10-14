@@ -126,6 +126,13 @@ pub enum ModeTestEvent {
         identity_authenticated: bool,
         recovery_authorized: bool,
     },
+    BootObservation {
+        device: Box<DeviceIdentity>,
+        info: Option<wpi_protocol::flash::FlashInfo>,
+        public_id_verified: bool,
+        physical_port_matches: bool,
+        recovery_authorized: bool,
+    },
 }
 #[derive(Debug, Serialize)]
 pub struct ModeTestSummary {

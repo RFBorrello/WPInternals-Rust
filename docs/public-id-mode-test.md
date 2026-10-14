@@ -14,8 +14,8 @@ unavailable. Results never automatically promote a verified capability.
   `Nokia.MSM8960.P5217.3.2.1`, observed after the interrupted first experiment.
 
 These define experimental admission, not firmware applicability or authenticated
-identity. BootManager/PhoneInfo, other profiles, additional phones and changed
-topology stop without a context/reset command.
+identity. BootManager before the return request, PhoneInfo, other profiles,
+additional phones and changed topology stop without a context/reset command.
 
 ## Preview and explicit execution
 
@@ -50,7 +50,9 @@ authorization because execution reboots the phone. Keep other phone clients idle
    handle, and revalidate identity, profile and port before one `NOKR`.
 5. Require removal and fresh Normal model, variant, firmware, serial and public-ID
    equality. Matching successful Flash probes during Normal boot can be observed
-   again, but never cause an extra reset. BootManager stops the experiment.
+   again, but never cause an extra reset. During this return wait only, BootManager
+   protocol 1/2 can be observed with NOKV and journaled as unverified. It cannot
+   receive a terminal query or command, and cannot complete the identity check.
 
 Only those two mode requests are accepted. No firmware files, partitions, loaders,
 security/authentication payloads, NOKS/context switches, mass storage or implicit
@@ -82,7 +84,22 @@ elapsed time beyond transfer deadlines.
 Wrong/missing public IDs, serial contradictions, changed topology, unexpected
 profiles, timeout, cancellation and journal failure stop. If left in Flash, inspect
 the phone and use the Lumia 1020 Volume Down + Power restart if needed. Do not
-automatically repeat the experiment or use flashing to complete it. Terminal
-parsing remains a strict synthetic assumption until live validation. Failures
+automatically repeat the experiment or use flashing to complete it. Failures
 record only response length and a recognized header label, never arbitrary leading
 bytes or terminal payloads.
+
+## First live result
+
+At revision `953f7e8`, the explicitly approved test observed matching Normal/Flash
+public IDs on the same port, then delivered one NOKR after command-handle
+revalidation. The harness rejected a subsequent NOKV observation before its final
+Normal identity check. The failing profile fields were not captured, so a boot
+transition is an inference. A separate native read-only probe found Normal RM-875,
+unchanged firmware and a serial matching the earlier Normal session. No manual
+restart was requested or reported, and no firmware writes occurred.
+
+See [the sanitized live record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-first.json).
+The software now supports unverified BootManager observations during return and
+reports safe mode/version diagnostics on profile rejection. That correction has
+synthetic tests and has not been repeated on live hardware. Full in-harness
+Normal/Flash/Normal public-ID verification remains pending.

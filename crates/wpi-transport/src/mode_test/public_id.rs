@@ -27,6 +27,10 @@ struct Snapshot {
     probe: ProbeResult,
     public_id: public_identity::PublicId,
 }
+enum Observation {
+    Identity(Snapshot),
+    Boot(ProbeResult),
+}
 #[derive(Debug, Serialize)]
 pub struct Summary {
     pub result: &'static str,
@@ -41,6 +45,18 @@ fn read_snapshot<T: MessageTransport>(
     device: DeviceIdentity,
     transport: &mut T,
 ) -> Result<Snapshot, String> {
+    match read_observation(device, transport, false)? {
+        Observation::Identity(snapshot) => Ok(snapshot),
+        Observation::Boot(_) => {
+            Err("An unverified boot observation cannot permit a command".into())
+        }
+    }
+}
+fn read_observation<T: MessageTransport>(
+    device: DeviceIdentity,
+    transport: &mut T,
+    allow_boot: bool,
+) -> Result<Observation, String> {
     let (probe, public_id) = match device.mode {
         DeviceMode::Normal => {
             let normal = wpi_protocol::normal::read_info(transport).map_err(|e| e.to_string())?;
@@ -77,6 +93,18 @@ fn read_snapshot<T: MessageTransport>(
                 normal: None,
                 firmware: None,
             };
+            if allow_boot
+                && probe.device.vendor_id == 0x0421
+                && probe.device.product_id == 0x066e
+                && probe.device.mode == DeviceMode::BootManager
+                && probe
+                    .info
+                    .as_ref()
+                    .is_some_and(|i| matches!(i.protocol_major, 1 | 2))
+            {
+                // Only after NOKR: observation cannot permit a terminal query, reset or context switch.
+                return Ok(Observation::Boot(probe));
+            }
             validate_flash(&probe)?; // No terminal query to an unexpected application/profile.
             let response = transport
                 .exchange(&public_identity::flash_request(), 65536)
@@ -96,7 +124,7 @@ fn read_snapshot<T: MessageTransport>(
             )
         }
     };
-    Ok(Snapshot { probe, public_id })
+    Ok(Observation::Identity(Snapshot { probe, public_id }))
 }
 fn validate_flash(probe: &ProbeResult) -> Result<(), String> {
     let d = &probe.device;
@@ -110,7 +138,7 @@ fn validate_flash(probe: &ProbeResult) -> Result<(), String> {
         || d.platform_id.as_deref() != Some(FLASH_PLATFORM)
         || info.platform_id.as_deref() != Some(FLASH_PLATFORM)
     {
-        return Err("Unexpected FlashApp, USB identity, protocol/version or full platform; no terminal query or mode command is permitted".into());
+        return Err(format!("Unexpected FlashApp, USB identity, protocol/version or full platform; observed_mode={:?}, protocol={}.{}, application={}.{}, platform_matches={}; no terminal query or mode command is permitted",info.mode,info.protocol_major,info.protocol_minor,info.version_major,info.version_minor,d.platform_id.as_deref()==Some(FLASH_PLATFORM) && info.platform_id.as_deref()==Some(FLASH_PLATFORM)));
     }
     Ok(())
 }
@@ -272,9 +300,13 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
         },
     };
     let descriptor = identity(selected, DeviceMode::Normal);
-    let baseline = driver
-        .probe(&descriptor, Instant::now() + Duration::from_secs(20))
-        .map_err(|e| e.message())?;
+    let baseline = match driver
+        .probe(&descriptor, Instant::now() + Duration::from_secs(20), false)
+        .map_err(|e| e.message())?
+    {
+        Observation::Identity(s) => s,
+        Observation::Boot(_) => return Err("Normal baseline identity is required".into()),
+    };
     round_trip(&mut driver, baseline, cancelled, emit)
 }
 
@@ -282,7 +314,12 @@ trait IdentityDriver {
     fn devices(&mut self) -> Result<Vec<DeviceIdentity>, String>;
     fn arm(&mut self, id: &str) -> Result<(), String>;
     fn removed(&mut self, id: &str) -> Result<bool, String>;
-    fn probe(&mut self, d: &DeviceIdentity, deadline: Instant) -> Result<Snapshot, DriverError>;
+    fn probe(
+        &mut self,
+        d: &DeviceIdentity,
+        deadline: Instant,
+        allow_boot: bool,
+    ) -> Result<Observation, DriverError>;
     fn send(
         &mut self,
         current: &Snapshot,
@@ -350,7 +387,12 @@ impl IdentityDriver for PublicDriver {
     fn removed(&mut self, id: &str) -> Result<bool, String> {
         self.native.removed(id)
     }
-    fn probe(&mut self, d: &DeviceIdentity, deadline: Instant) -> Result<Snapshot, DriverError> {
+    fn probe(
+        &mut self,
+        d: &DeviceIdentity,
+        deadline: Instant,
+        allow_boot: bool,
+    ) -> Result<Observation, DriverError> {
         self.binding(&d.id)?;
         let (descriptor, mut transport) = open_selected(&d.id).map_err(DriverError::NotReady)?;
         if descriptor.vendor_id != d.vendor_id
@@ -362,7 +404,7 @@ impl IdentityDriver for PublicDriver {
             ));
         }
         transport.deadline = Some(deadline);
-        read_snapshot(descriptor, &mut transport).map_err(DriverError::Fatal)
+        read_observation(descriptor, &mut transport, allow_boot).map_err(DriverError::Fatal)
     }
     fn send(
         &mut self,
@@ -515,7 +557,7 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                         .ok_or("Baseline serial missing")?,
                     true,
                 )?;
-                let snapshot = match driver.probe(d, deadline) {
+                let observation = match driver.probe(d, deadline, mode == DeviceMode::Normal) {
                     Ok(s) => s,
                     Err(DriverError::NotReady(_)) => {
                         driver.pause();
@@ -526,6 +568,36 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                 if driver.now() >= deadline {
                     return Err("Reconnection deadline expired during information query".into());
                 }
+                let snapshot = match observation {
+                    Observation::Identity(s) => s,
+                    Observation::Boot(probe) => {
+                        if mode != DeviceMode::Normal
+                            || probe.device.mode != DeviceMode::BootManager
+                            || !probe
+                                .info
+                                .as_ref()
+                                .is_some_and(|i| matches!(i.protocol_major, 1 | 2))
+                        {
+                            return Err(
+                                "Unexpected boot observation; no identity or command permitted"
+                                    .into(),
+                            );
+                        }
+                        if !(reporter.emit)(&ModeTestEvent::BootObservation {
+                            device: Box::new(redact(probe.device)),
+                            info: probe.info,
+                            public_id_verified: false,
+                            physical_port_matches: true,
+                            recovery_authorized: false,
+                        }) {
+                            return Err(
+                                "Boot observation journal failed or cancellation requested".into(),
+                            );
+                        }
+                        driver.pause();
+                        continue;
+                    }
+                };
                 validate(&snapshot, baseline, snapshot.probe.device.mode)?;
                 observe(&snapshot, baseline, reporter)?;
                 if snapshot.probe.device.mode == mode {

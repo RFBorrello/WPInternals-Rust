@@ -66,7 +66,18 @@ connected RM-875. See
 [`lumia-1020-rm875-public-id-mode-preview.json`](../tests/hardware/lumia-1020-rm875-public-id-mode-preview.json).
 This confirms Normal-mode readiness only. The original serial-only test stays
 blocked, and the [new experiment](public-id-mode-test.md) requires distinct explicit
-confirmation before any live mode request. Cross-mode public-ID equality remains pending.
+confirmation before any live mode request. At that preview, cross-mode equality
+was still pending; the subsequent live observation is described below.
+
+The subsequently approved live run is recorded in
+[`lumia-1020-rm875-public-id-mode-test-first.json`](../tests/hardware/lumia-1020-rm875-public-id-mode-test-first.json).
+It matched Normal/Flash public IDs and physical port, and sent NOKR once. The
+harness stopped during return before its final Normal identity comparison. A
+separate read-only probe confirmed Normal, the unchanged installed firmware and
+serial correlation with the earlier Normal session. The rejected boot-stage
+profile was not captured; updated software keeps BootManager return observations
+unverified and records safe diagnostics. Full harness completion and repeatability
+remain unvalidated, and no general mode or firmware-writing profile is enabled.
 
 ## Evidence required for writes
 

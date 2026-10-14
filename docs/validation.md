@@ -10,7 +10,7 @@ or its information-query allowlist. New remote CI results are pending separately
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 76 passed on Windows: 50 integration tests and 26 native transport/harness unit tests |
+| Rust tests | 79 passed on Windows: 50 integration tests and 29 native transport/harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -169,3 +169,20 @@ Normal admission, public-ID availability, physical-port metadata and hotplug
 watch readiness passed with no blockers. The sanitized evidence is
 `tests/hardware/lumia-1020-rm875-public-id-mode-preview.json`. No mode command
 was sent by the preview; live approval and validation remain separate.
+
+The first approved public-ID mode run at `953f7e8` observed a matching Flash ID
+and physical port, with the expected FlashApp/platform. It delivered one entry
+request and one NOKR after fresh command-handle identity checks. The harness
+rejected an observation during return before final Normal public-ID verification.
+A separate native read-only probe then found Normal RM-875, unchanged firmware
+and a serial matching the earlier Normal session. No manual restart was requested
+or reported. The journal omitted failing NOKV details, so the boot-stage cause is
+inferred, not established. Full round-trip harness success remains unvalidated.
+The sanitized journal/digest and recheck are in
+`tests/hardware/lumia-1020-rm875-public-id-mode-test-first.json`.
+
+Three new tests cover unverified BootManager 1/2 observations during the return
+wait, NOKV-only probing without terminal or mode requests, source BootManager
+rejection before NOKR, and deadlines/unknown protocols/changed topology. Fresh
+profile rejection now records safe mode/version/match flags. No live repeat was
+performed after this correction; firmware-writing capabilities stay blocked.
