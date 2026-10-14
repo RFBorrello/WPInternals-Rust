@@ -341,6 +341,34 @@ fn exact_admission_and_source_change_reject_before_any_mode_command() {
 }
 
 #[test]
+fn known_failed_hardware_profile_is_blocked_without_relaxing_admission() {
+    let device = baseline();
+    assert!(admission(&device, true).is_empty());
+    assert_eq!(live_blocker(&device), Some(LIVE_BLOCKER));
+    let mut other = device;
+    other.firmware = Some("UNKNOWN".into());
+    assert!(live_blocker(&other).is_none());
+    assert!(!admission(&other, true).is_empty());
+}
+#[test]
+fn binding_failures_report_serial_and_port_independently_without_values() {
+    let expected = "PRIVATE-EXPECTED";
+    for (observed, port, serial_status, port_status) in [
+        (None, true, "missing", "match"),
+        (Some(" "), true, "missing", "match"),
+        (Some("PRIVATE-OTHER"), true, "different", "match"),
+        (Some(expected), false, "match", "missing_or_different"),
+        (None, false, "missing", "missing_or_different"),
+    ] {
+        let error = binding_error(expected, observed, port).unwrap();
+        assert!(error.contains(&format!("serial={serial_status}")));
+        assert!(error.contains(&format!("physical_port={port_status}")));
+        assert!(!error.contains("PRIVATE"));
+    }
+    assert!(binding_error(expected, Some(expected), true).is_none());
+}
+
+#[test]
 fn native_access_lock_blocks_parallel_probes_and_releases_on_drop() {
     let lock = PHONE_ACCESS.try_lock().unwrap();
     assert!(super::super::probe("not-a-real-device")

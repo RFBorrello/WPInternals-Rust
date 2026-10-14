@@ -22,6 +22,8 @@ enum Command {
     },
     /// Read normal-mode model/product/firmware or flash-mode NOKV/FVER information.
     Probe { id: String },
+    /// Read a local public ID without exporting its bytes. Sends no mode change.
+    IdentityProbe { id: String },
     /// Read phone information and preview a mode change. Never sends a mode-change command.
     PrepareMode {
         id: String,
@@ -148,6 +150,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         Command::Devices { serial: true } => print(wpi_transport::serial_candidates()?)?,
         Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
         Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
+        Command::IdentityProbe { id } => print(wpi_transport::identity_probe::run(&id)?)?,
         Command::ModeTest {
             id,
             execute,

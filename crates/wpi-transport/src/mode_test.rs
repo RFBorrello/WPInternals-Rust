@@ -17,6 +17,12 @@ pub const CONFIRMATION: &str = "RM875-NORMAL-FLASH-NORMAL";
 const FIRMWARE: &str = "3051.50009.1451.1003";
 const PLATFORM: &str = "Nokia.MSM8960.P5217";
 const RECONNECT_LIMIT: Duration = Duration::from_secs(30);
+const LIVE_BLOCKER: &str = "The first RM-875 experiment stopped because Flash has no USB serial. Live execution is paused pending validated public-ID correlation, Flash platform and FVER handling. Use identity-probe for explicit read-only inspection; do not repeat the mode test.";
+
+fn live_blocker(device: &DeviceIdentity) -> Option<&'static str> {
+    (device.variant.as_deref() == Some("RM-875") && device.firmware.as_deref() == Some(FIRMWARE))
+        .then_some(LIVE_BLOCKER)
+}
 #[derive(Clone, PartialEq, Eq)]
 enum PhysicalPort {
     #[cfg(target_os = "windows")]
@@ -42,6 +48,27 @@ fn physical_port(d: &nusb::DeviceInfo) -> Option<PhysicalPort> {
                 chain: d.port_chain().into(),
             })
         }
+    }
+}
+pub(super) fn port_available(id: &str) -> Result<bool, String> {
+    Ok(nusb::list_devices()
+        .wait()
+        .map_err(|e| e.to_string())?
+        .find(|d| format!("{:?}", d.id()) == id)
+        .is_some_and(|d| physical_port(&d).is_some()))
+}
+
+fn binding_error(expected: &str, observed: Option<&str>, port_matches: bool) -> Option<String> {
+    let serial = match observed.filter(|s| !s.trim().is_empty()) {
+        None => "missing",
+        Some(s) if s == expected => "match",
+        Some(_) => "different",
+    };
+    if serial == "match" && port_matches {
+        None
+    } else {
+        Some(format!("USB binding failed: serial={serial}, physical_port={}; no query or command was sent to the returning interface",
+            if port_matches { "match" } else { "missing_or_different" }))
     }
 }
 #[cfg(target_os = "windows")]
@@ -143,6 +170,9 @@ pub fn preview(id: &str) -> Result<ModeTestPreview, String> {
         &p.device,
         cfg!(all(target_os = "windows", target_arch = "aarch64")),
     );
+    if let Some(reason) = live_blocker(&p.device) {
+        blockers.push(reason.into());
+    }
     if devices.len() != 1 {
         blockers.push("Connect only the selected Lumia for this experiment.".into());
     }
@@ -223,6 +253,9 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
     let baseline = driver
         .probe(&descriptor, Instant::now() + Duration::from_secs(20))
         .map_err(|e| e.message())?;
+    if let Some(reason) = live_blocker(&baseline.device) {
+        return Err(reason.into());
+    }
     round_trip(&mut driver, baseline.device, true, cancelled, event)
 }
 
@@ -279,12 +312,12 @@ impl NativeDriver {
             .map_err(|e| DriverError::NotReady(e.to_string()))?
             .find(|d| format!("{:?}", d.id()) == id)
             .ok_or_else(|| DriverError::NotReady("Selected interface is not present".into()))?;
-        if d.serial_number() != Some(self.serial.as_str())
-            || physical_port(&d).as_ref() != Some(&self.port)
-        {
-            return Err(DriverError::Fatal(
-                "Serial or physical port changed before opening the interface".into(),
-            ));
+        if let Some(reason) = binding_error(
+            &self.serial,
+            d.serial_number(),
+            physical_port(&d).as_ref() == Some(&self.port),
+        ) {
+            return Err(DriverError::Fatal(reason));
         }
         Ok(())
     }
@@ -308,10 +341,12 @@ impl Driver for NativeDriver {
         let mut result = Vec::new();
         for d in nusb::list_devices().wait().map_err(|e| e.to_string())? {
             if let Some(mode) = wpi_core::classify_usb(d.vendor_id(), d.product_id()) {
-                if d.serial_number() != Some(self.serial.as_str())
-                    || physical_port(&d).as_ref() != Some(&self.port)
-                {
-                    return Err("A returning device has a different serial or physical USB port; no command was sent to it".into());
+                if let Some(reason) = binding_error(
+                    &self.serial,
+                    d.serial_number(),
+                    physical_port(&d).as_ref() == Some(&self.port),
+                ) {
+                    return Err(reason);
                 }
                 result.push(identity(&d, mode));
             }

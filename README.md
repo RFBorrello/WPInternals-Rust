@@ -33,9 +33,12 @@ hardware validation.
   the core transition engine runs in replay, with cancellation,
   permission, identity and deadline checks. Live mode switching remains blocked.
 - A CLI-only [native mode-validation experiment](docs/native-mode-test.md) for
-  RM-875 / 3051.50009.1451.1003 / Windows ARM64. Its default is a read-only preview;
-  explicit experimental execution can reboot into Flash and back, with hotplug,
-  serial/port binding, a synchronized journal and no firmware write commands.
+  RM-875 / 3051.50009.1451.1003 / Windows ARM64. Its first live attempt entered
+  Flash but could not correlate the returning interface, which had no USB serial.
+  Execution is now blocked pending further identity validation; read-only previews remain available.
+- CLI-only [public-ID inspection](docs/public-identity.md), using a dedicated
+  read-only query and redacted report. Normal-mode public-ID presence has been
+  observed on the connected RM-875; cross-mode equality is not yet hardware-validated.
 
 NTFS directory and kernel reads have been validated on one real RM-875 MainOS
 image. A small patched dependency handles index records smaller than clusters;
@@ -94,6 +97,7 @@ See [platform setup](docs/platforms.md) for WebView/runtime, USB and packaging d
 ```sh
 cargo run -p wpi-cli -- devices
 cargo run -p wpi-cli -- probe '<device-id-from-devices>'
+cargo run -p wpi-cli -- identity-probe '<device-id-from-devices>'
 cargo run -p wpi-cli -- prepare-mode '<device-id-from-devices>' flash
 cargo run -p wpi-cli -- mode-test '<device-id-from-devices>'
 cargo run -p wpi-cli -- replay-mode tests/fixtures/mode-normal-to-flash.json

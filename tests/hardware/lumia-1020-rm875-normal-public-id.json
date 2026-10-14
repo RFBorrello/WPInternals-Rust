@@ -1,0 +1,84 @@
+{
+  "record_kind": "read_only_normal_public_id_presence",
+  "recorded_on": "2026-10-13",
+  "source_baseline_revision": "15912cd",
+  "source_files_sha256": {
+    "crates/wpi-protocol/src/identity.rs": "29122f77abee7105490201d60179b6a2737c15dde23e441cd1db931088fb4cf0",
+    "crates/wpi-protocol/src/lib.rs": "deeff9b3003cd660e392d41bad641e348e01f1b4c3ca511e8e809a8acd669aeb",
+    "crates/wpi-transport/src/identity_probe.rs": "94fc0653b71eb62854055817f22980ab613c0402f376c8741f82a16a14a3da56",
+    "crates/wpi-transport/src/mode_test.rs": "55257491872d5aeed012011b71abb1315ffc3b01045043d6785a96588b0d0bf7",
+    "crates/wpi-transport/src/lib.rs": "368c3568d622030dc6307786bc030b35bcac0f4d546e1625f70a8cc89b4cf5ee",
+    "crates/wpi-cli/src/main.rs": "1816aa3d0352a66811b2906291693f35fb613303d9fa746df41ee8429342110d"
+  },
+  "report_sha256": "f065ea618d2ab8e4c611189b9bf0fa23bc138a0edb6126d6f54f1247b2e0c759",
+  "host": {
+    "os": "Windows 11 Pro",
+    "version": "10.0.26200",
+    "architecture": "aarch64-pc-windows-msvc",
+    "provenance": "Existing native hardware session context"
+  },
+  "transport": "native_usb",
+  "successful_queries": [
+    "ReadManufacturerModelName",
+    "ReadProductCode",
+    "ReadSwVersion",
+    "ReadPublicId"
+  ],
+  "report": {
+    "device": {
+      "id": "selected-device",
+      "vendor_id": 1057,
+      "product_id": 1633,
+      "manufacturer": null,
+      "product": "Nokia Lumia 909 (RM-875)",
+      "serial": null,
+      "model": "Lumia 1020",
+      "variant": "RM-875",
+      "firmware": "3051.50009.1451.1003",
+      "platform_id": null,
+      "family": "spec_a",
+      "mode": "normal",
+      "interfaces": [
+        {
+          "number": 0,
+          "class": 6,
+          "subclass": 1,
+          "protocol": 1
+        },
+        {
+          "number": 1,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 2,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 3,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        }
+      ]
+    },
+    "info": null,
+    "public_id_available": true,
+    "public_id_bytes_exported": false,
+    "physical_port_binding_available": true,
+    "usb_serial_available": true,
+    "firmware_query": null,
+    "identity_authenticated": false,
+    "mode_change_sent": false,
+    "recovery_authorized": false
+  },
+  "limits": [
+    "One successful Normal-mode public-ID query; the value was kept in memory and discarded, not exported.",
+    "No Flash terminal response or cross-mode ID equality was tested.",
+    "Presence and topology availability do not authenticate a physical device or enable mode changes or firmware writes.",
+    "This is parsed live response evidence, not a raw wire transcript. No IMEI was queried."
+  ]
+}

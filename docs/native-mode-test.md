@@ -6,6 +6,12 @@ This CLI-only experiment is limited to **Windows ARM64**, **Lumia 1020 RM-875**,
 available mode-switching capability. No Tauri IPC or browser entry point runs it.
 Stock flashing, unlocking, backup/restore and other writing gates remain blocked.
 
+**Live execution is currently blocked.** The first test exposed a missing Flash
+USB serial, so the known RM-875 admission profile now receives a blocker in both
+preview and execution before any mode command. Existing flags cannot bypass it.
+Use the separate [read-only public-ID probe](public-identity.md) for identity research.
+The sequence below documents the original experiment and its simulated tests.
+
 ## Preview and execution
 
 ```sh
@@ -13,8 +19,8 @@ wpi devices
 wpi mode-test '<selected-device-id>'
 ```
 
-The default command reads information and prints a redacted preview. It cannot
-execute a mode change. Execution requires a separate explicit flag, the exact
+The default command reads information and prints a redacted, blocked preview. It cannot
+execute a mode change. The original execution interface required a separate explicit flag, the exact
 confirmation phrase and a new local JSONL journal:
 
 ```sh
@@ -22,7 +28,7 @@ wpi mode-test '<selected-device-id>' --execute \
   --confirm RM875-NORMAL-FLASH-NORMAL --report mode-test.jsonl
 ```
 
-Existing reports are never overwritten. The journal is created and synchronized
+These flags do not bypass the current live blocker. Existing reports are never overwritten. The journal is created and synchronized
 before the harness runs. Events are flushed/synchronized at command boundaries
 and after observations so an interrupted process leaves a partial record. A
 journal failure prevents the next command. The CLI catches Ctrl+C using

@@ -7,6 +7,7 @@ use std::{
 };
 use wpi_protocol::{MessageTransport, ProtocolError};
 use wpi_types::*;
+pub mod identity_probe;
 pub mod mode_test;
 static PHONE_ACCESS: Mutex<()> = Mutex::new(());
 

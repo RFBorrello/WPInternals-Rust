@@ -1,13 +1,16 @@
 # Local validation — October 13, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. Commit `7a81c19` passed GitHub CI on all four native host
+headless Microsoft Edge. The preceding commit `7a81c19` passed GitHub CI on all four native host
 targets and Chromium ([run `38497203810`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38497203810)).
 Those remote build results do not establish device support.
+Browser/UI checks below are retained from the preceding milestone; this change
+adds native-only inspection and protocol codecs without changing the browser UI
+or its information-query allowlist. New remote CI results are pending separately.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 56 passed on Windows: 45 integration tests and 11 native-harness unit tests |
+| Rust tests | 65 passed on Windows: 50 integration tests and 15 native transport/harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -137,3 +140,17 @@ mode, Lumia 1020 RM-875 and the unchanged installed firmware. The sanitized resu
 digest are recorded in
 `tests/hardware/lumia-1020-rm875-native-mode-test-first.json`.
 This is an interrupted experiment, not a validated round trip or recovery profile.
+
+The next identity milestone adds five public-ID protocol tests and four native
+tests for FVER diagnostics, independent serial/port error reporting, and blocking
+the known failed live profile. Public-ID codecs reject oversized/truncated nodes,
+duplicate/excessive nodes, invalid lengths, malformed Normal responses, mismatched
+request IDs and blank identifiers. Fixed query bytes match a transcription of the
+pinned upstream source; comparison of synthetic Normal/Flash IDs is not hardware
+evidence. The new type deliberately cannot serialize its identifier and redacts Debug.
+
+The CLI `identity-probe` successfully queried the connected RM-875's public ID in
+Normal mode without exporting its bytes or sending a mode change. The sanitized
+record is `tests/hardware/lumia-1020-rm875-normal-public-id.json`. Live Flash
+terminal parsing and cross-mode equality are still unvalidated. The old experiment
+is blocked before any mode command; its private synthetic driver remains testable.

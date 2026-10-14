@@ -5,6 +5,8 @@ only concrete replay transports and cannot be given a native USB or WebUSB handl
 CLI, browser and desktop expose advisory previews and read-only identity comparisons.
 A separate [native RM-875 validation experiment](native-mode-test.md) requires
 explicit CLI execution/confirmation; it does not promote a production capability.
+Its known RM-875 profile is now blocked after the first interrupted hardware test.
+The [read-only public-ID probe](public-identity.md) supports further identity research.
 No preview or comparison can authorize flashing.
 
 ## Reviewed routes

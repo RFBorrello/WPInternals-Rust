@@ -51,6 +51,16 @@ in addition to the USB binding failure. Do not automatically repeat this experim
 or relax identity checks on the basis of a matching platform label. Capability
 gates remain unchanged.
 
+## Normal-mode public-ID observation
+
+The dedicated CLI `identity-probe` read a valid, nonblank 20-byte public ID on the
+connected RM-875 in Normal mode. The value was discarded and is not in the report.
+The report confirms availability, not equality with a Flash-mode observation.
+See [`lumia-1020-rm875-normal-public-id.json`](../tests/hardware/lumia-1020-rm875-normal-public-id.json)
+and [the probe's limits](public-identity.md). No mode change or firmware write was
+sent. The known failed native mode-test profile is now blocked in preview and
+execution; hardware cross-mode binding must be validated separately.
+
 ## Evidence required for writes
 
 Before enabling an operation, implement its entire state machine, identity and

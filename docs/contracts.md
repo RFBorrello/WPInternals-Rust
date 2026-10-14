@@ -48,3 +48,11 @@ ModeTestEvent journal. It cannot consume a caller-supplied preview or OperationP
 to authorize execution: the selected phone is read again and a fixed, narrow
 admission policy is applied. Explicit CLI confirmation permits only the reviewed
 mode sequence; it does not grant a capability to firmware-writing orchestration.
+The known RM-875 admission profile is now blocked before any mode command after
+the first failed cross-mode correlation. Confirmation cannot bypass this blocker.
+
+IdentityProbeReport is a separate CLI-only read-only research report. It contains
+public-ID presence, serial/port availability and final FVER-query diagnostics,
+not identifier values or cross-mode equality. The local typed PublicId is neither
+serializable nor part of DeviceIdentity; Debug is redacted. The presence report
+keeps identity_authenticated, mode_change_sent and recovery_authorized false.

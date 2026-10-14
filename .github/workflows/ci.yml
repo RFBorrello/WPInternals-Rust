@@ -59,6 +59,8 @@ jobs:
             resources/licenses/ctrlc-MIT
             resources/licenses/ctrlc-APACHE
             docs/validation.md
+            docs/native-mode-test.md
+            docs/public-identity.md
           if-no-files-found: error
   browser:
     runs-on: ubuntu-24.04
