@@ -146,6 +146,7 @@ impl IdentityDriver for Fake {
             .collect())
     }
     fn arm(&mut self, _: &str) -> Result<(), String> {
+        self.current.removed = false;
         Ok(())
     }
     fn removed(&mut self, _: &str) -> Result<bool, String> {
@@ -653,5 +654,77 @@ fn boot_observation_timeout_unknown_protocol_and_topology_changes_cannot_complet
         let mut fake = Fake::new(vec![frame(DeviceMode::Flash, "flash"), boot]);
         assert!(run_fake(&mut fake).is_err(), "{kind}");
         assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+    }
+}
+
+#[test]
+fn repeated_boot_interface_is_observed_once_and_retired_until_normal_even_if_id_is_reused() {
+    let boot = boot_frame(1);
+    let mut racing = boot.clone();
+    racing.error = Some("USB OUT timed out during boot departure");
+    let mut normal = frame(DeviceMode::Normal, "boot-stage");
+    normal.removed = false;
+    let mut fake = Fake::new(vec![
+        frame(DeviceMode::Flash, "flash"),
+        boot,
+        racing.clone(),
+        racing,
+        normal,
+    ]);
+    let mut boot_count = 0;
+    let result = round_trip(&mut fake, baseline(), &AtomicBool::new(false), |event| {
+        if matches!(event, ModeTestEvent::BootObservation { .. }) {
+            boot_count += 1;
+        }
+        true
+    })
+    .unwrap();
+    assert_eq!(boot_count, 1);
+    assert_eq!(fake.probes, 3);
+    assert_eq!(result.mode_commands_attempted, 2);
+    assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+}
+#[test]
+fn retired_interface_requires_new_removal_before_another_boot_probe_and_deadline_never_resets() {
+    let boot = boot_frame(1);
+    let mut returned = boot.clone();
+    returned.removed = true;
+    let mut fake = Fake::new(vec![
+        frame(DeviceMode::Flash, "flash"),
+        boot.clone(),
+        returned,
+        frame(DeviceMode::Normal, "normal-after"),
+    ]);
+    run_fake(&mut fake).unwrap();
+    assert_eq!(fake.probes, 4);
+    let mut frames = vec![frame(DeviceMode::Flash, "flash")];
+    frames.extend(vec![boot; 8]);
+    frames.push(frame(DeviceMode::Normal, "too-late"));
+    let mut fake = Fake::new(frames);
+    let start = fake.clock;
+    assert!(run_fake(&mut fake).unwrap_err().contains("30-second"));
+    assert_eq!(fake.probes, 2);
+    assert_eq!(fake.clock - start, RECONNECT_LIMIT);
+    assert_eq!(fake.actions.len(), 2);
+}
+#[test]
+fn matching_flash_transient_also_retires_without_querying_it_again_or_masking_wrong_normal_id() {
+    for changed in [false, true] {
+        let transient = frame(DeviceMode::Flash, "transient");
+        let mut repeated = transient.clone();
+        repeated.error = Some("must not query retired interface");
+        let mut normal = frame(DeviceMode::Normal, "normal-after");
+        if changed {
+            normal.observations[0].public_id = public_id(43);
+        }
+        let mut fake = Fake::new(vec![
+            frame(DeviceMode::Flash, "flash"),
+            transient,
+            repeated,
+            normal,
+        ]);
+        assert_eq!(run_fake(&mut fake).is_err(), changed);
+        assert_eq!(fake.probes, 3);
+        assert_eq!(fake.actions.len(), 2);
     }
 }

@@ -1,0 +1,226 @@
+{
+  "record_kind": "native_public_id_mode_test_boot_probe_timeout",
+  "recorded_on": "2026-10-14",
+  "application_revision": "7de3f4773391af2bb281c71ae7d85e8bfaf1f4ba",
+  "transport": "native_usb",
+  "host": "windows-arm64",
+  "journal_sha256": "f5a4b440090f2a7bb89d35c6ba3872190708fd0b686f2b69234c26782a52efe4",
+  "authorization": "User requested the corrected live test",
+  "commands": [
+    {
+      "kind": "command",
+      "action": "SetDeviceMode(Flash, HwReset)",
+      "delivery": "complete_out_once"
+    },
+    {
+      "kind": "command",
+      "action": "NOKR from public-ID-validated FlashApp",
+      "delivery": "complete_out_once"
+    }
+  ],
+  "boot_observation_count": 49,
+  "representative_boot_observation": {
+    "kind": "boot_observation",
+    "device": {
+      "id": "selected-device",
+      "vendor_id": 1057,
+      "product_id": 1646,
+      "manufacturer": null,
+      "product": "NOKIA BOOTMGR",
+      "serial": null,
+      "model": null,
+      "variant": null,
+      "firmware": null,
+      "platform_id": null,
+      "family": "unknown",
+      "mode": "boot_manager",
+      "interfaces": [
+        {
+          "number": 0,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        }
+      ]
+    },
+    "info": {
+      "mode": "boot_manager",
+      "protocol_major": 1,
+      "protocol_minor": 1,
+      "version_major": 1,
+      "version_minor": 16,
+      "platform_id": null,
+      "transfer_size": 2363392,
+      "write_buffer_size": null,
+      "emmc_sectors": null,
+      "secure_ffu": null,
+      "secure_boot": null,
+      "protocol_mask": null
+    },
+    "public_id_verified": false,
+    "physical_port_matches": true,
+    "recovery_authorized": false
+  },
+  "identity_observations": [
+    {
+      "kind": "identity_observation",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1633,
+        "manufacturer": null,
+        "product": "Nokia Lumia 909 (RM-875)",
+        "serial": null,
+        "model": "Lumia 1020",
+        "variant": "RM-875",
+        "firmware": "3051.50009.1451.1003",
+        "platform_id": null,
+        "family": "spec_a",
+        "mode": "normal",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 6,
+            "subclass": 1,
+            "protocol": 1
+          },
+          {
+            "number": 1,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 2,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 3,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": null,
+      "public_id_matches": true,
+      "normal_serial_matches": true,
+      "physical_port_matches": true,
+      "identity_authenticated": false,
+      "recovery_authorized": false
+    },
+    {
+      "kind": "identity_observation",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1646,
+        "manufacturer": null,
+        "product": "NOKIA FLASH",
+        "serial": null,
+        "model": null,
+        "variant": null,
+        "firmware": null,
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "family": "unknown",
+        "mode": "flash",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "info": {
+        "mode": "flash",
+        "protocol_major": 1,
+        "protocol_minor": 18,
+        "version_major": 2,
+        "version_minor": 2,
+        "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+        "transfer_size": 2363392,
+        "write_buffer_size": 2359296,
+        "emmc_sectors": 61071360,
+        "secure_ffu": true,
+        "secure_boot": true,
+        "protocol_mask": 31
+      },
+      "public_id_matches": true,
+      "normal_serial_matches": null,
+      "physical_port_matches": true,
+      "identity_authenticated": false,
+      "recovery_authorized": false
+    }
+  ],
+  "outcome": {
+    "error": "Transport: USB OUT timed out; delivery is uncertain and must not be retried. A mode command may have reached the phone. Inspect its state; do not automatically retry. No firmware write was sent",
+    "kind": "experiment_result",
+    "recovery_authorized": false
+  },
+  "subsequent_read_only_probe": {
+    "device": {
+      "id": "selected-device",
+      "vendor_id": 1057,
+      "product_id": 1633,
+      "manufacturer": null,
+      "product": "Nokia Lumia 909 (RM-875)",
+      "serial": null,
+      "model": "Lumia 1020",
+      "variant": "RM-875",
+      "firmware": "3051.50009.1451.1003",
+      "platform_id": null,
+      "family": "spec_a",
+      "mode": "normal",
+      "interfaces": [
+        {
+          "number": 0,
+          "class": 6,
+          "subclass": 1,
+          "protocol": 1
+        },
+        {
+          "number": 1,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 2,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        },
+        {
+          "number": 3,
+          "class": 255,
+          "subclass": 255,
+          "protocol": 255
+        }
+      ]
+    },
+    "info": null,
+    "normal": {
+      "manufacturer_model": "RM-875_eu_euro1_267",
+      "product_code": "059T909",
+      "firmware": "3051.50009.1451.1003"
+    },
+    "firmware": "3051.50009.1451.1003"
+  },
+  "serial_matches_earlier_normal_session": true,
+  "firmware_or_partition_writes_sent": false,
+  "fver_queried": false,
+  "failed_transfer_retried": false,
+  "manual_restart_requested": false,
+  "normal_return_public_id_verification_completed": false,
+  "limits": [
+    "Matching Normal/Flash public ID and physical port were observed again. Both mode OUT transfers completed once.",
+    "49 successful NOKV BootManager observations preceded an OUT timeout during the return-phase information probe. No failed transfer was retried.",
+    "A separate read-only probe confirmed Normal RM-875 and unchanged firmware; final in-harness public-ID equality was not reached.",
+    "Repeated probing risks a disconnect race; whether it delayed boot or which request timed out was not captured by that revision.",
+    "This compact record preserves counts and representative metadata rather than all repeated journal events. No identifier bytes or instance IDs are exported."
+  ]
+}

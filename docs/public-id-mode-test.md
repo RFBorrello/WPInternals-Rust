@@ -53,6 +53,9 @@ authorization because execution reboots the phone. Keep other phone clients idle
    again, but never cause an extra reset. During this return wait only, BootManager
    protocol 1/2 can be observed with NOKV and journaled as unverified. It cannot
    receive a terminal query or command, and cannot complete the identity check.
+   After observing an intermediate interface once, the harness retires it until
+   a fresh removal/arrival or the Normal USB descriptor appears. It does not keep
+   polling NOKV while that boot stage is active. The deadline is not reset.
 
 Only those two mode requests are accepted. No firmware files, partitions, loaders,
 security/authentication payloads, NOKS/context switches, mass storage or implicit
@@ -103,3 +106,11 @@ The software now supports unverified BootManager observations during return and
 reports safe mode/version diagnostics on profile rejection. That correction has
 synthetic tests and has not been repeated on live hardware. Full in-harness
 Normal/Flash/Normal public-ID verification remains pending.
+
+An approved October 14 run confirmed BootManager protocol `1.1`, application
+`1.16` during return. Both mode OUTs completed once, but 49 repeated successful
+BootManager queries were followed by an information-query OUT timeout. A separate
+probe again found Normal with unchanged firmware. See
+[the compact failure record](../tests/hardware/lumia-1020-rm875-public-id-mode-test-boot-timeout.json).
+Interface retirement now prevents repeated queries on that same boot generation;
+the effect of the earlier polling on boot timing itself is not established.

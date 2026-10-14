@@ -59,7 +59,8 @@ fn read_observation<T: MessageTransport>(
 ) -> Result<Observation, String> {
     let (probe, public_id) = match device.mode {
         DeviceMode::Normal => {
-            let normal = wpi_protocol::normal::read_info(transport).map_err(|e| e.to_string())?;
+            let normal = wpi_protocol::normal::read_info(transport)
+                .map_err(|e| format!("Normal information probe failed: {e}"))?;
             let mut device = device;
             wpi_core::profiles::apply_variant(
                 &mut device,
@@ -70,8 +71,8 @@ fn read_observation<T: MessageTransport>(
                     .unwrap_or_default(),
             );
             device.firmware = Some(normal.firmware.clone());
-            let public_id =
-                public_identity::read_normal(transport, 4).map_err(|e| e.to_string())?;
+            let public_id = public_identity::read_normal(transport, 4)
+                .map_err(|e| format!("Normal public-ID query failed: {e}"))?;
             (
                 ProbeResult {
                     firmware: device.firmware.clone(),
@@ -83,7 +84,8 @@ fn read_observation<T: MessageTransport>(
             )
         }
         DeviceMode::Flash => {
-            let info = wpi_protocol::flash::read_info(transport).map_err(|e| e.to_string())?;
+            let info = wpi_protocol::flash::read_info(transport)
+                .map_err(|e| format!("NOKV information query failed: {e}"))?;
             let mut device = device;
             device.mode = info.mode;
             device.platform_id = info.platform_id.clone();
@@ -108,7 +110,7 @@ fn read_observation<T: MessageTransport>(
             validate_flash(&probe)?; // No terminal query to an unexpected application/profile.
             let response = transport
                 .exchange(&public_identity::flash_request(), 65536)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| format!("Terminal identity transfer failed: {e}"))?;
             let public_id = public_identity::parse_flash(&response).map_err(|e| {
                 // Never expose arbitrary leading payload bytes as a supposed signature.
                 let signature = ["NOKXFT", "NOKXFR", "NOKU", "NOKV", "NOKX"]
@@ -536,6 +538,7 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
 ) -> Result<Snapshot, String> {
     let deadline = driver.now() + RECONNECT_LIMIT;
     let mut removed = false;
+    let mut retired_return_interfaces = HashSet::new();
     while driver.now() < deadline {
         if cancelled.load(Ordering::Acquire) {
             return Err("Cancelled while awaiting reconnection".into());
@@ -557,6 +560,18 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                         .ok_or("Baseline serial missing")?,
                     true,
                 )?;
+                if mode == DeviceMode::Normal
+                    && d.mode == DeviceMode::Flash
+                    && retired_return_interfaces.contains(&d.id)
+                {
+                    // A successful boot-stage query is not a reason to keep its interface busy.
+                    // Only fresh removal/arrival or the Normal USB descriptor permits another probe.
+                    if !driver.removed(&d.id)? {
+                        driver.pause();
+                        continue;
+                    }
+                    retired_return_interfaces.remove(&d.id);
+                }
                 let observation = match driver.probe(d, deadline, mode == DeviceMode::Normal) {
                     Ok(s) => s,
                     Err(DriverError::NotReady(_)) => {
@@ -594,6 +609,8 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                                 "Boot observation journal failed or cancellation requested".into(),
                             );
                         }
+                        driver.arm(&d.id)?; // Discard old removal notifications before retiring this generation.
+                        retired_return_interfaces.insert(d.id.clone());
                         driver.pause();
                         continue;
                     }
@@ -603,10 +620,12 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                 if snapshot.probe.device.mode == mode {
                     return Ok(snapshot);
                 }
-                // Successful, matching Flash observations may repeat during Normal boot, never trigger another reset.
+                // A matching Flash observation during Normal boot never triggers another reset or busy polling.
                 if mode != DeviceMode::Normal || snapshot.probe.device.mode != DeviceMode::Flash {
                     return Err("Unexpected returning application; no context command sent".into());
                 }
+                driver.arm(&d.id)?;
+                retired_return_interfaces.insert(d.id.clone());
             }
         }
         driver.pause();

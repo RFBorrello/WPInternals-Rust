@@ -10,7 +10,7 @@ or its information-query allowlist. New remote CI results are pending separately
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 79 passed on Windows: 50 integration tests and 29 native transport/harness unit tests |
+| Rust tests | 82 passed on Windows: 50 integration tests and 32 native transport/harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -186,3 +186,16 @@ wait, NOKV-only probing without terminal or mode requests, source BootManager
 rejection before NOKR, and deadlines/unknown protocols/changed topology. Fresh
 profile rejection now records safe mode/version/match flags. No live repeat was
 performed after this correction; firmware-writing capabilities stay blocked.
+
+On October 14, the approved corrected run again matched the Flash public ID and
+port and delivered both mode requests once. It recorded 49 BootManager NOKV
+observations (protocol 1.1 / application 1.16), then stopped on an information-query
+OUT timeout. No failed transfer was retried. A separate native probe found Normal
+with unchanged firmware and serial correlation to the earlier Normal session.
+The compact record is `tests/hardware/lumia-1020-rm875-public-id-mode-test-boot-timeout.json`.
+
+Three new regressions retire an observed intermediate interface until fresh removal
+or a Normal USB descriptor, including reused IDs, repeated boot/Flash observations,
+wrong returning public IDs, fresh generations and fixed deadlines. Readiness may
+still retry before any query; failed queries remain fatal. Query-stage diagnostics
+now identify Normal, public-ID, NOKV or terminal phases without payload logging.

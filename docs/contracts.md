@@ -68,3 +68,6 @@ BootManager NOKV result as public_id_verified=false. It cannot become a Snapshot
 or authorize a terminal/context/reset request. Final Normal identity still requires
 the original public ID, serial, firmware and variant; observing a boot stage never
 completes the operation.
+An intermediate return interface is queried once, then retired locally. Reusing
+its identifier cannot permit another query without a fresh removal or a Normal
+USB descriptor; native binding and the final public-ID check still apply.
