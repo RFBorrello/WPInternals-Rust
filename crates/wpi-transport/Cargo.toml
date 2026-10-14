@@ -11,4 +11,8 @@ nusb.workspace = true
 wpi-types.workspace = true
 wpi-core.workspace = true
 wpi-protocol.workspace = true
+futures-core = "0.3"
 serialport = { version = "4.8", default-features = false }
+
+[dev-dependencies]
+serde_json.workspace = true

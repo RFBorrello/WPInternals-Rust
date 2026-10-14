@@ -2,11 +2,13 @@
 use nusb::MaybeFuture;
 use serde::Serialize;
 use std::{
-    io::{Read, Write},
-    time::Duration,
+    sync::Mutex,
+    time::{Duration, Instant},
 };
 use wpi_protocol::{MessageTransport, ProtocolError};
 use wpi_types::*;
+pub mod mode_test;
+static PHONE_ACCESS: Mutex<()> = Mutex::new(());
 
 pub fn enumerate() -> Result<Vec<DeviceIdentity>, String> {
     let devices = nusb::list_devices()
@@ -45,7 +47,7 @@ fn identity(info: &nusb::DeviceInfo, mode: DeviceMode) -> DeviceIdentity {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ProbeResult {
     pub device: DeviceIdentity,
     pub info: Option<wpi_protocol::flash::FlashInfo>,
@@ -54,6 +56,13 @@ pub struct ProbeResult {
 }
 
 pub fn probe(id: &str) -> Result<ProbeResult, String> {
+    let _access = PHONE_ACCESS
+        .try_lock()
+        .map_err(|_| "Another native phone operation is active")?;
+    let (identity, mut transport) = open_selected(id)?;
+    probe_session(identity, &mut transport, false)
+}
+fn open_selected(id: &str) -> Result<(DeviceIdentity, UsbMessages), String> {
     let info = nusb::list_devices()
         .wait()
         .map_err(|e| e.to_string())?
@@ -67,7 +76,7 @@ pub fn probe(id: &str) -> Result<ProbeResult, String> {
                 .into(),
         );
     }
-    let mut device_identity = identity(&info, mode);
+    let device_identity = identity(&info, mode);
     let device = info.open().wait().map_err(|e| {
         format!("Cannot open device: {e}. Check WinUSB binding or USB permissions.")
     })?;
@@ -110,10 +119,17 @@ pub fn probe(id: &str) -> Result<ProbeResult, String> {
         .claim_interface(candidate.0)
         .wait()
         .map_err(|e| format!("Cannot claim USB interface: {e}"))?;
-    let mut transport =
+    let transport =
         UsbMessages::new(interface, candidate.1, candidate.2).map_err(|e| e.to_string())?;
-    if mode == DeviceMode::Normal {
-        let normal = wpi_protocol::normal::read_info(&mut transport).map_err(|e| e.to_string())?;
+    Ok((device_identity, transport))
+}
+fn probe_session(
+    mut device_identity: DeviceIdentity,
+    transport: &mut UsbMessages,
+    strict_firmware: bool,
+) -> Result<ProbeResult, String> {
+    if device_identity.mode == DeviceMode::Normal {
+        let normal = wpi_protocol::normal::read_info(transport).map_err(|e| e.to_string())?;
         let variant = normal
             .manufacturer_model
             .split('_')
@@ -128,20 +144,29 @@ pub fn probe(id: &str) -> Result<ProbeResult, String> {
             normal: Some(normal),
         });
     }
-    let flash = wpi_protocol::flash::read_info(&mut transport).map_err(|e| e.to_string())?;
+    let flash = wpi_protocol::flash::read_info(transport).map_err(|e| e.to_string())?;
     device_identity.mode = flash.mode;
     device_identity.platform_id = flash.platform_id.clone();
     // Reading FVER does not switch contexts. Do not query phone-info variables by
     // silently sending a context switch (upstream's extended info does that).
     let firmware = if flash.mode == DeviceMode::Flash {
-        transport
+        let value = transport
             .exchange(
                 &wpi_protocol::flash::parameter_request("FVER").map_err(|e| e.to_string())?,
                 65536,
             )
-            .and_then(|r| wpi_protocol::flash::parse_parameter(&r))
-            .ok()
-            .map(|s| String::from_utf8_lossy(&s).trim_matches('\0').to_owned())
+            .and_then(|r| wpi_protocol::flash::parse_parameter(&r));
+        if strict_firmware {
+            Some(
+                String::from_utf8_lossy(&value.map_err(|e| e.to_string())?)
+                    .trim_matches('\0')
+                    .to_owned(),
+            )
+        } else {
+            value
+                .ok()
+                .map(|s| String::from_utf8_lossy(&s).trim_matches('\0').to_owned())
+        }
     } else {
         None
     };
@@ -155,17 +180,58 @@ pub fn probe(id: &str) -> Result<ProbeResult, String> {
 }
 
 pub struct UsbMessages {
-    reader: nusb::io::EndpointRead<nusb::transfer::Bulk>,
-    writer: nusb::io::EndpointWrite<nusb::transfer::Bulk>,
+    input: nusb::Endpoint<nusb::transfer::Bulk, nusb::transfer::In>,
+    output: nusb::Endpoint<nusb::transfer::Bulk, nusb::transfer::Out>,
+    deadline: Option<Instant>,
 }
 impl UsbMessages {
     pub fn new(interface: nusb::Interface, input: u8, output: u8) -> Result<Self, nusb::Error> {
         use nusb::transfer::{Bulk, In, Out};
-        let mut reader = interface.endpoint::<Bulk, In>(input)?.reader(65536);
-        let mut writer = interface.endpoint::<Bulk, Out>(output)?.writer(65536);
-        reader.set_read_timeout(Duration::from_secs(5));
-        writer.set_write_timeout(Duration::from_secs(5));
-        Ok(Self { reader, writer })
+        Ok(Self {
+            input: interface.endpoint::<Bulk, In>(input)?,
+            output: interface.endpoint::<Bulk, Out>(output)?,
+            deadline: None,
+        })
+    }
+    fn timeout(&self) -> wpi_protocol::Result<Duration> {
+        let timeout = self.deadline.map_or(Duration::from_secs(5), |d| {
+            d.saturating_duration_since(Instant::now())
+                .min(Duration::from_secs(5))
+        });
+        if timeout.is_zero() {
+            return Err(ProtocolError::Transport(
+                "USB operation deadline expired".into(),
+            ));
+        }
+        Ok(timeout)
+    }
+    /// One OUT transfer only. A short completion is an error, never a remainder retry.
+    fn send_once(&mut self, request: &[u8]) -> wpi_protocol::Result<()> {
+        use nusb::transfer::Buffer;
+        if request.is_empty() || request.len() > 65536 {
+            return Err(ProtocolError::Invalid(
+                "invalid native request bound".into(),
+            ));
+        }
+        let timeout = self.timeout()?;
+        self.output.submit(Buffer::from(request.to_vec()));
+        let result = self.output.wait_next_complete(timeout);
+        if let Some(result) = result {
+            result
+                .status
+                .map_err(|e| ProtocolError::Transport(e.to_string()))?;
+            if result.actual_len != request.len() {
+                return Err(ProtocolError::Transport(
+                    "Incomplete USB OUT transfer; no retry was sent".into(),
+                ));
+            }
+            Ok(())
+        } else {
+            self.output.cancel_all();
+            Err(ProtocolError::Transport(
+                "USB OUT timed out; delivery is uncertain and must not be retried".into(),
+            ))
+        }
     }
 }
 impl MessageTransport for UsbMessages {
@@ -177,20 +243,28 @@ impl MessageTransport for UsbMessages {
         if maximum_response == 0 || maximum_response > 1024 * 1024 {
             return Err(ProtocolError::Invalid("invalid response bound".into()));
         }
-        self.writer
-            .write_all(request)
-            .and_then(|_| self.writer.flush())
+        self.send_once(request)?;
+        let timeout = self.timeout()?;
+        let packet = self.input.max_packet_size();
+        if packet == 0 {
+            return Err(ProtocolError::Invalid("USB IN packet size is zero".into()));
+        }
+        let length = maximum_response.div_ceil(packet) * packet;
+        self.input.submit(nusb::transfer::Buffer::new(length));
+        let result = self.input.wait_next_complete(timeout).ok_or_else(|| {
+            self.input.cancel_all();
+            ProtocolError::Transport("USB IN timed out; inspect state before retrying".into())
+        })?;
+        result
+            .status
             .map_err(|e| ProtocolError::Transport(e.to_string()))?;
-        let mut response = vec![0; maximum_response];
-        let length = self
-            .reader
-            .read(&mut response)
-            .map_err(|e| ProtocolError::Transport(e.to_string()))?;
-        if length == 0 {
+        if result.actual_len == 0 {
             return Err(ProtocolError::Transport("device disconnected".into()));
         }
-        response.truncate(length);
-        Ok(response)
+        if result.actual_len > maximum_response {
+            return Err(ProtocolError::Invalid("USB response exceeds bound".into()));
+        }
+        Ok(result.buffer.into_vec())
     }
 }
 

@@ -37,6 +37,17 @@ enum Command {
     },
     /// Run a synthetic mode-transition scenario using replay only. No USB access.
     ReplayMode { input: PathBuf },
+    /// Preview a narrowly scoped native mode experiment. Execution requires explicit confirmation.
+    ModeTest {
+        id: String,
+        #[arg(long, requires_all = ["confirm", "report"])]
+        execute: bool,
+        #[arg(long, requires = "execute")]
+        confirm: Option<String>,
+        /// New local JSONL journal. Existing files are never overwritten.
+        #[arg(long, requires = "execute")]
+        report: Option<PathBuf>,
+    },
     /// Inspect a legacy FFU, GPT/raw disk image, or FAT/NTFS boot sector.
     Inspect { input: PathBuf },
     /// Verify a local FFU and generate an advisory recovery checklist. Never starts recovery.
@@ -137,6 +148,85 @@ fn run() -> Result<(), Box<dyn Error>> {
         Command::Devices { serial: true } => print(wpi_transport::serial_candidates()?)?,
         Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
         Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
+        Command::ModeTest {
+            id,
+            execute,
+            confirm,
+            report,
+        } => {
+            if !execute {
+                print(wpi_transport::mode_test::preview(&id)?)?;
+            } else {
+                use std::{
+                    io::Write,
+                    sync::{
+                        atomic::{AtomicBool, Ordering},
+                        Arc,
+                    },
+                };
+                let confirmation = confirm
+                    .as_deref()
+                    .ok_or("Experimental confirmation is required")?;
+                if confirmation != wpi_transport::mode_test::CONFIRMATION {
+                    return Err("Experimental confirmation phrase does not match".into());
+                }
+                let path = report.ok_or("A new .jsonl report path is required")?;
+                if path.extension().is_none_or(|e| e != "jsonl") {
+                    return Err("The experiment journal must be a new .jsonl file".into());
+                }
+                let mut journal = std::fs::OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .open(path)?;
+                writeln!(
+                    journal,
+                    "{}",
+                    serde_json::json!({"kind":"experiment_header", "application_version":wpi_core::VERSION,"experiment":"rm875_normal_flash_normal","recovery_authorized":false,"firmware_or_partition_write_commands":false})
+                )?;
+                journal.flush()?;
+                journal.sync_all()?;
+                let cancelled = Arc::new(AtomicBool::new(false));
+                let signal = cancelled.clone();
+                ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+                let mut journal_error = None;
+                let result =
+                    wpi_transport::mode_test::run(&id, confirmation, &cancelled, |event| {
+                        if let wpi_transport::mode_test::ModeTestEvent::Progress { event } = event {
+                            eprintln!("{:?}: {}", event.state, event.message);
+                        }
+                        let write = (|| -> Result<(), Box<dyn Error>> {
+                            serde_json::to_writer(&mut journal, event)?;
+                            writeln!(journal)?;
+                            journal.flush()?;
+                            journal.sync_all()?;
+                            Ok(())
+                        })();
+                        if let Err(e) = write {
+                            journal_error = Some(e.to_string());
+                            return false;
+                        }
+                        !cancelled.load(Ordering::Acquire)
+                    });
+                let outcome = match &result {
+                    Ok(summary) => {
+                        serde_json::json!({"kind":"experiment_result","summary":summary})
+                    }
+                    Err(error) => {
+                        serde_json::json!({"kind":"experiment_result","error":error,"recovery_authorized":false})
+                    }
+                };
+                if journal_error.is_none() {
+                    writeln!(journal, "{outcome}")?;
+                    journal.flush()?;
+                    journal.sync_all()?;
+                }
+                if let Some(e) = journal_error {
+                    return Err(format!("Experiment journal failed: {e}. Inspect phone state before any further command").into());
+                }
+                print(&outcome)?;
+                result?;
+            }
+        }
         Command::PrepareMode { id, target } => {
             let p = wpi_transport::probe(&id)?;
             print(wpi_core::reconnect::prepare(

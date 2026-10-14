@@ -30,8 +30,12 @@ hardware validation.
 - Recovery preparation checklist in CLI, browser and desktop; native preparation
   verifies full-file/chunk hashes, while browser previews leave those checks unverified.
 - Mode-change previews and read-only reconnection checks in all frontends;
-  version-specific transition routes run only in replay, with cancellation,
+  the core transition engine runs in replay, with cancellation,
   permission, identity and deadline checks. Live mode switching remains blocked.
+- A CLI-only [native mode-validation experiment](docs/native-mode-test.md) for
+  RM-875 / 3051.50009.1451.1003 / Windows ARM64. Its default is a read-only preview;
+  explicit experimental execution can reboot into Flash and back, with hotplug,
+  serial/port binding, a synchronized journal and no firmware write commands.
 
 NTFS directory and kernel reads have been validated on one real RM-875 MainOS
 image. A small patched dependency handles index records smaller than clusters;
@@ -91,6 +95,7 @@ See [platform setup](docs/platforms.md) for WebView/runtime, USB and packaging d
 cargo run -p wpi-cli -- devices
 cargo run -p wpi-cli -- probe '<device-id-from-devices>'
 cargo run -p wpi-cli -- prepare-mode '<device-id-from-devices>' flash
+cargo run -p wpi-cli -- mode-test '<device-id-from-devices>'
 cargo run -p wpi-cli -- replay-mode tests/fixtures/mode-normal-to-flash.json
 cargo run -p wpi-cli -- inspect path/to/firmware.ffu
 cargo run -p wpi-cli -- prepare-recovery path/to/firmware.ffu

@@ -1,9 +1,11 @@
 # Mode transitions and reconnection
 
-Live mode switching remains blocked. The implemented transition engine accepts
-only concrete replay transports, and cannot be given a native USB or WebUSB
-handle. CLI, browser and desktop expose advisory previews and read-only identity
-comparisons. No preview or comparison can authorize flashing.
+General live mode switching remains blocked. The core transition replay accepts
+only concrete replay transports and cannot be given a native USB or WebUSB handle.
+CLI, browser and desktop expose advisory previews and read-only identity comparisons.
+A separate [native RM-875 validation experiment](native-mode-test.md) requires
+explicit CLI execution/confirmation; it does not promote a production capability.
+No preview or comparison can authorize flashing.
 
 ## Reviewed routes
 
@@ -47,8 +49,9 @@ cargo run -p wpi-cli -- replay-mode tests/fixtures/mode-normal-to-flash.json
 ```
 
 The fixture is entirely synthetic; its successful replay is not hardware evidence.
-These routes do not yet implement native monitoring, a live executor, automatic
-return-to-normal, or browser mode changes.
+These replay routes do not themselves execute native or browser mode changes.
+The separate native experiment implements hotplug monitoring and a closed
+Normal/Flash/Normal validation sequence for one exact admission profile.
 
 ## Read-only check on a connected phone
 

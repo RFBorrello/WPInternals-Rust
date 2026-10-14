@@ -42,3 +42,9 @@ read-only exchanges. A returning application mode comes from NOKV or normal
 JSON-RPC, not from a remembered identity or a USB PID. Permission renewal does
 not restart the deadline. `awaiting_reconnect` can emit progress in the same state;
 after uncertain command delivery, interruption requires inspection and never retry.
+
+The native hardware experiment has a separate redacted ModeTestPreview and JSONL
+ModeTestEvent journal. It cannot consume a caller-supplied preview or OperationPlan
+to authorize execution: the selected phone is read again and a fixed, narrow
+admission policy is applied. Explicit CLI confirmation permits only the reviewed
+mode sequence; it does not grant a capability to firmware-writing orchestration.

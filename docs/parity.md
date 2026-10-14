@@ -8,7 +8,7 @@ Later upstream changes are not implicitly accepted or enabled.
 | Device discovery | Native nusb, browser selection, native serial candidates | Experimental enumeration |
 | Flash application information | Bounded NOKV parser; native NOKV/FVER and browser NOKV probe | Experimental read-only; not validated |
 | Normal-mode information | Native and browser read-only Nokia Care Suite JSON-RPC model/product/firmware queries; interface 3 only | One successful native RM-875 / 3051.50009.1451.1003 / Windows ARM64 session, plus matching user-reported browser identification (browser version unknown); remains experimental |
-| Mode switching | Version-specific routes, fresh source preflight and bounded reconnection/cancellation workflow in replay; advisory previews and read-only correlation checks in all frontends | Live switching blocked; native executor and hardware validation pending |
+| Mode switching | Replay routes and shared read-only previews/correlation; separate CLI-only RM-875 native validation harness with hotplug, serial/port binding and Normal/Flash/Normal sequencing | Production switching blocked; experimental execution requires exact admission and confirmation; hardware validation pending |
 | Legacy FFU inspection | Single-store v1 headers, manifest and mapping bounds | Offline only |
 | Firmware integrity | SHA-256 chunk hashes | Catalog authenticity not verified |
 | Partition extraction | Streaming FFU primary mappings and raw images | Local files only |

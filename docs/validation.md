@@ -1,13 +1,13 @@
 # Local validation — October 13, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. The preceding milestone at commit `10d0fba` also passed
-GitHub CI on all four native host targets and Chromium (run `38476781716`). Those remote build results
+headless Microsoft Edge. The preceding milestone at commit `4348457` also passed
+GitHub CI on all four native host targets and Chromium (run `38481275034`). Those remote build results
 do not establish device support; this milestone's CI is recorded separately.
 
 | Check | Result |
 | --- | --- |
-| Rust integration tests | 45 passed |
+| Rust tests | 55 passed: 45 integration tests and 10 native-harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -106,3 +106,12 @@ USB serial, variant, firmware and family checks passed; platform stayed unverifi
 This is one user-confirmed normal-mode cycle. No raw event/wire transcript or exact
 browser version was captured, no phone mode was changed, and no writing capability
 was enabled.
+
+The next native harness was tested with a private simulated driver for direct
+Normal/Flash/Normal sequencing, BootManager 1/2 transitions, uncertain delivery,
+wrong/missing/ambiguous identity, changed topology, Windows interface readiness,
+protocol/platform/firmware contradictions, boot transients, cancellation and
+journal failures, exact admission and native-probe exclusion. A new read-only
+preview on the connected RM-875 succeeded using the direct bulk adapter; no mode
+request is sent by a preview. These unit tests and preview do not establish live
+Flash-mode hardware support. Live test evidence, when obtained, is recorded separately.
