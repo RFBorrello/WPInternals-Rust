@@ -125,6 +125,44 @@ pub fn read_small_ntfs_file<R: Read + Seek>(
         .map_err(|e| invalid(e.to_string()))?;
     Ok(Some(bytes))
 }
+/// Bounded optional FAT metadata lookup; missing files are distinct from errors.
+pub fn read_small_fat_file<R: Read + Seek>(
+    reader: &mut R,
+    path: &str,
+    limit: usize,
+) -> Result<Option<Vec<u8>>> {
+    if limit > crate::MAX_METADATA {
+        return Err(invalid("metadata file limit exceeds 32 MiB"));
+    }
+    let path = relative(path)?;
+    let info = inspect(reader)?;
+    if !info.kind.starts_with("FAT") {
+        return Err(invalid("Expected a FAT metadata volume"));
+    }
+    let length = reader.seek(SeekFrom::End(0))?;
+    if info
+        .total_sectors
+        .checked_mul(u64::from(info.bytes_per_sector))
+        .is_none_or(|n| n > length)
+    {
+        return Err(invalid("FAT volume exceeds partition bounds"));
+    }
+    reader.seek(SeekFrom::Start(0))?;
+    let fs = fatfs::FileSystem::new(ReadOnly(reader), fatfs::FsOptions::new())?;
+    let mut file = match fs.root_dir().open_file(&path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    let length = file.seek(SeekFrom::End(0))?;
+    if length > limit as u64 {
+        return Err(invalid("FAT metadata file exceeds bounded length"));
+    }
+    file.seek(SeekFrom::Start(0))?;
+    let mut bytes = vec![0; length as usize];
+    file.read_exact(&mut bytes)?;
+    Ok(Some(bytes))
+}
 pub fn list<R: Read + Seek>(reader: &mut R, path: &str) -> Result<Vec<DirectoryEntry>> {
     let info = inspect(reader)?;
     let path = relative(path)?;

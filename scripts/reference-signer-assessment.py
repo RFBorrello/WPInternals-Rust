@@ -1,15 +1,16 @@
 """Independent offline cryptography check of a supplied catalog's certificates.
 
-Usage: python scripts/reference-signer-assessment.py catalog.der
+Usage: python scripts/reference-signer-assessment.py catalog.der [--issuer issuer.der]
 This records certificate facts/signature links, not OEM trust. No network or keys.
 """
 import argparse, datetime, hashlib, json, warnings
 from cryptography.hazmat.primitives.serialization.pkcs7 import load_der_pkcs7_certificates
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509.oid import ExtensionOID, ExtendedKeyUsageOID, NameOID
-from cryptography.x509 import ExtensionNotFound
+from cryptography.x509 import ExtensionNotFound, load_der_x509_certificate
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('catalog')
+parser.add_argument('--issuer', action='append', default=[], help='Untrusted local issuer candidate DER; never a trust anchor')
 args = parser.parse_args()
 with open(args.catalog, 'rb') as stream:
     data = stream.read(1048577)
@@ -28,6 +29,16 @@ else:
     if len(candidates) != 1:
         raise ValueError('reference requires a unique synthetic signer or a single-cert real catalog')
     signer = candidates[0]
+if len(args.issuer) + len(certificates) > 16:
+    raise ValueError('too many issuer candidates')
+for path in args.issuer:
+    with open(path,'rb') as stream:
+        candidate=stream.read(16385)
+    if len(candidate)>16384:
+        raise ValueError('issuer candidate exceeds 16 KiB')
+    parsed=load_der_x509_certificate(candidate)
+    if parsed not in certificates:
+        certificates.append(parsed)
 def extension(cert, oid):
     try: return cert.extensions.get_extension_for_oid(oid).value
     except ExtensionNotFound: return None
@@ -55,7 +66,7 @@ for _ in range(8):
 usage = extension(signer, ExtensionOID.KEY_USAGE)
 eku = extension(signer, ExtensionOID.EXTENDED_KEY_USAGE)
 print(json.dumps({
-    'certificate_count':len(certificates), 'signer_sha256':fingerprint(signer),
+    'certificate_count':len(certificates), 'external_issuer_candidates':len(args.issuer), 'signer_sha256':fingerprint(signer),
     'subject':signer.subject.rfc4514_string(), 'issuer':signer.issuer.rfc4514_string(),
     'not_before':signer.not_valid_before_utc.isoformat(), 'not_after':signer.not_valid_after_utc.isoformat(),
     'digital_signature_usage':None if usage is None else usage.digital_signature,

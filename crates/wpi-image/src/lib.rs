@@ -5,6 +5,7 @@ pub mod filesystem;
 pub mod firmware;
 pub mod gpt;
 pub mod integrity;
+mod partition;
 pub mod patch;
 pub mod stream;
 

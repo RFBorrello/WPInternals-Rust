@@ -58,11 +58,14 @@ digest. Arbitrary digest bytes elsewhere in the catalog do not establish binding
 No external/detached content is accepted. RSA is used only for public verification.
 
 Signer assessment now checks an explicit local reference time, digital-signature
-key usage, code-signing EKU, supported extensions and embedded issuer signatures.
+key usage, code-signing EKU, supported extensions and catalog/image-local issuer signatures.
 It names missing issuers rather than promoting an embedded certificate to an OEM
 anchor. It is a limited assessment, not a complete PKIX/OEM policy engine. The
 checklist also compares bounded MainOS OEMSettings hardware-variant metadata with
 the phone's observed variant. See [OEM trust and applicability limits](oem-trust-and-applicability.md).
+The production PK provisioning file in EFIESP can supply a missing issuer
+candidate. Its signatures can complete internal consistency, while independent
+OEM trust, device enrollment, policy and revocation remain unverified.
 
 Legacy PKCS#7 sequence content hashes its value octets; CMS octet content hashes
 the enclosed content bytes. This distinction follows

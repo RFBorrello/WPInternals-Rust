@@ -50,6 +50,12 @@ and revocation evidence. Inspection adds default-optional `device_targeting` and
 Old reports remain readable. Certificate and targeting checks add checklist rows,
 without changing the blocked-operation contract or authorizing any phone write.
 
+CatalogReport also has default-optional `issuer_evidence`: the exact image-local
+source path, optional SHA-256 file/certificate fingerprints and a decode check.
+The native inspector and bounded worker callback use the same production-PK
+lookup and chain assessment. Decoding a candidate is separate from verifying its
+chain link; neither confers trust-anchor status or proves device enrollment.
+
 ReplayBlockSource is a concrete simulated read-only disk with bounded fixtures.
 The backup engine cannot accept native USB or raw block devices. Successful replay
 backups produce a `replay_only` manifest and atomically publish a new local image;

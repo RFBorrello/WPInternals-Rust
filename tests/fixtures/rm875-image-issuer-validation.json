@@ -1,0 +1,312 @@
+{
+  "recorded_on": "2026-10-14",
+  "scope": "Offline image-local catalog issuer discovery; no fresh USB queries or commands",
+  "source": {
+    "filename": "RM875_3051.50009.1424.0002_RETAIL_eu_euro1_267_02_448151_prd_signed.ffu",
+    "size": 1716256768,
+    "sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "platform_id": "Nokia.MSM8960.P5217",
+    "source_unchanged_from_previous_fingerprint": true
+  },
+  "source_hash_normalization": "UTF-8 source with CRLF normalized to LF",
+  "implementation_source_sha256": {
+    "crates/wpi-image/src/catalog.rs": "d71631fe75655f843638e37b8c9c05b65d2047329dd09edad102ffbb2bd23010",
+    "crates/wpi-image/src/catalog/image_issuer.rs": "bd0aff2e44cf494bf4ba8e9272f574c6c3f237073568e6a9ad85091f54fe9b04",
+    "crates/wpi-image/src/catalog/signer.rs": "75fc215383dfb4a919dafd6c6b0853837a4287c877104c033a7e1f45a9094de2",
+    "crates/wpi-image/src/filesystem.rs": "0dece4f318b4e8d17d680e4bac71d63cee97fc4f2966e22a34555363eb05f64f",
+    "crates/wpi-image/src/partition.rs": "a1466812fb87d91e218acf83d7b45db7920ccc99342c5d58431f871128527759",
+    "crates/wpi-image/src/firmware/mainos.rs": "a82a685bf1de717611c5f1e3380b16ee67d1cb098e1233e2103859ee886f4da1",
+    "crates/wpi-core/src/inspection.rs": "30a7921a23ddb5520dba9453aa7a92c36297909602621de12c02f3e4aa30799b",
+    "crates/wpi-wasm/src/lib.rs": "475c189f42c7edfe63dc3b808db90313596ec3f75585fee0dbd21ca6c318e953",
+    "apps/ui/src/firmware.worker.ts": "f3ef26c6985a3d0ffa1949a33091ba6b52a52fed7080e42f5eb92916ae4dffa2"
+  },
+  "catalog": {
+    "signature": {
+      "status": "valid",
+      "message": "RSA/SHA-256 catalog signature and signed attributes verified. This does not establish signer trust or device acceptance."
+    },
+    "hash_table_binding": {
+      "status": "valid",
+      "message": "Signed catalog member matches the FFU hash table using legacy SHA-1. Legacy collision resistance is not a modern authenticity guarantee."
+    },
+    "signer_trust": {
+      "status": "unverified",
+      "message": "OEM trust is unverified. Certificate signatures reach a self-signed certificate. This proves internal consistency only; the root is not trusted and full PKIX/OEM policy is not implemented. Issuer candidates include EFIESP/Nokia/Security/Nokia_Production_PK.bin; these bytes came from the same image and are not independent trust evidence. Full OEM policy, device trust binding and revocation remain unvalidated."
+    },
+    "signer_subject": "O=Nokia,ST=Some-State,C=AU",
+    "signer_certificate_sha256": "f03dca985e1cf1fbc845bcfb36fc0f88e14482b2b7988ac30c20784adabd201a",
+    "catalog_sha256": "e81a8cb17893e34eb7c4b5f2e94fa3560cd67f8ec3f873f55ec3ab6f7f4f29ba",
+    "membership_hash_algorithm": "sha1",
+    "signer_assessment": {
+      "issuer": "CN=PK,O=Nokia",
+      "not_before": "2012-09-06T11:13:39Z",
+      "not_after": "2027-09-03T11:13:39Z",
+      "checked_at_unix_seconds": 1792032491,
+      "validity": {
+        "status": "valid",
+        "message": "Certificate validity is 2012-09-06T11:13:39Z through 2027-09-03T11:13:39Z. Includes the supplied local time. The clock is not authenticated; signing-time validation is not implemented."
+      },
+      "key_usage": {
+        "status": "valid",
+        "message": "Signer key usage permits digital signatures"
+      },
+      "extended_key_usage": {
+        "status": "valid",
+        "message": "Signer EKU includes code signing. Device-specific OEM policy OIDs have not been validated."
+      },
+      "extensions": {
+        "status": "valid",
+        "message": "No duplicate or unprocessed critical signer extensions in the supported profile"
+      },
+      "chain_signatures": {
+        "status": "valid",
+        "message": "Certificate signatures reach a self-signed certificate. This proves internal consistency only; the root is not trusted and full PKIX/OEM policy is not implemented. Issuer candidates include EFIESP/Nokia/Security/Nokia_Production_PK.bin; these bytes came from the same image and are not independent trust evidence."
+      },
+      "chain_certificate_sha256": [
+        "f03dca985e1cf1fbc845bcfb36fc0f88e14482b2b7988ac30c20784adabd201a",
+        "0f9cc68d5a94e0f4391be222997f6e186395986601b276e7b2612426b1ff0d36"
+      ],
+      "trust_anchor": {
+        "status": "unverified",
+        "message": "No independently authenticated OEM trust anchor is configured. An embedded/self-signed root or a matching Nokia subject name is not a trust anchor."
+      },
+      "revocation": {
+        "status": "unverified",
+        "message": "No authenticated, current offline revocation evidence is available. No network revocation lookup is performed."
+      }
+    },
+    "issuer_evidence": {
+      "source": "EFIESP/Nokia/Security/Nokia_Production_PK.bin",
+      "file_sha256": "837f40334c530c5a0d46b5010d314e3dcb1636d0389e5d57a61cbdaba3301432",
+      "certificate_sha256": "0f9cc68d5a94e0f4391be222997f6e186395986601b276e7b2612426b1ff0d36",
+      "check": {
+        "status": "valid",
+        "message": "Image-local production PK candidate decoded; this does not prove OEM provenance or device enrollment."
+      }
+    }
+  },
+  "independent_python": {
+    "certificate_count": 2,
+    "external_issuer_candidates": 1,
+    "signer_sha256": "f03dca985e1cf1fbc845bcfb36fc0f88e14482b2b7988ac30c20784adabd201a",
+    "subject": "O=Nokia,ST=Some-State,C=AU",
+    "issuer": "CN=PK,O=Nokia",
+    "not_before": "2012-09-06T11:13:39+00:00",
+    "not_after": "2027-09-03T11:13:39+00:00",
+    "digital_signature_usage": true,
+    "code_signing_eku": true,
+    "certificate_signature_links": [
+      {
+        "child_sha256": "f03dca985e1cf1fbc845bcfb36fc0f88e14482b2b7988ac30c20784adabd201a",
+        "issuer_sha256": "0f9cc68d5a94e0f4391be222997f6e186395986601b276e7b2612426b1ff0d36"
+      },
+      {
+        "child_sha256": "0f9cc68d5a94e0f4391be222997f6e186395986601b276e7b2612426b1ff0d36",
+        "issuer_sha256": "0f9cc68d5a94e0f4391be222997f6e186395986601b276e7b2612426b1ff0d36"
+      }
+    ],
+    "chain_state": "internally_consistent",
+    "oem_trust_established": false,
+    "revocation_checked": false
+  },
+  "independent_wrong_key_python": {
+    "certificate_count": 2,
+    "external_issuer_candidates": 1,
+    "signer_sha256": "f03dca985e1cf1fbc845bcfb36fc0f88e14482b2b7988ac30c20784adabd201a",
+    "subject": "O=Nokia,ST=Some-State,C=AU",
+    "issuer": "CN=PK,O=Nokia",
+    "not_before": "2012-09-06T11:13:39+00:00",
+    "not_after": "2027-09-03T11:13:39+00:00",
+    "digital_signature_usage": true,
+    "code_signing_eku": true,
+    "certificate_signature_links": [],
+    "chain_state": "invalid_signature",
+    "oem_trust_established": false,
+    "revocation_checked": false
+  },
+  "native_browser_results_match_except_explicit_local_time": true,
+  "preparation_checks": [
+    {
+      "key": "firmware",
+      "label": "Stock FFU image",
+      "status": "passed",
+      "message": "Legacy FFU parsed for Nokia.MSM8960.P5217. A filename alone does not establish phone applicability."
+    },
+    {
+      "key": "gpt",
+      "label": "Partition bounds",
+      "status": "passed",
+      "message": "FFU inspection must validate the primary GPT CRCs and partition bounds before recovery."
+    },
+    {
+      "key": "artifact_identity",
+      "label": "Image fingerprint",
+      "status": "passed",
+      "message": "Complete local file SHA-256: ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4. Recorded for later revalidation."
+    },
+    {
+      "key": "chunk_hashes",
+      "label": "Chunk integrity",
+      "status": "passed",
+      "message": "All 13090 FFU SHA-256 chunks checked; this does not authenticate the signing catalog."
+    },
+    {
+      "key": "catalog_signature",
+      "label": "Catalog signature",
+      "status": "passed",
+      "message": "RSA/SHA-256 catalog signature and signed attributes verified. This does not establish signer trust or device acceptance."
+    },
+    {
+      "key": "catalog_binding",
+      "label": "Signed hash-table binding",
+      "status": "passed",
+      "message": "Signed catalog member matches the FFU hash table using legacy SHA-1. Legacy collision resistance is not a modern authenticity guarantee."
+    },
+    {
+      "key": "signing_catalog",
+      "label": "Firmware signer trust",
+      "status": "unverified",
+      "message": "OEM trust is unverified. Certificate signatures reach a self-signed certificate. This proves internal consistency only; the root is not trusted and full PKIX/OEM policy is not implemented. Issuer candidates include EFIESP/Nokia/Security/Nokia_Production_PK.bin; these bytes came from the same image and are not independent trust evidence. Full OEM policy, device trust binding and revocation remain unvalidated."
+    },
+    {
+      "key": "signer_dates",
+      "label": "Signer certificate dates",
+      "status": "passed",
+      "message": "Certificate validity is 2012-09-06T11:13:39Z through 2027-09-03T11:13:39Z. Includes the supplied local time. The clock is not authenticated; signing-time validation is not implemented."
+    },
+    {
+      "key": "signer_key_usage",
+      "label": "Signer key usage",
+      "status": "passed",
+      "message": "Signer key usage permits digital signatures"
+    },
+    {
+      "key": "signer_eku",
+      "label": "Signer code-signing usage",
+      "status": "passed",
+      "message": "Signer EKU includes code signing. Device-specific OEM policy OIDs have not been validated."
+    },
+    {
+      "key": "signer_extensions",
+      "label": "Signer certificate extensions",
+      "status": "passed",
+      "message": "No duplicate or unprocessed critical signer extensions in the supported profile"
+    },
+    {
+      "key": "signer_chain",
+      "label": "Certificate-chain signatures",
+      "status": "passed",
+      "message": "Certificate signatures reach a self-signed certificate. This proves internal consistency only; the root is not trusted and full PKIX/OEM policy is not implemented. Issuer candidates include EFIESP/Nokia/Security/Nokia_Production_PK.bin; these bytes came from the same image and are not independent trust evidence."
+    },
+    {
+      "key": "signer_anchor",
+      "label": "OEM trust anchor",
+      "status": "unverified",
+      "message": "No independently authenticated OEM trust anchor is configured. An embedded/self-signed root or a matching Nokia subject name is not a trust anchor."
+    },
+    {
+      "key": "signer_revocation",
+      "label": "Signer revocation",
+      "status": "unverified",
+      "message": "No authenticated, current offline revocation evidence is available. No network revocation lookup is performed."
+    },
+    {
+      "key": "image_variant",
+      "label": "Hardware variant in image",
+      "status": "passed",
+      "message": "Observed RM-875 in MainOS/Windows/Packages/RegistryFiles/OEMSettings.reg: HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo. This metadata does not authenticate the image."
+    },
+    {
+      "key": "hardware_variant",
+      "label": "Phone / image hardware variant",
+      "status": "passed",
+      "message": "Image and phone hardware variant match RM-875. Regional/product-code applicability and recovery support remain unverified."
+    },
+    {
+      "key": "regional_applicability",
+      "label": "Regional/product applicability",
+      "status": "unverified",
+      "message": "Image manufacturer model is RM-875_eu_euro1_267. Exact phone product code, region/operator and device acceptance have not been validated."
+    },
+    {
+      "key": "image_firmware",
+      "label": "Firmware version in image",
+      "status": "passed",
+      "message": "Image firmware revision is 3051.50009.1424.0002. Sources: MainOS/Windows/Packages/RegistryFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.reg: HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo\\PhoneFirmwareRevision; MainOS/Windows/Packages/DsmFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml: Identity/Version. This observed metadata does not establish signer trust."
+    },
+    {
+      "key": "firmware_relation",
+      "label": "Installed / image firmware",
+      "status": "failed",
+      "message": "The image is numerically older within the same firmware branch. No downgrade acceptance/profile is validated; recovery remains blocked."
+    },
+    {
+      "key": "device_identity",
+      "label": "Phone identity",
+      "status": "passed",
+      "message": "Read-only model, hardware variant and installed firmware information are available; authenticated identity across mode changes is still required."
+    },
+    {
+      "key": "platform",
+      "label": "Phone / image platform",
+      "status": "unverified",
+      "message": "The phone platform has not been established. Normal-mode information queries do not read a platform ID."
+    },
+    {
+      "key": "mode",
+      "label": "Recovery mode",
+      "status": "missing",
+      "message": "Stock recovery requires a validated FlashApp connection and identity checks after reconnection. This preview does not change phone modes."
+    },
+    {
+      "key": "compatibility",
+      "label": "Validated recovery profile",
+      "status": "unverified",
+      "message": "No stock recovery workflow is hardware validated for this exact variant, firmware, host and transport. Identification evidence does not establish write support."
+    },
+    {
+      "key": "backup",
+      "label": "Data preservation",
+      "status": "missing",
+      "message": "Native phone backup access is not implemented yet. Preserve recoverable originals and establish a data preservation plan before recovery."
+    },
+    {
+      "key": "executor",
+      "label": "Recovery execution",
+      "status": "failed",
+      "message": "Stock recovery currently runs only in protocol replay tests. No physical-device executor is enabled."
+    }
+  ],
+  "phone_comparison": {
+    "variant": "RM-875",
+    "firmware": "3051.50009.1451.1003",
+    "source": "Previously saved redacted Normal-mode identification; not refreshed"
+  },
+  "read_audit": {
+    "async_calls": 1739,
+    "async_bytes": 1723483408,
+    "max_async_slice": 1048576,
+    "sync_calls": 69,
+    "sync_bytes": 4354562,
+    "max_sync_slice": 65536
+  },
+  "elapsed_ms": 29647,
+  "tests": {
+    "rust_windows": 119,
+    "browser_edge_real_wasm": 37,
+    "typescript_unit": 3,
+    "native_and_wasm_clippy": "passed",
+    "native_arm64_cli_tauri_release": "passed",
+    "wasm_ui_build": "passed"
+  },
+  "executable": false,
+  "phone_commands_sent": false,
+  "firmware_or_partition_writes_sent": false,
+  "limits": [
+    "Same-image certificates establish internal signature consistency, not independent OEM authenticity or enrolled device trust.",
+    "Provisioning-envelope signatures, timestamps and enrollment authorization are not authenticated by the candidate extractor.",
+    "Full PKIX/OEM policy, revocation and regional/product-code applicability remain unverified.",
+    "The image is older than previously saved phone firmware; recovery remains blocked.",
+    "No actual OEM certificates, catalog, firmware, serials, public IDs or local personal paths are published."
+  ]
+}

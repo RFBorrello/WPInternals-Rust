@@ -52,7 +52,7 @@ pub fn inspect_at<R: Read + Seek>(
         let ffu = FfuMetadata::read_headers(reader, size)?;
         let gpt = ffu.gpt(reader)?;
         report.catalog = Some(
-            wpi_image::catalog::inspect_at(reader, &ffu, reference_time)
+            wpi_image::catalog::inspect_with_image_issuer(reader, &ffu, &gpt, reference_time)
                 .unwrap_or_else(wpi_image::catalog::unavailable),
         );
         match wpi_image::firmware::inspect(reader, &ffu, &gpt, |_, _| true) {

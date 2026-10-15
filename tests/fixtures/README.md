@@ -1,5 +1,12 @@
 # Synthetic fixtures
 
+`python scripts/make-image-issuer-fixture.py` creates disposable production/wrong-key
+provisioning files under `image-issuer` and two FAT-backed synthetic FFUs. Complete
+authority-name/serial identifiers exercise the narrow issuer profile. The auth
+wrappers contain no valid enrollment authorization; all keys are discarded.
+`rm875-image-issuer-validation.json` records only real-image certificate metadata,
+signature comparisons and bounded I/O, never OEM certificate or firmware bytes.
+
 `python scripts/make-signer-fixtures.py` creates disposable public certificate
 chains and policy-failure catalogs under `signer-policy`, plus `synthetic-chain.ffu`
 and `synthetic-bad-signer.ffu`. No private keys are saved; none is an OEM anchor.

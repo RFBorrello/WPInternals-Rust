@@ -12,24 +12,8 @@ from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID, ObjectIdentifier
 
 out = Path(__file__).resolve().parents[1] / 'tests/fixtures/signer-policy'
 out.mkdir(exist_ok=True)
-def tlv(tag, value):
-    n = len(value)
-    return bytes([tag]) + (bytes([n]) if n < 128 else bytes([128 + (n.bit_length()+7)//8]) + n.to_bytes((n.bit_length()+7)//8, 'big')) + value
-def seq(*v): return tlv(0x30, b''.join(v))
-def setof(*v): return tlv(0x31, b''.join(sorted(v)))
-def oid(value):
-    parts = list(map(int, value.split('.'))); output = bytearray([parts[0]*40 + parts[1]])
-    for n in parts[2:]:
-        encoded = [n & 127]; n >>= 7
-        while n: encoded.insert(0, 128 | (n & 127)); n >>= 7
-        output.extend(encoded)
-    return tlv(6, output)
-def integer(n):
-    b = n.to_bytes(max(1, (n.bit_length()+7)//8), 'big')
-    return tlv(2, (b'\0' if b[0] & 128 else b'') + b)
-def octets(value): return tlv(4, value)
-def alg(value): return seq(oid(value), tlv(5, b''))
-def attr(o, v): return seq(oid(o), setof(v))
+from synthetic_der import tlv, seq, setof, oid, integer, octets, alg, attr
+
 def key(): return rsa.generate_private_key(public_exponent=65537, key_size=2048)
 def name(value): return x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, value)])
 def date(year): return datetime.datetime(year, 1, 1, tzinfo=datetime.timezone.utc)

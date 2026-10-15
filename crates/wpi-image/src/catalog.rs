@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Seek};
 use x509_cert::{attr::Attributes, spki::AlgorithmIdentifierOwned, time::Time};
+pub mod image_issuer;
 pub mod signer;
 
 const MAX_CATALOG: usize = 1024 * 1024;
@@ -62,6 +63,15 @@ pub struct CatalogReport {
     pub membership_hash_algorithm: Option<String>,
     #[serde(default)]
     pub signer_assessment: Option<signer::SignerAssessment>,
+    #[serde(default)]
+    pub issuer_evidence: Option<IssuerEvidence>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IssuerEvidence {
+    pub source: String,
+    pub file_sha256: Option<String>,
+    pub certificate_sha256: Option<String>,
+    pub check: Check,
 }
 fn result_check(result: Result<()>, success: &str) -> Check {
     match result {
@@ -115,7 +125,7 @@ pub fn verify_at(catalog: &[u8], hashes: &[u8], at: Option<u64>) -> CatalogRepor
         hash_table_binding:Check {status:Status::Unverified,message:"Hash-table binding requires a valid catalog signature.".into()},
         signer_trust:Check {status:Status::Unverified,message:"An embedded certificate is not a trust anchor. OEM chain, device root-key binding, certificate policy/time and revocation have not been validated.".into()},
         signer_subject:None, signer_certificate_sha256:None,
-        catalog_sha256:hex::encode(Sha256::digest(catalog)),membership_hash_algorithm:None,signer_assessment:None,
+        catalog_sha256:hex::encode(Sha256::digest(catalog)),membership_hash_algorithm:None,signer_assessment:None,issuer_evidence:None,
     };
     if catalog.is_empty() {
         return report;
@@ -158,6 +168,56 @@ pub fn unavailable(error: ImageError) -> CatalogReport {
     let mut report = verify(&[], &[]);
     report.signature = result_check(Err(error), "");
     report
+}
+
+/// Supplement a verified catalog with the image's production PK candidate.
+/// No candidate is promoted to a trust anchor, including self-signed candidates.
+pub fn inspect_with_image_issuer<R: Read + Seek>(
+    reader: &mut R,
+    ffu: &FfuMetadata,
+    gpt: &crate::gpt::Gpt,
+    at: Option<u64>,
+) -> Result<CatalogReport> {
+    let mut report = inspect_at(reader, ffu, at)?;
+    if report.signature.status != Status::Valid {
+        return Ok(report);
+    }
+    let bytes = match image_issuer::read(reader, ffu, gpt, |_, _| true) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => return Ok(report),
+        Err(error) => {
+            report.issuer_evidence = Some(IssuerEvidence {
+                source: image_issuer::SOURCE.into(),
+                file_sha256: None,
+                certificate_sha256: None,
+                check: result_check(Err(error), ""),
+            });
+            return Ok(report);
+        }
+    };
+    let file_hash = hex::encode(Sha256::digest(&bytes));
+    let candidate = image_issuer::certificate(&bytes);
+    let mut evidence=IssuerEvidence{source:image_issuer::SOURCE.into(),file_sha256:Some(file_hash),certificate_sha256:None,check:result_check(Ok(()),"Image-local production PK candidate decoded; this does not prove OEM provenance or device enrollment.")};
+    match candidate {
+        Ok(candidate) => {
+            evidence.certificate_sha256 = Some(hex::encode(Sha256::digest(
+                candidate.to_der().map_err(malformed)?,
+            )));
+            let start = ffu.hash_table_offset - u64::from(ffu.catalog_size);
+            let catalog = read_at(reader, start, ffu.catalog_size as usize)?;
+            let (_, leaf, mut pool) = verify_signature(&catalog)?;
+            if !pool.contains(&candidate) {
+                pool.push(candidate);
+            }
+            let mut assessment = signer::assess(&leaf, &pool, at);
+            assessment.chain_signatures.message.push_str(&format!(" Issuer candidates include {}; these bytes came from the same image and are not independent trust evidence.",image_issuer::SOURCE));
+            report.signer_trust = assessment.overall();
+            report.signer_assessment = Some(assessment);
+        }
+        Err(error) => evidence.check = result_check(Err(error), ""),
+    }
+    report.issuer_evidence = Some(evidence);
+    Ok(report)
 }
 
 // Reject deep/huge ASN.1 before allocating CMS/X.509 structures. DER primitives,

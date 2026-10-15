@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use x509_cert::{
     ext::pkix::{
-        AuthorityKeyIdentifier, BasicConstraints, ExtendedKeyUsage, KeyUsage, SubjectKeyIdentifier,
+        name::GeneralName, AuthorityKeyIdentifier, BasicConstraints, ExtendedKeyUsage, KeyUsage,
+        SubjectKeyIdentifier,
     },
     Certificate,
 };
@@ -140,10 +141,32 @@ fn verify_link(child: &Certificate, issuer: &Certificate) -> Result<()> {
                 ));
             }
         }
-        if aki.authority_cert_issuer.is_some() || aki.authority_cert_serial_number.is_some() {
-            return Err(unsupported(
-                "Certificate authority issuer/serial constraints are not implemented",
-            ));
+        match (aki.authority_cert_issuer, aki.authority_cert_serial_number) {
+            (None, None) => {}
+            (Some(names), Some(serial)) => {
+                // authorityCertIssuer names the issuer OF the candidate issuer.
+                // Support only one exact directoryName; never ignore constraints.
+                if names.len() != 1 {
+                    return Err(unsupported(
+                        "Only a single authority directoryName is supported",
+                    ));
+                }
+                match &names[0] {
+                    GeneralName::DirectoryName(name) if name == &issuer.tbs_certificate.issuer => {}
+                    GeneralName::DirectoryName(_) => {
+                        return Err(invalid("Authority certificate issuer name mismatch"))
+                    }
+                    _ => {
+                        return Err(unsupported(
+                            "Authority certificate issuer name type is unsupported",
+                        ))
+                    }
+                }
+                if serial != issuer.tbs_certificate.serial_number {
+                    return Err(invalid("Authority certificate serial number mismatch"));
+                }
+            }
+            _ => return Err(invalid("Authority issuer and serial must appear together")),
         }
     }
     let key = RsaPublicKey::from_public_key_der(
@@ -191,7 +214,7 @@ fn chain(
         }
         if current.tbs_certificate.issuer == current.tbs_certificate.subject {
             verify_link(current, current)?;
-            return Ok(check(Status::Valid, "Embedded certificate signatures reach a self-signed certificate. This proves internal consistency only; the root is not trusted and full PKIX/OEM policy is not implemented."));
+            return Ok(check(Status::Valid, "Certificate signatures reach a self-signed certificate. This proves internal consistency only; the root is not trusted and full PKIX/OEM policy is not implemented."));
         }
         let issuers: Vec<_> = certificates
             .iter()
@@ -287,6 +310,58 @@ impl SignerAssessment {
             check(Status::Invalid, "Signer certificate assessment failed. Mathematical catalog signature verification alone cannot override certificate-policy or chain failures.")
         } else {
             check(Status::Unverified, format!("OEM trust is unverified. {} Full OEM policy, device trust binding and revocation remain unvalidated.", self.chain_signatures.message))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn complete_authority_identifier_checks_issuer_name_serial_and_key() {
+        let root = Certificate::from_der(include_bytes!(
+            "../../../../tests/fixtures/image-issuer/root.der"
+        ))
+        .unwrap();
+        verify_link(&root, &root).unwrap();
+        let mut wrong = root.clone();
+        wrong.tbs_certificate.serial_number =
+            x509_cert::serial_number::SerialNumber::new(&[1]).unwrap();
+        assert!(verify_link(&root, &wrong)
+            .unwrap_err()
+            .to_string()
+            .contains("serial number mismatch"));
+        let mut wrong = root.clone();
+        wrong.tbs_certificate.issuer = "CN=Different issuer".parse().unwrap();
+        assert!(verify_link(&root, &wrong)
+            .unwrap_err()
+            .to_string()
+            .contains("issuer name mismatch"));
+        for names in [
+            None,
+            Some(vec![]),
+            Some(vec![
+                GeneralName::DirectoryName(
+                    root.tbs_certificate.issuer.clone()
+                );
+                2
+            ]),
+        ] {
+            let mut child = root.clone();
+            let mut aki = extension::<AuthorityKeyIdentifier>(&child, "2.5.29.35")
+                .unwrap()
+                .unwrap();
+            aki.authority_cert_issuer = names;
+            let ext = child
+                .tbs_certificate
+                .extensions
+                .as_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|e| e.extn_id == oid("2.5.29.35"))
+                .unwrap();
+            ext.extn_value = der::asn1::OctetString::new(aki.to_der().unwrap()).unwrap();
+            assert!(verify_link(&child, &root).is_err());
         }
     }
 }

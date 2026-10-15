@@ -28,7 +28,8 @@ hardware validation.
   MainOS registry/DSM firmware-version fallback.
   Signer trust and device acceptance remain unverified; valid signatures cannot enable recovery.
 - Offline [signer and applicability assessment](docs/oem-trust-and-applicability.md):
-  certificate dates/usages, limited embedded-chain checks, missing-issuer diagnostics
+  certificate dates/usages, limited chain checks with image-local production PK
+  discovery, missing-issuer diagnostics
   and MainOS hardware-variant comparison. Independent OEM trust, product-code/region
   applicability and device acceptance remain unverified.
 - FAT/NTFS boot-sector inspection, native filesystem directory listing and file extraction.

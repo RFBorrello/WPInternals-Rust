@@ -14,3 +14,4 @@
 /apps/ui/*.tsbuildinfo
 /apps/desktop/gen/
 /artifacts/
+__pycache__/

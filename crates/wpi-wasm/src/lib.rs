@@ -160,7 +160,7 @@ pub fn mainos_firmware_json(
     total_size: u64,
     read: &js_sys::Function,
 ) -> Result<String, JsValue> {
-    mainos_json(metadata, gpt, total_size, read, false)
+    metadata_json(metadata, gpt, total_size, read, MetadataTask::Firmware)
 }
 #[wasm_bindgen]
 pub fn mainos_targeting_json(
@@ -169,14 +169,35 @@ pub fn mainos_targeting_json(
     total_size: u64,
     read: &js_sys::Function,
 ) -> Result<String, JsValue> {
-    mainos_json(metadata, gpt, total_size, read, true)
+    metadata_json(metadata, gpt, total_size, read, MetadataTask::Targeting)
 }
-fn mainos_json(
+#[wasm_bindgen]
+pub fn ffu_catalog_image_json(
     metadata: &str,
     gpt: &str,
     total_size: u64,
     read: &js_sys::Function,
-    targeting: bool,
+    reference_time: Option<u64>,
+) -> Result<String, JsValue> {
+    metadata_json(
+        metadata,
+        gpt,
+        total_size,
+        read,
+        MetadataTask::Catalog(reference_time),
+    )
+}
+enum MetadataTask {
+    Firmware,
+    Targeting,
+    Catalog(Option<u64>),
+}
+fn metadata_json(
+    metadata: &str,
+    gpt: &str,
+    total_size: u64,
+    read: &js_sys::Function,
+    task: MetadataTask,
 ) -> Result<String, JsValue> {
     use std::io::{Read, Seek, SeekFrom};
     struct Reader<'a> {
@@ -238,16 +259,19 @@ fn mainos_json(
         size: total_size,
         position: 0,
     };
-    if targeting {
-        json(
+    match task {
+        MetadataTask::Targeting => json(
             &wpi_image::firmware::mainos::read_targeting(&mut reader, &ffu, &gpt, |_, _| true)
                 .map_err(js_error)?,
-        )
-    } else {
-        json(
+        ),
+        MetadataTask::Firmware => json(
             &wpi_image::firmware::mainos::read(&mut reader, &ffu, &gpt, |_, _| true)
                 .map_err(js_error)?,
-        )
+        ),
+        MetadataTask::Catalog(at) => json(
+            &wpi_image::catalog::inspect_with_image_issuer(&mut reader, &ffu, &gpt, at)
+                .map_err(js_error)?,
+        ),
     }
 }
 #[wasm_bindgen]

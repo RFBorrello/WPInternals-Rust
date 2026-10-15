@@ -63,6 +63,20 @@ async function inspect(file: File, captureHeaders?: (headers: Uint8Array) => voi
     if (ffu && ffuHeaders) {
       report.catalog = JSON.parse(wasm.ffu_catalog_json(ffuHeaders, BigInt(file.size), BigInt(Math.floor(Date.now() / 1000))));
       try {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (cancelled) throw new Error('Operation cancelled');
+        if (typeof FileReaderSync === 'undefined') throw new Error('Image issuer lookup requires worker FileReaderSync; use the desktop app');
+        const reader = new FileReaderSync();
+        const slice = (offset: number, length: number) => {
+          safeNumber(offset); safeNumber(length); safeNumber(offset + length);
+          if (length > 64 * 1024 || offset + length > file.size) throw new Error('Issuer read exceeds bounded file slice');
+          return new Uint8Array(reader.readAsArrayBuffer(file.slice(offset, offset + length)));
+        };
+        report.catalog = JSON.parse(wasm.ffu_catalog_image_json(JSON.stringify(ffu), JSON.stringify(gpt), BigInt(file.size), slice, BigInt(Math.floor(Date.now() / 1000))));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (cancelled) throw new Error('Operation cancelled');
+      } catch (error) { if (cancelled) throw error; report.notes.push(`Image issuer lookup unavailable: ${String(error)}`); }
+      try {
         report.firmware_version = await platVersion(file, ffu, gpt);
         report.firmware_version_sources = report.firmware_version ? ['PLAT SWVERSION'] : [];
         if (!report.firmware_version) {

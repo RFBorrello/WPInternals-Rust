@@ -29,6 +29,28 @@ fn fat_listing_and_extraction_do_not_mutate_source() {
     assert_eq!(disk.into_inner(), bytes);
 }
 #[test]
+fn optional_fat_metadata_lookup_enforces_size_geometry_and_missing_file_semantics() {
+    let bytes = fat_fixture();
+    let mut disk = Cursor::new(bytes.clone());
+    assert!(
+        filesystem::read_small_fat_file(&mut disk, "missing/file.bin", 8)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        filesystem::read_small_fat_file(&mut disk, "kernel.bin", 8)
+            .unwrap()
+            .unwrap(),
+        b"abcdefgh"
+    );
+    assert!(filesystem::read_small_fat_file(&mut disk, "kernel.bin", 7).is_err());
+    assert!(filesystem::read_small_fat_file(&mut disk, "../kernel.bin", 8).is_err());
+    assert!(
+        filesystem::read_small_fat_file(&mut Cursor::new(&bytes[..512]), "kernel.bin", 8).is_err()
+    );
+    assert_eq!(disk.into_inner(), bytes);
+}
+#[test]
 fn fat_copy_patch_preserves_filesystem_and_is_reversible() {
     let original = b"abcdefgh";
     let patched = b"abXYefgh";

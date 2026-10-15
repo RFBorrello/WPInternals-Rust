@@ -17,12 +17,15 @@ The supported profile checks:
 - Explicit digital-signature key usage and code-signing extended key usage.
 - Duplicate extensions, malformed supported extensions and unprocessed critical
   extensions. Missing explicit signing usages stay unverified.
-- Embedded issuer signatures using RSA 2048–4096 / SHA-256, exact issuer names,
+- Catalog/image-local issuer signatures using RSA 2048–4096 / SHA-256, exact issuer names,
   available authority/subject key identifiers, issuer CA/key-cert-sign constraints
   and conservative path-length checks.
 - Missing/ambiguous issuers, cycles and an eight-certificate path limit. The outer
   catalog limits still apply: 1 MiB, 16 certificates, DER depth 24 / 4096 nodes;
   assessment limits each certificate to 32 extensions.
+- Authority key identifiers with a key ID and/or one directoryName plus serial.
+  The directoryName must match the candidate certificate's issuer, and the serial
+  must match its serial. Other name forms or ambiguous authority names stay unsupported.
 
 These are limited checks informed by [RFC 5280 sections 4.2 and 6](https://www.rfc-editor.org/rfc/rfc5280).
 This is **not a complete PKIX validator or OEM policy engine**. General path
@@ -66,10 +69,50 @@ firmware, so unvalidated-downgrade preparation still fails.
 
 Its catalog embeds one signer certificate, issued by `CN=PK,O=Nokia`, valid from
 `2012-09-06T11:13:39Z` to `2027-09-03T11:13:39Z`. Signing key usage, code-signing
-EKU and supported critical-extension checks pass. The issuer certificate is absent,
-so its certificate-chain signatures cannot yet be verified. An independently
-authenticated Nokia issuer/root and OEM policy/revocation evidence are still
-needed. This milestone does not claim OEM trust has been established.
+EKU and supported critical-extension checks pass. Its issuer is absent from the
+catalog but has now been found inside the same image, as described below. An
+independently authenticated Nokia root and OEM policy/revocation evidence are
+still needed. This does not establish OEM trust.
+
+## Image-local production PK discovery
+
+Native Rust and browser WASM read exactly
+`EFIESP/Nokia/Security/Nokia_Production_PK.bin` through the FAT filesystem. The
+shared sparse-partition reader enforces partition bounds, a 64 KiB cache/read
+limit, a 16 MiB fetched-I/O budget and a 65,536-call budget. The file is limited
+to 16 KiB before allocation. Missing files are optional; malformed or ambiguous
+partitions and malformed present files are recorded as failed candidate evidence.
+
+The narrow parser accepts a bounded `EFI_VARIABLE_AUTHENTICATION_2` envelope with
+a DER CMS SignedData wrapper, followed by exactly one complete X.509
+`EFI_SIGNATURE_LIST` entry with an empty signature header. It rejects unsupported
+types, oversized/truncated lengths, extra entries and trailing data. Layout/GUID
+definitions follow the primary [EDK II image-authentication header](https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Guid/ImageAuthentication.h).
+The envelope's timestamp, enrollment authorization and CMS signature are **not
+authenticated**: this is issuer-candidate extraction, not variable-update verification.
+
+The real 2,158-byte file has SHA-256
+`837f40334c530c5a0d46b5010d314e3dcb1636d0389e5d57a61cbdaba3301432`.
+Its self-signed `CN=PK,O=Nokia` certificate has SHA-256
+`0f9cc68d5a94e0f4391be222997f6e186395986601b276e7b2612426b1ff0d36`,
+SKI `519e4ac17548b1c8b3ef85ff3458699d49db0711`, serial 666, and validity
+`2012-09-06T09:59:15Z` through `2042-08-30T09:59:15Z`.
+Rust and independent Python cryptography verify the catalog signer's certificate
+signature and this candidate's self-signature. The image's separate R&D PK has
+the same subject name but a different key and fails the catalog-signature link.
+The app only looks up the named production file; it does not select keys by name
+from arbitrary binary matches or import the R&D file automatically.
+
+The existing certificate-chain checklist now passes **internal consistency** for
+this image. `CatalogReport.issuer_evidence` retains source/file/certificate hashes;
+the root is still untrusted, revocation is unverified and recovery remains blocked.
+See the [metadata-only evidence](../tests/fixtures/rm875-image-issuer-validation.json).
+
+Indexed primary-source searches for the exact production filename, issuer SKI
+and certificate fingerprint did not produce an independently authenticated Nokia
+publication during this investigation. That limited search does not establish
+that no such source exists. Same-image provisioning data is not evidence of what
+is enrolled in the connected phone; the Qualcomm RKH below cannot fill that gap.
 
 The Qualcomm boot-chain root-key hash is a different trust domain. Pinned upstream
 2.9.2 hashes the SBL1 root certificate and compares it with the phone's RRKH in its
@@ -78,6 +121,7 @@ It is not a substitute for the missing catalog issuer or proof of regional
 applicability. This implementation does not add an engineering-device bypass.
 
 No phone query, mode switch or firmware/partition write was used for this offline
-milestone. See [the metadata-only validation record](../tests/fixtures/rm875-signer-targeting-validation.json).
+milestone. The [earlier signer/targeting record](../tests/fixtures/rm875-signer-targeting-validation.json)
+preserves the result before image-local issuer discovery.
 
-![Offline signer and targeting checklist](signer-targeting-preparation.png)
+![Offline checklist with image-local issuer](image-issuer-preparation.png)

@@ -26,7 +26,7 @@ fail the unvalidated-downgrade check.
 See [firmware validation and its limits](firmware-validation.md).
 
 The checklist also exposes signer certificate dates, key/code-signing usages,
-critical-extension handling, embedded-chain checks, missing issuers, OEM-anchor
+critical-extension handling, catalog/image-local chain checks, missing issuers, OEM-anchor
 and revocation prerequisites. Supported certificate-policy failures fail trust
 even when the catalog signature is mathematically valid. Hardware variant is read
 from MainOS OEMSettings and compared with the phone; contradictions fail, while
