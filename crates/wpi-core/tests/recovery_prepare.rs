@@ -277,3 +277,51 @@ fn mainos_version_provenance_reaches_preparation_and_keeps_older_image_blocked()
         .any(|c| c.key == "firmware_relation" && c.status == PreparationStatus::Failed));
     assert!(!result.plan.executable);
 }
+#[test]
+fn targeting_match_mismatch_missing_and_errors_never_authorize_recovery() {
+    let mut image = inspection::inspect(&mut Cursor::new(include_bytes!(
+        "../../../tests/fixtures/synthetic-mainos.ffu"
+    )))
+    .unwrap();
+    for (variant, expected) in [
+        ("RM-875", PreparationStatus::Passed),
+        ("RM-730", PreparationStatus::Failed),
+    ] {
+        let mut device = phone("SYNTHETIC.LUMIA.TEST");
+        device.variant = Some(variant.into());
+        let result = report(
+            Some(device),
+            Some(&image),
+            None,
+            ChunkIntegrity::NotChecked,
+            Host::Windows,
+            TransportKind::Usb,
+        );
+        assert!(result
+            .checks
+            .iter()
+            .any(|c| c.key == "hardware_variant" && c.status == expected));
+        assert!(result.checks.iter().any(
+            |c| c.key == "regional_applicability" && c.status == PreparationStatus::Unverified
+        ));
+        assert!(!result.plan.executable);
+    }
+    image.device_targeting_error = Some("bad metadata".into());
+    let result = report(
+        Some(phone("SYNTHETIC.LUMIA.TEST")),
+        Some(&image),
+        None,
+        ChunkIntegrity::NotChecked,
+        Host::Windows,
+        TransportKind::Usb,
+    );
+    assert!(result
+        .checks
+        .iter()
+        .any(|c| c.key == "image_variant" && c.status == PreparationStatus::Failed));
+    assert!(result
+        .checks
+        .iter()
+        .any(|c| c.key == "hardware_variant" && c.status == PreparationStatus::Unverified));
+    assert!(!result.plan.executable);
+}

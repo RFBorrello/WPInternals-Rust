@@ -27,6 +27,10 @@ hardware validation.
   signatures, signed hash-table membership, bounded PLAT scanning and a corroborated
   MainOS registry/DSM firmware-version fallback.
   Signer trust and device acceptance remain unverified; valid signatures cannot enable recovery.
+- Offline [signer and applicability assessment](docs/oem-trust-and-applicability.md):
+  certificate dates/usages, limited embedded-chain checks, missing-issuer diagnostics
+  and MainOS hardware-variant comparison. Independent OEM trust, product-code/region
+  applicability and device acceptance remain unverified.
 - FAT/NTFS boot-sector inspection, native filesystem directory listing and file extraction.
 - Reversible, hash-pinned upstream patches on extracted files and **new copies** of FAT images.
 - Shared React UI, Rust WebAssembly processing in a worker, bounded streaming,

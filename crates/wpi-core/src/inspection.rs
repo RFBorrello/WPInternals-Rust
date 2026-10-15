@@ -18,8 +18,18 @@ pub struct Inspection {
     pub firmware_version_error: Option<String>,
     #[serde(default)]
     pub firmware_version_sources: Vec<String>,
+    #[serde(default)]
+    pub device_targeting: Option<wpi_image::firmware::mainos::TargetingInfo>,
+    #[serde(default)]
+    pub device_targeting_error: Option<String>,
 }
 pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> {
+    inspect_at(reader, None)
+}
+pub fn inspect_at<R: Read + Seek>(
+    reader: &mut R,
+    reference_time: Option<u64>,
+) -> wpi_image::Result<Inspection> {
     let size = reader.seek(SeekFrom::End(0))?;
     reader.seek(SeekFrom::Start(0))?;
     let mut prefix = [0u8; 16];
@@ -35,12 +45,14 @@ pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> 
         firmware_version: None,
         firmware_version_error: None,
         firmware_version_sources: vec![],
+        device_targeting: None,
+        device_targeting_error: None,
     };
     if &prefix[4..16] == b"SignedImage " {
         let ffu = FfuMetadata::read_headers(reader, size)?;
         let gpt = ffu.gpt(reader)?;
         report.catalog = Some(
-            wpi_image::catalog::inspect(reader, &ffu)
+            wpi_image::catalog::inspect_at(reader, &ffu, reference_time)
                 .unwrap_or_else(wpi_image::catalog::unavailable),
         );
         match wpi_image::firmware::inspect(reader, &ffu, &gpt, |_, _| true) {
@@ -50,6 +62,10 @@ pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> 
             }
             Ok(None) => {}
             Err(e) => report.firmware_version_error = Some(e.to_string()),
+        }
+        match wpi_image::firmware::mainos::read_targeting(reader, &ffu, &gpt, |_, _| true) {
+            Ok(targeting) => report.device_targeting = targeting,
+            Err(error) => report.device_targeting_error = Some(error.to_string()),
         }
         report.format = "FFU".into();
         report.ffu = Some(ffu);

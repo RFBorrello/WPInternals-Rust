@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Seek};
 use x509_cert::{attr::Attributes, spki::AlgorithmIdentifierOwned, time::Time};
+pub mod signer;
 
 const MAX_CATALOG: usize = 1024 * 1024;
 const SIGNED_DATA: &str = "1.2.840.113549.1.7.2";
@@ -59,6 +60,8 @@ pub struct CatalogReport {
     pub signer_certificate_sha256: Option<String>,
     pub catalog_sha256: String,
     pub membership_hash_algorithm: Option<String>,
+    #[serde(default)]
+    pub signer_assessment: Option<signer::SignerAssessment>,
 }
 fn result_check(result: Result<()>, success: &str) -> Check {
     match result {
@@ -77,6 +80,13 @@ fn result_check(result: Result<()>, success: &str) -> Check {
     }
 }
 pub fn inspect<R: Read + Seek>(reader: &mut R, ffu: &FfuMetadata) -> Result<CatalogReport> {
+    inspect_at(reader, ffu, None)
+}
+pub fn inspect_at<R: Read + Seek>(
+    reader: &mut R,
+    ffu: &FfuMetadata,
+    at: Option<u64>,
+) -> Result<CatalogReport> {
     if ffu.catalog_size as usize > MAX_CATALOG {
         return Err(invalid("Signing catalog exceeds 1 MiB"));
     }
@@ -94,21 +104,24 @@ pub fn inspect<R: Read + Seek>(reader: &mut R, ffu: &FfuMetadata) -> Result<Cata
     }
     let catalog = read_at(reader, start, ffu.catalog_size as usize)?;
     let hashes = read_at(reader, ffu.hash_table_offset, ffu.hash_table_size as usize)?;
-    Ok(verify(&catalog, &hashes))
+    Ok(verify_at(&catalog, &hashes, at))
 }
 pub fn verify(catalog: &[u8], hashes: &[u8]) -> CatalogReport {
+    verify_at(catalog, hashes, None)
+}
+pub fn verify_at(catalog: &[u8], hashes: &[u8], at: Option<u64>) -> CatalogReport {
     let mut report = CatalogReport {
         signature:Check {status:Status::Missing,message:"No signing catalog is present.".into()},
         hash_table_binding:Check {status:Status::Unverified,message:"Hash-table binding requires a valid catalog signature.".into()},
         signer_trust:Check {status:Status::Unverified,message:"An embedded certificate is not a trust anchor. OEM chain, device root-key binding, certificate policy/time and revocation have not been validated.".into()},
         signer_subject:None, signer_certificate_sha256:None,
-        catalog_sha256:hex::encode(Sha256::digest(catalog)),membership_hash_algorithm:None,
+        catalog_sha256:hex::encode(Sha256::digest(catalog)),membership_hash_algorithm:None,signer_assessment:None,
     };
     if catalog.is_empty() {
         return report;
     }
     let signed = verify_signature(catalog);
-    let (content, certificate) = match signed {
+    let (content, certificate, certificates) = match signed {
         Ok(s) => s,
         Err(e) => {
             report.signature = result_check(Err(e), "");
@@ -121,6 +134,9 @@ pub fn verify(catalog: &[u8], hashes: &[u8]) -> CatalogReport {
         .to_der()
         .ok()
         .map(|c| hex::encode(Sha256::digest(c)));
+    let assessment = signer::assess(&certificate, &certificates, at);
+    report.signer_trust = assessment.overall();
+    report.signer_assessment = Some(assessment);
     let bound = bind_table(&content, hashes);
     match bound {
         Ok(algorithm) => {
@@ -207,7 +223,9 @@ fn attribute<'a>(attrs: &'a Attributes, id: &str) -> Result<&'a Any> {
     }
     Ok(matches[0].values.iter().next().unwrap())
 }
-fn verify_signature(catalog: &[u8]) -> Result<(Vec<u8>, x509_cert::Certificate)> {
+fn verify_signature(
+    catalog: &[u8],
+) -> Result<(Vec<u8>, x509_cert::Certificate, Vec<x509_cert::Certificate>)> {
     if catalog.len() > MAX_CATALOG {
         return Err(invalid("Signing catalog exceeds 1 MiB"));
     }
@@ -329,7 +347,18 @@ fn verify_signature(catalog: &[u8]) -> Result<(Vec<u8>, x509_cert::Certificate)>
         signer.signature.as_bytes(),
     )
     .map_err(|_| invalid("Catalog RSA signature mismatch"))?;
-    Ok((content, certificate.clone()))
+    Ok((
+        content,
+        certificate.clone(),
+        certs
+            .0
+            .iter()
+            .filter_map(|c| match c {
+                CertificateChoices::Certificate(c) => Some(c.clone()),
+                _ => None,
+            })
+            .collect(),
+    ))
 }
 
 #[derive(Sequence)]

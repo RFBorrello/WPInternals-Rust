@@ -99,6 +99,71 @@ pub fn report(
         }).unwrap_or((Unverified,"Signing-catalog evidence has not been inspected. Chunk hashes alone do not establish authenticity.".into()));
         check(key, label, status, message);
     }
+    let signer = image
+        .and_then(|i| i.catalog.as_ref())
+        .and_then(|c| c.signer_assessment.as_ref());
+    for (key, label, evidence) in [
+        (
+            "signer_dates",
+            "Signer certificate dates",
+            signer.map(|s| &s.validity),
+        ),
+        (
+            "signer_key_usage",
+            "Signer key usage",
+            signer.map(|s| &s.key_usage),
+        ),
+        (
+            "signer_eku",
+            "Signer code-signing usage",
+            signer.map(|s| &s.extended_key_usage),
+        ),
+        (
+            "signer_extensions",
+            "Signer certificate extensions",
+            signer.map(|s| &s.extensions),
+        ),
+        (
+            "signer_chain",
+            "Certificate-chain signatures",
+            signer.map(|s| &s.chain_signatures),
+        ),
+        (
+            "signer_anchor",
+            "OEM trust anchor",
+            signer.map(|s| &s.trust_anchor),
+        ),
+        (
+            "signer_revocation",
+            "Signer revocation",
+            signer.map(|s| &s.revocation),
+        ),
+    ] {
+        use wpi_image::catalog::Status;
+        let (status, message) = evidence.map(|e|(match e.status { Status::Valid=>Passed,Status::Invalid=>Failed,Status::Missing=>Missing,_=>Unverified },e.message.clone())).unwrap_or((Unverified,"A verified catalog signature and signer certificate are required before certificate assessment.".into()));
+        check(key, label, status, message);
+    }
+    let targeting_error = image.and_then(|i| i.device_targeting_error.as_deref());
+    let targeting = image
+        .filter(|i| i.device_targeting_error.is_none())
+        .and_then(|i| i.device_targeting.as_ref());
+    check("image_variant", "Hardware variant in image", if targeting_error.is_some(){Failed}else if targeting.is_some(){Passed}else{Missing},
+        targeting_error.map(|e|format!("Image targeting metadata failed: {e}"))
+            .or_else(||targeting.map(|t|format!("Observed {} in {}. This metadata does not authenticate the image.", t.hardware_variant,t.source)))
+            .unwrap_or_else(||"No supported MainOS OEMSettings hardware variant was found. Do not infer a variant from the filename or USB label.".into()));
+    let (status, message) = match (targeting, device.as_ref().and_then(|d|d.variant.as_deref())) {
+        (Some(t),Some(phone)) if t.hardware_variant.eq_ignore_ascii_case(phone) => (Passed,format!("Image and phone hardware variant match {phone}. Regional/product-code applicability and recovery support remain unverified.")),
+        (Some(_),Some(_)) => (Failed,"Image and phone hardware variants contradict each other. Do not use this image for this phone.".into()),
+        _ => (Unverified,"Read both the image hardware variant and phone hardware variant before comparing them.".into()),
+    };
+    check(
+        "hardware_variant",
+        "Phone / image hardware variant",
+        status,
+        message,
+    );
+    check("regional_applicability", "Regional/product applicability", Unverified,
+        targeting.and_then(|t|t.manufacturer_model.as_ref()).map(|m|format!("Image manufacturer model is {m}. Exact phone product code, region/operator and device acceptance have not been validated.")).unwrap_or_else(||"Exact product-code and region/operator applicability have not been validated.".into()));
     let image_version = image
         .filter(|i| i.firmware_version_error.is_none())
         .and_then(|i| i.firmware_version.as_deref());

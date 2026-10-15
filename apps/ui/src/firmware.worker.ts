@@ -61,7 +61,7 @@ async function inspect(file: File, captureHeaders?: (headers: Uint8Array) => voi
     for (const p of gpt.partitions) partitionRange(p.first_sector, p.last_sector);
     const report: Inspection = { format: ffu ? 'FFU' : 'GPT / raw disk image', size: file.size, ffu, gpt, filesystem: null, notes: ffu ? ['Structure and GPT CRCs checked. Signer trust and phone acceptance remain unverified.', 'End-relative FFU writes are metadata only; no disk capacity is assumed.'] : ['GPT header and entry CRCs checked.'] };
     if (ffu && ffuHeaders) {
-      report.catalog = JSON.parse(wasm.ffu_catalog_json(ffuHeaders, BigInt(file.size)));
+      report.catalog = JSON.parse(wasm.ffu_catalog_json(ffuHeaders, BigInt(file.size), BigInt(Math.floor(Date.now() / 1000))));
       try {
         report.firmware_version = await platVersion(file, ffu, gpt);
         report.firmware_version_sources = report.firmware_version ? ['PLAT SWVERSION'] : [];
@@ -85,6 +85,20 @@ async function inspect(file: File, captureHeaders?: (headers: Uint8Array) => voi
         }
       }
       catch (error) { if (cancelled) throw error; report.firmware_version_error = String(error); }
+      try {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (cancelled) throw new Error('Operation cancelled');
+        if (typeof FileReaderSync === 'undefined') throw new Error('MainOS targeting inspection requires worker FileReaderSync; use the desktop app');
+        const reader = new FileReaderSync();
+        const slice = (offset: number, length: number) => {
+          safeNumber(offset); safeNumber(length); safeNumber(offset + length);
+          if (length > 64 * 1024 || offset + length > file.size) throw new Error('Targeting read exceeds bounded file slice');
+          return new Uint8Array(reader.readAsArrayBuffer(file.slice(offset, offset + length)));
+        };
+        report.device_targeting = JSON.parse(wasm.mainos_targeting_json(JSON.stringify(ffu), JSON.stringify(gpt), BigInt(file.size), slice));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (cancelled) throw new Error('Operation cancelled');
+      } catch (error) { if (cancelled) throw error; report.device_targeting_error = String(error); }
     }
     return report;
   }

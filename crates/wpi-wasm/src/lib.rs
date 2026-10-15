@@ -135,11 +135,15 @@ pub fn ffu_headers_json(headers: &[u8], total_size: u64) -> Result<String, JsVal
     json(&FfuMetadata::read_headers(&mut Cursor::new(headers), total_size).map_err(js_error)?)
 }
 #[wasm_bindgen]
-pub fn ffu_catalog_json(headers: &[u8], total_size: u64) -> Result<String, JsValue> {
+pub fn ffu_catalog_json(
+    headers: &[u8],
+    total_size: u64,
+    reference_time: Option<u64>,
+) -> Result<String, JsValue> {
     let mut reader = Cursor::new(headers);
     let ffu = FfuMetadata::read_headers(&mut reader, total_size).map_err(js_error)?;
     json(
-        &wpi_image::catalog::inspect(&mut reader, &ffu)
+        &wpi_image::catalog::inspect_at(&mut reader, &ffu, reference_time)
             .unwrap_or_else(wpi_image::catalog::unavailable),
     )
 }
@@ -155,6 +159,24 @@ pub fn mainos_firmware_json(
     gpt: &str,
     total_size: u64,
     read: &js_sys::Function,
+) -> Result<String, JsValue> {
+    mainos_json(metadata, gpt, total_size, read, false)
+}
+#[wasm_bindgen]
+pub fn mainos_targeting_json(
+    metadata: &str,
+    gpt: &str,
+    total_size: u64,
+    read: &js_sys::Function,
+) -> Result<String, JsValue> {
+    mainos_json(metadata, gpt, total_size, read, true)
+}
+fn mainos_json(
+    metadata: &str,
+    gpt: &str,
+    total_size: u64,
+    read: &js_sys::Function,
+    targeting: bool,
 ) -> Result<String, JsValue> {
     use std::io::{Read, Seek, SeekFrom};
     struct Reader<'a> {
@@ -216,10 +238,17 @@ pub fn mainos_firmware_json(
         size: total_size,
         position: 0,
     };
-    json(
-        &wpi_image::firmware::mainos::read(&mut reader, &ffu, &gpt, |_, _| true)
-            .map_err(js_error)?,
-    )
+    if targeting {
+        json(
+            &wpi_image::firmware::mainos::read_targeting(&mut reader, &ffu, &gpt, |_, _| true)
+                .map_err(js_error)?,
+        )
+    } else {
+        json(
+            &wpi_image::firmware::mainos::read(&mut reader, &ffu, &gpt, |_, _| true)
+                .map_err(js_error)?,
+        )
+    }
 }
 #[wasm_bindgen]
 pub fn ffu_segments_json(metadata: &str, start: u64, length: u64) -> Result<String, JsValue> {

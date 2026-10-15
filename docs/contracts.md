@@ -42,6 +42,14 @@ RecoveryPreparation maps those to its existing preparation statuses; no new
 execution permission is inferred. The browser and native engine use the same
 verifier. PLAT-version absence is distinct from a malformed/contradictory value.
 
+CatalogReport has a default-optional `signer_assessment`, including issuer,
+validity interval, optional explicit local reference time, separate signing
+usage/extension/chain checks, bounded chain fingerprints and unverified OEM-anchor
+and revocation evidence. Inspection adds default-optional `device_targeting` and
+`device_targeting_error`; these retain the image RM variant and exact source path.
+Old reports remain readable. Certificate and targeting checks add checklist rows,
+without changing the blocked-operation contract or authorizing any phone write.
+
 ReplayBlockSource is a concrete simulated read-only disk with bounded fixtures.
 The backup engine cannot accept native USB or raw block devices. Successful replay
 backups produce a `replay_only` manifest and atomically publish a new local image;

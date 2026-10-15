@@ -1,5 +1,11 @@
 # Synthetic fixtures
 
+`python scripts/make-signer-fixtures.py` creates disposable public certificate
+chains and policy-failure catalogs under `signer-policy`, plus `synthetic-chain.ffu`
+and `synthetic-bad-signer.ffu`. No private keys are saved; none is an OEM anchor.
+`rm875-signer-targeting-validation.json` retains only offline validation metadata.
+The MainOS generator also includes synthetic `OEMSettings.reg` targeting values.
+
 `rm875-browser-integrity-validation.json` records complete browser hashing and
 chunk verification of the separately supplied local FFU, read-size/progress
 auditing and comparison with the prior native digest. It contains no image bytes.

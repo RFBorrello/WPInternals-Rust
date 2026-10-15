@@ -13,6 +13,9 @@ test('browser reads compressed MainOS registry and DSM metadata through bounded 
   await expect(row).toContainText('RegistryFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.reg');
   await expect(row).toContainText('DsmFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml');
   await expect(row).not.toContainText('9.9.9.9');
+  const variant = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Hardware variant in image', exact: true }) });
+  await expect(variant).toContainText('Passed'); await expect(variant).toContainText('RM-875');
+  await expect(page.getByRole('row').filter({ hasText: 'Regional/product applicability' })).toContainText('Unverified');
   const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: 'Export preparation' }).click();
   const report = JSON.parse(await readFile((await (await downloadPromise).path())!, 'utf8'));
   expect(report.plan.executable).toBe(false);

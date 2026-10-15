@@ -1,24 +1,21 @@
 # Local validation — October 13–14, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. Catalog milestone `e6ed0bc` passed GitHub CI on all
-four native host targets and Chromium ([run `38659589224`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38659589224)).
+headless Microsoft Edge. Browser-integrity milestone `ae26e7d` passed GitHub CI on all
+four native host targets and Chromium ([run `38666904429`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38666904429)).
 Those remote build results do not establish device support.
-The latest local milestone adds complete browser FFU integrity verification.
-Phone/USB evidence below remains historical; no phone commands were sent during
-this change. MainOS milestone `83e11fb` passed remote tests and Chromium, but
-native jobs stopped on a new Rust 1.99 Clippy lint about constant-size
-`chunks_exact`. This change uses `as_chunks` for that UTF-16 conversion; behavior
-is unchanged. Remote CI for the new source is pending.
+The latest local milestone adds limited signer-certificate and MainOS hardware
+targeting assessment. Phone/USB evidence below remains historical; no phone
+commands were sent during this change. Remote CI for this new source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 105 passed on Windows: 67 integration tests, 37 native transport/harness unit tests and one decoded-CTL bounds unit test |
+| Rust tests | 111 passed on Windows: 73 integration tests, 37 native transport/harness unit tests and one decoded-CTL bounds unit test |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 33 passed |
+| Real-WASM browser integration tests | 35 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -324,3 +321,32 @@ OEM signer trust remains unverified. Comparing with saved phone metadata still
 fails unvalidated downgrade preparation. No phone queries, mode commands or
 partition/firmware writes were sent. See
 [the metadata-only evidence](../tests/fixtures/rm875-browser-integrity-validation.json).
+
+## Signer and hardware targeting assessment — October 14
+
+The shared inspector now assesses explicit local-time certificate dates, signing
+key usage, code-signing EKU, supported critical extensions and embedded issuer
+signatures. No self-signed or supplied certificate becomes an OEM anchor. Missing
+issuers, unsupported constraints, revocation and exact OEM policy remain visible.
+This is a limited profile, not a complete PKIX validator. MainOS OEMSettings
+targeting metadata supplies an explicit RM hardware variant; matching is advisory
+and contradictions fail. Product-code/region and recovery profiles remain unknown.
+
+Six new Rust tests cover complete-but-untrusted synthetic chains, missing or
+ambiguous issuers, bad certificate signatures, non-CA issuers, incorrect KU/EKU,
+expiry, unsupported critical extensions, explicit-time requirements, bounded
+targeting parsing, conflicts/deletions, real NTFS lookup, cancellation and checklist
+gating. Two new browser tests cover chain consistency without OEM trust and a valid
+catalog signature with an unsuitable certificate usage. The existing MainOS browser
+test also checks the explicit image variant and unverified regional applicability.
+
+The real RM-875 image's variant matches saved phone metadata. Its catalog signer
+has digital-signature/code-signing usages and is in date at the local reference
+time, but its `CN=PK,O=Nokia` issuer is absent. Python cryptography independently
+confirms the single certificate, usages, dates and missing issuer; it also confirms
+the complete synthetic chain and rejects a corrupted issuer signature. Native and
+production WASM agree on the image targeting and signer check statuses. The full
+fingerprint/chunk checks still pass; the older-firmware check still fails.
+No phone query/mode/write was sent. See
+[the metadata-only record](../tests/fixtures/rm875-signer-targeting-validation.json)
+and [the assessment limits](oem-trust-and-applicability.md).

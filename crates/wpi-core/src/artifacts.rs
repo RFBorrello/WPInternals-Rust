@@ -19,7 +19,13 @@ pub fn open_artifact(path: &Path) -> Result<File> {
     Ok(file)
 }
 pub fn inspect_file(path: &Path) -> Result<crate::inspection::Inspection> {
-    crate::inspection::inspect(&mut open_artifact(path)?)
+    crate::inspection::inspect_at(&mut open_artifact(path)?, reference_time())
+}
+fn reference_time() -> Option<u64> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs())
 }
 pub fn prepare_recovery<F: FnMut(u64, u64) -> bool>(
     path: &Path,
@@ -31,7 +37,7 @@ pub fn prepare_recovery<F: FnMut(u64, u64) -> bool>(
     use crate::recovery_prepare::{report, ChunkIntegrity};
     let mut source = open_artifact(path)?;
     let before = source.metadata()?;
-    let inspection = crate::inspection::inspect(&mut source)?;
+    let inspection = crate::inspection::inspect_at(&mut source, reference_time())?;
     let Some(ffu) = inspection.ffu.as_ref() else {
         return Ok(report(
             device,

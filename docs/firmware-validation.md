@@ -11,9 +11,11 @@ Recovery remains blocked, and exported preparation reports cannot enable writes.
 | Chunk integrity | All image/store-header and payload chunks match the FFU SHA-256 table | The table itself needs independently trusted signing evidence |
 | Catalog signature | Embedded key verifies RSA/SHA-256 signature and mandatory signed attributes | Embedded certificates are not independently trusted |
 | Signed hash-table binding | Signed `HashTable.blob` member matches the actual FFU hash table | SHA-1 members are legacy evidence, not modern collision resistance |
-| Firmware signer trust | Currently always unverified | OEM chain, device root-key binding, certificate policy/time and revocation need validation |
+| Firmware signer trust | Limited signer date/usage/extension and embedded-chain checks | Independent OEM anchor, full OEM policy, device binding and revocation remain unverified; supported policy failures fail preparation |
 | Firmware version in image | PLAT `SWVERSION`, or agreeing MainOS registry and DSM package revisions | Metadata alone does not establish applicability |
 | Installed / image firmware | Compares observed four-component versions within a branch | Ordering does not approve upgrades or downgrade acceptance |
+| Hardware variant in image | Reads bounded MainOS OEMSettings targeting metadata | Image metadata alone does not authenticate it |
+| Phone / image hardware variant | Matches an observed RM variant or detects contradictions | Product code, region/operator and device acceptance remain unverified |
 
 Native preparation still verifies the complete SHA-256 chunk table, records a
 full-file fingerprint, supports cancellation and checks source-file metadata for
@@ -54,6 +56,13 @@ certificates at 16 and signed attributes at 32. A single, explicitly named UTF-1
 `HashTable.blob` member must contain a supported indirect-data SHA-1 or SHA-256
 digest. Arbitrary digest bytes elsewhere in the catalog do not establish binding.
 No external/detached content is accepted. RSA is used only for public verification.
+
+Signer assessment now checks an explicit local reference time, digital-signature
+key usage, code-signing EKU, supported extensions and embedded issuer signatures.
+It names missing issuers rather than promoting an embedded certificate to an OEM
+anchor. It is a limited assessment, not a complete PKIX/OEM policy engine. The
+checklist also compares bounded MainOS OEMSettings hardware-variant metadata with
+the phone's observed variant. See [OEM trust and applicability limits](oem-trust-and-applicability.md).
 
 Legacy PKCS#7 sequence content hashes its value octets; CMS octet content hashes
 the enclosed content bytes. This distinction follows

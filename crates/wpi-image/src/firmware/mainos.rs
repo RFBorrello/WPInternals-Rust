@@ -7,6 +7,15 @@ pub const REG_PATH: &str =
     "Windows/Packages/RegistryFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.reg";
 pub const DSM_PATH: &str =
     "Windows/Packages/DsmFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml";
+pub const TARGET_PATH: &str = "Windows/Packages/RegistryFiles/OEMSettings.reg";
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TargetingInfo {
+    pub hardware_variant: String,
+    pub manufacturer_model: Option<String>,
+    pub manufacturer: Option<String>,
+    pub model_name: Option<String>,
+    pub source: String,
+}
 const LIMIT: usize = 64 * 1024;
 const IO_BUDGET: u64 = 16 * 1024 * 1024;
 const REG_KEY: &str = "HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo";
@@ -79,12 +88,13 @@ impl<R, F> Seek for Partition<'_, R, F> {
     }
 }
 
-pub fn read<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
+fn with_mainos<R: Read + Seek, F: FnMut(u64, u64) -> bool, T>(
     reader: &mut R,
     ffu: &FfuMetadata,
     gpt: &Gpt,
     progress: F,
-) -> Result<Option<VersionEvidence>> {
+    action: impl FnOnce(&mut Partition<'_, R, F>) -> Result<Option<T>>,
+) -> Result<Option<T>> {
     let partitions: Vec<_> = gpt
         .partitions
         .iter()
@@ -138,14 +148,37 @@ pub fn read<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
         {
             return Err(invalid("MainOS NTFS volume exceeds partition bounds"));
         }
-        let reg = filesystem::read_small_ntfs_file(&mut partition, REG_PATH, LIMIT)?;
-        let dsm = filesystem::read_small_ntfs_file(&mut partition, DSM_PATH, LIMIT)?;
-        package(reg.as_deref(), dsm.as_deref())
+        action(&mut partition)
     })();
     if partition.cancelled {
         return Err(ImageError::Cancelled);
     }
     result
+}
+pub fn read<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
+    reader: &mut R,
+    ffu: &FfuMetadata,
+    gpt: &Gpt,
+    progress: F,
+) -> Result<Option<VersionEvidence>> {
+    with_mainos(reader, ffu, gpt, progress, |partition| {
+        let reg = filesystem::read_small_ntfs_file(partition, REG_PATH, LIMIT)?;
+        let dsm = filesystem::read_small_ntfs_file(partition, DSM_PATH, LIMIT)?;
+        package(reg.as_deref(), dsm.as_deref())
+    })
+}
+pub fn read_targeting<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
+    reader: &mut R,
+    ffu: &FfuMetadata,
+    gpt: &Gpt,
+    progress: F,
+) -> Result<Option<TargetingInfo>> {
+    with_mainos(reader, ffu, gpt, progress, |partition| {
+        filesystem::read_small_ntfs_file(partition, TARGET_PATH, LIMIT)?
+            .as_deref()
+            .map(targeting)
+            .transpose()
+    })
 }
 
 fn unpack(bytes: &[u8]) -> Result<Vec<u8>> {
@@ -171,7 +204,10 @@ fn unpack(bytes: &[u8]) -> Result<Vec<u8>> {
     }
     Ok(output)
 }
-fn registry_version(bytes: &[u8]) -> Result<String> {
+fn registry_values(
+    bytes: &[u8],
+    allowed: &[&str],
+) -> Result<std::collections::BTreeMap<String, String>> {
     let bytes = unpack(bytes)?;
     let text = if let Some(body) = bytes.strip_prefix(&[0xff, 0xfe]) {
         if body.len() % 2 != 0 {
@@ -194,11 +230,11 @@ fn registry_version(bytes: &[u8]) -> Result<String> {
             .to_owned()
     };
     let mut lines = text.lines();
-    if lines.next() != Some("Windows Registry Editor Version 5.00") {
+    if lines.next().map(str::trim_end) != Some("Windows Registry Editor Version 5.00") {
         return Err(invalid("unsupported registry package header"));
     }
     let mut active = false;
-    let mut version = None;
+    let mut values = std::collections::BTreeMap::new();
     for line in lines {
         let line = line.trim();
         if line.is_empty() || line.starts_with(';') {
@@ -220,25 +256,78 @@ fn registry_version(bytes: &[u8]) -> Result<String> {
             let (name, value) = line
                 .split_once('=')
                 .ok_or_else(|| invalid("malformed registry assignment"))?;
-            if !name
+            let Some(name) = name
                 .trim()
-                .eq_ignore_ascii_case("\"PhoneFirmwareRevision\"")
-            {
+                .strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+            else {
                 continue;
-            }
+            };
+            let Some(key) = allowed.iter().find(|key| name.eq_ignore_ascii_case(key)) else {
+                continue;
+            };
             let value = value
                 .trim()
                 .strip_prefix('"')
                 .and_then(|s| s.strip_suffix('"'))
-                .ok_or_else(|| invalid("PhoneFirmwareRevision must be a string"))?;
-            if components(value).is_none() || version.is_some() {
-                return Err(invalid("invalid or duplicate PhoneFirmwareRevision"));
+                .ok_or_else(|| invalid("Targeting metadata must be a string"))?;
+            if value.is_empty()
+                || value.len() > 128
+                || !value.bytes().all(|b| b.is_ascii_graphic() || b == b' ')
+                || value.contains(['"', '\\'])
+                || values.insert((*key).to_owned(), value.to_owned()).is_some()
+            {
+                return Err(invalid("invalid or duplicate targeting metadata"));
             }
-            version = Some(value.to_owned());
         }
     }
-    version
-        .ok_or_else(|| invalid("registry package has no DeviceTargetingInfo PhoneFirmwareRevision"))
+    Ok(values)
+}
+fn registry_version(bytes: &[u8]) -> Result<String> {
+    let mut values = registry_values(bytes, &["PhoneFirmwareRevision"])?;
+    let version = values.remove("PhoneFirmwareRevision").ok_or_else(|| {
+        invalid("registry package has no DeviceTargetingInfo PhoneFirmwareRevision")
+    })?;
+    if components(&version).is_none() {
+        return Err(invalid("Invalid PhoneFirmwareRevision components"));
+    }
+    Ok(version)
+}
+pub fn targeting(bytes: &[u8]) -> Result<TargetingInfo> {
+    let mut values = registry_values(
+        bytes,
+        &[
+            "PhoneHardwareVariant",
+            "PhoneManufacturerModelName",
+            "PhoneManufacturer",
+            "PhoneModelName",
+        ],
+    )?;
+    let variant = values
+        .remove("PhoneHardwareVariant")
+        .ok_or_else(|| invalid("OEMSettings has no DeviceTargetingInfo PhoneHardwareVariant"))?;
+    let digits = variant
+        .strip_prefix("RM-")
+        .ok_or_else(|| invalid("Unsupported hardware-variant format"))?;
+    if !(3..=4).contains(&digits.len()) || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(invalid("Unsupported hardware-variant format"));
+    }
+    let model = values.remove("PhoneManufacturerModelName");
+    if model.as_ref().is_some_and(|m| {
+        !m.strip_prefix(&variant)
+            .is_some_and(|suffix| suffix.is_empty() || suffix.starts_with('_'))
+    }) {
+        return Err(invalid(
+            "Hardware variant and manufacturer model contradict each other",
+        ));
+    }
+    Ok(TargetingInfo {
+        hardware_variant: variant,
+        manufacturer_model: model,
+        manufacturer: values.remove("PhoneManufacturer"),
+        model_name: values.remove("PhoneModelName"),
+        source: format!("MainOS/{TARGET_PATH}: {REG_KEY}"),
+    })
 }
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]

@@ -189,3 +189,37 @@ fn mainos_sparse_ffu_uses_bounded_ntfs_lookup_and_rejects_bad_geometry_or_discon
     let mut truncated = Cursor::new(&bytes[..bytes.len() / 2]);
     assert!(firmware::inspect(&mut truncated, &ffu, &gpt, |_, _| true).is_err());
 }
+#[test]
+fn targeting_reads_only_named_registry_values_and_rejects_contradictions_or_deleted_keys() {
+    use firmware::mainos::targeting;
+    let data = b"Windows Registry Editor Version 5.00\r\r\n[HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo]\r\r\n\"PhoneHardwareVariant\"=\"RM-875\"\r\r\n\"PhoneManufacturerModelName\"=\"RM-875_test\"\r\r\n";
+    assert_eq!(targeting(data).unwrap().hardware_variant, "RM-875");
+    let text = String::from_utf8(data.to_vec()).unwrap();
+    for bad in [
+        text.replace("RM-875_test", "RM-730_test"),
+        text.replace("RM-875_test", "RM-8750_test"),
+        text.replace("\"RM-875\"", "\"RM-xyz\""),
+        text.replace("PhoneHardwareVariant", "WrongKey"),
+        format!("{text}\"PhoneHardwareVariant\"=\"RM-875\"\n"),
+        format!("{text}[-HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo]\n"),
+    ] {
+        assert!(targeting(bad.as_bytes()).is_err());
+    }
+    assert!(targeting(&gzip(&vec![0; 65537])).is_err());
+}
+#[test]
+fn targeting_uses_real_ntfs_lookup_with_source_provenance_and_cancellation() {
+    let bytes = include_bytes!("../../../tests/fixtures/synthetic-mainos.ffu");
+    let mut reader = Cursor::new(bytes);
+    let ffu = FfuMetadata::open(&mut reader).unwrap();
+    let gpt = ffu.gpt(&mut reader).unwrap();
+    let info = firmware::mainos::read_targeting(&mut reader, &ffu, &gpt, |_, _| true)
+        .unwrap()
+        .unwrap();
+    assert_eq!(info.hardware_variant, "RM-875");
+    assert!(info.source.contains("OEMSettings.reg"));
+    assert!(matches!(
+        firmware::mainos::read_targeting(&mut reader, &ffu, &gpt, |_, _| false),
+        Err(wpi_image::ImageError::Cancelled)
+    ));
+}

@@ -14,6 +14,8 @@ reg = 'Windows Registry Editor Version 5.00\r\n[HKEY_LOCAL_MACHINE\\SYSTEM\\Plat
 dsm = '<Package xmlns="http://schemas.microsoft.com/embedded/2004/10/ImageUpdate"><Identity><Owner>Nokia</Owner><Component>DeviceInfo</Component><SubComponent>PhoneFirmwareRevision</SubComponent><Version Major="1" Minor="2" QFE="3" Build="4" /></Identity><Partition>MainOS</Partition><IsRemoval>false</IsRemoval></Package>'
 reg = gzip.compress(b'\xff\xfe' + reg.encode('utf-16le'), mtime=0)
 dsm = gzip.compress(dsm.encode(), mtime=0)
+target = 'Windows Registry Editor Version 5.00\r\r\n[HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo]\r\r\n"PhoneHardwareVariant"="RM-875"\r\r\n"PhoneManufacturerModelName"="RM-875_SYNTHETIC"\r\r\n"PhoneManufacturer"="NOKIA"\r\r\n"PhoneModelName"="Synthetic test device"\r\r\n'
+target = gzip.compress(b'\xff\xfe' + target.encode('utf-16le'), mtime=0)
 
 def directory(number, items):
     entries = bytearray()
@@ -33,9 +35,10 @@ directory(5, [(11, 'Windows', 0, True)])
 directory(11, [(12, 'Packages', 0, True)])
 directory(12, [(13, 'DsmFiles', 0, True), (14, 'RegistryFiles', 0, True)])
 directory(13, [(16, 'Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml', len(dsm), False)])
-directory(14, [(15, 'Nokia.DeviceInfo.PhoneFirmwareRevision.reg', len(reg), False)])
+directory(14, [(15, 'Nokia.DeviceInfo.PhoneFirmwareRevision.reg', len(reg), False), (17, 'OEMSettings.reg', len(target), False)])
 mft(15, [resident(0x80, reg)])
 mft(16, [resident(0x80, dsm)])
+mft(17, [resident(0x80, target)])
 (root / 'tests/fixtures/ntfs-firmware.img').write_bytes(disk)
 
 # Keep the original synthetic header profile; rebuild mapping, GPT and hashes.

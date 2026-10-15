@@ -84,3 +84,116 @@ fn ambiguous_attributes_unrelated_members_truncation_and_oversize_are_not_verifi
     }
     assert!(verify(&nested, TABLE).signature.message.contains("nesting"));
 }
+
+#[test]
+fn complete_synthetic_chain_passes_mathematics_and_signing_profile_without_becoming_trusted() {
+    let report = wpi_image::catalog::verify_at(
+        include_bytes!("../../../tests/fixtures/signer-policy/chain.der"),
+        TABLE,
+        Some(1767225600),
+    );
+    assert_eq!(report.signature.status, Status::Valid);
+    let signer = report.signer_assessment.unwrap();
+    assert_eq!(signer.validity.status, Status::Valid);
+    assert_eq!(signer.key_usage.status, Status::Valid);
+    assert_eq!(signer.extended_key_usage.status, Status::Valid);
+    assert_eq!(
+        signer.chain_signatures.status,
+        Status::Valid,
+        "{}",
+        signer.chain_signatures.message
+    );
+    assert_eq!(signer.chain_certificate_sha256.len(), 3);
+    assert_eq!(signer.trust_anchor.status, Status::Unverified);
+    assert_eq!(signer.revocation.status, Status::Unverified);
+    assert_eq!(report.signer_trust.status, Status::Unverified);
+}
+#[test]
+fn certificate_policy_and_chain_failures_are_distinct_from_valid_catalog_signatures() {
+    for (bytes, invalid_trust, chain_status) in [
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/missing-issuer.der").as_slice(),
+            false,
+            Status::Missing,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/ambiguous-issuer.der").as_slice(),
+            true,
+            Status::Invalid,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/bad-chain-signature.der")
+                .as_slice(),
+            true,
+            Status::Invalid,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/non-ca-issuer.der").as_slice(),
+            true,
+            Status::Invalid,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/wrong-key-usage.der").as_slice(),
+            true,
+            Status::Valid,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/wrong-eku.der").as_slice(),
+            true,
+            Status::Valid,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/expired.der").as_slice(),
+            true,
+            Status::Invalid,
+        ),
+        (
+            include_bytes!("../../../tests/fixtures/signer-policy/unknown-critical.der").as_slice(),
+            false,
+            Status::Unsupported,
+        ),
+    ] {
+        let report = wpi_image::catalog::verify_at(bytes, TABLE, Some(1767225600));
+        assert_eq!(
+            report.signature.status,
+            Status::Valid,
+            "{}",
+            report.signature.message
+        );
+        let signer = report.signer_assessment.unwrap();
+        assert_eq!(
+            signer.chain_signatures.status, chain_status,
+            "{}",
+            signer.chain_signatures.message
+        );
+        assert_eq!(
+            report.signer_trust.status,
+            if invalid_trust {
+                Status::Invalid
+            } else {
+                Status::Unverified
+            }
+        );
+    }
+}
+#[test]
+fn certificate_dates_require_an_explicit_time_and_do_not_trust_cms_signing_time() {
+    let bytes = include_bytes!("../../../tests/fixtures/signer-policy/chain.der");
+    assert_eq!(
+        verify(bytes, TABLE)
+            .signer_assessment
+            .unwrap()
+            .validity
+            .status,
+        Status::Unverified
+    );
+    for at in [1, 2524608000] {
+        let report = wpi_image::catalog::verify_at(bytes, TABLE, Some(at));
+        assert_eq!(report.signature.status, Status::Valid);
+        assert_eq!(
+            report.signer_assessment.unwrap().validity.status,
+            Status::Invalid
+        );
+        assert_eq!(report.signer_trust.status, Status::Invalid);
+    }
+}
