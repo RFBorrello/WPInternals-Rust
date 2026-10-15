@@ -11,12 +11,12 @@ not change executable source.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 87 passed on Windows: 50 integration tests and 37 native transport/harness unit tests |
+| Rust tests | 95 passed on Windows: 58 integration tests and 37 native transport/harness unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 24 passed |
+| Real-WASM browser integration tests | 27 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -240,3 +240,32 @@ partition writes or manual restart occurred. The record is
 This is one complete native Windows ARM64/RM-875 cycle, not repeatability or broader
 operation/host evidence. Production capabilities remain blocked. Normal arrival
 used hotplug, so the fallback's causal effect was not established by this run.
+
+## Offline catalog and firmware evidence — October 14
+
+Portable RustCrypto CMS/DER/X.509/RSA verification now checks legacy FFU catalog
+signatures and explicit signed hash-table membership, independently from chunk
+hashes and signer trust. Five image tests cover PKCS#7/CMS encodings, content/table/
+signature changes, duplicate critical attributes, unsupported algorithms, bounds,
+PLAT version format, contradictions, boundary scanning and cancellation. Three
+new preparation tests cover unsigned trust remaining unverified, a changed table,
+unvalidated downgrade handling and bounded platform-family prefix matching.
+
+Three new real-WASM Edge tests verify signed-catalog checklist results, a failed
+tampered signature, and PLAT metadata taking precedence over a filename version.
+The full browser suite passed all 27 cases. Rust passed all 95 Windows tests,
+strict native Clippy, WASM build/check, shared TypeScript production build and
+Windows ARM64 CLI/Tauri release builds. Remote CI for this new source is pending;
+the earlier CI link above applies to the earlier tested mode-observer revision.
+
+The real RM-875 FFU's full fingerprint still matches the earlier record and all
+payload chunk hashes pass. Its RSA/SHA-256 catalog signature agrees with Windows
+`.NET SignedCms.CheckSignature(true)`; its SHA-1 catalog member binds the hash
+table. Production browser WASM inspection matches the native catalog report
+exactly. Signer trust and device acceptance remain unverified. Its 8 MiB PLAT
+partition contains no SWVERSION record, so the image version is missing rather
+than inferred from the filename. A fresh Normal-mode information probe supplied
+phone metadata during native preparation; no mode or device writes were sent.
+See `tests/fixtures/rm875-catalog-validation.json` and
+[the verification limits](firmware-validation.md). OEM bytes, extracted PLAT and
+personal paths/identifiers are excluded from the published evidence.

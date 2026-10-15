@@ -62,6 +62,8 @@ jobs:
             docs/native-mode-test.md
             docs/public-identity.md
             docs/public-id-mode-test.md
+            docs/firmware-validation.md
+            resources/licenses/*
           if-no-files-found: error
   browser:
     runs-on: ubuntu-24.04

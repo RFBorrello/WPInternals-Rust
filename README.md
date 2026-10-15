@@ -23,6 +23,9 @@ hardware validation.
   exist for the RM-875; status remains experimental.
 - Legacy single-store FFU inspection, SHA-256 chunk verification, sparse primary
   partition extraction, GPT CRC/bounds checks, and Partitions.xml export.
+- Portable [FFU catalog verification](docs/firmware-validation.md): RSA/SHA-256
+  signatures, signed hash-table membership and bounded PLAT version scanning.
+  Signer trust and device acceptance remain unverified; valid signatures cannot enable recovery.
 - FAT/NTFS boot-sector inspection, native filesystem directory listing and file extraction.
 - Reversible, hash-pinned upstream patches on extracted files and **new copies** of FAT images.
 - Shared React UI, Rust WebAssembly processing in a worker, bounded streaming,

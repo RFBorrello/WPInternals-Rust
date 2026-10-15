@@ -3,6 +3,39 @@ import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 const fixtures = resolve(import.meta.dirname, '../../../tests/fixtures');
 
+test('browser reads PLAT firmware metadata instead of a version in the filename', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
+  await page.locator('input[type=file]').setInputFiles({ name: 'firmware_9.9.9.9.ffu', mimeType: 'application/octet-stream', buffer: await readFile(resolve(fixtures, 'synthetic-plat.ffu')) });
+  await page.getByRole('button', { name: 'Check preparation' }).click();
+  const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Firmware version in image', exact: true }) });
+  await expect(row).toContainText('Passed'); await expect(row).toContainText('1.2.3.4');
+  await expect(row).not.toContainText('9.9.9.9');
+  await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
+});
+
+test('signed FFU checks signature and table binding while leaving OEM trust unverified', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
+  await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'synthetic-signed.ffu'));
+  await page.getByRole('button', { name: 'Check preparation' }).click();
+  for (const label of ['Catalog signature', 'Signed hash-table binding']) {
+    await expect(page.getByRole('row').filter({ has: page.getByRole('cell', { name: label, exact: true }) })).toContainText('Passed');
+  }
+  await expect(page.getByRole('row').filter({ hasText: 'Firmware signer trust' })).toContainText('Unverified');
+  await expect(page.getByRole('row').filter({ hasText: 'Firmware version in image' })).toContainText('Missing');
+  await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
+});
+
+test('a tampered catalog reports a failed signature without enabling recovery', async ({ page }) => {
+  const data = await readFile(resolve(fixtures, 'synthetic-signed.ffu'));
+  const catalogStart = data.readUInt32LE(0); const catalogSize = data.readUInt32LE(24);
+  data[catalogStart + catalogSize - 1] ^= 1;
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
+  await page.locator('input[type=file]').setInputFiles({ name: 'bad-catalog.ffu', mimeType: 'application/octet-stream', buffer: data });
+  await page.getByRole('button', { name: 'Check preparation' }).click();
+  await expect(page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Catalog signature', exact: true }) })).toContainText('Failed');
+  await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
+});
+
 test('opens the real WASM engine, inspects FFU, and exports partition bytes', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => { Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true }); });

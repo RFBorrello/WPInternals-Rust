@@ -1,0 +1,6 @@
+CMS 0.2.3 declares Apache-2.0 OR MIT in Cargo.toml and its README.
+Source: https://github.com/RustCrypto/formats/tree/5821a21553509dbd03eae593b0a1fad4e2083d4e/cms
+The published package and source folder omit standalone license text files.
+The RustCrypto formats license texts retained alongside this declaration are
+copied from der 0.7.10 (the same RustCrypto formats project), with its original
+RustCrypto Project Developers copyright notice preserved.

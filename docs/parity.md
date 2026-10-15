@@ -12,14 +12,14 @@ Later upstream changes are not implicitly accepted or enabled.
 | Public-ID inspection | Dedicated Normal ReadPublicId and bounded Flash terminal-response codecs; CLI presence report | Normal query and live Flash parsing succeeded on native Windows ARM64 RM-875; no public-ID values exported |
 | Public-ID mode validation | Separate CLI-only experiment; command-handle identity and port revalidation, exact Flash profile, no FVER query | One complete native Windows ARM64 RM-875 / firmware 3051.50009.1451.1003 cycle matched Normal/Flash/returning Normal IDs with unchanged firmware. Normal USB arrived about 35 seconds after NOKR, identity confirmed about 3 seconds later. Repeatability and other profiles remain unvalidated; no production capability promoted |
 | Legacy FFU inspection | Single-store v1 headers, manifest and mapping bounds | Offline only |
-| Firmware integrity | SHA-256 chunk hashes | Catalog authenticity not verified |
+| Firmware integrity | SHA-256 chunk hashes; portable RSA/SHA-256 CTL signature and signed hash-table binding, bounded PLAT version scan | Offline native/browser reports agree on one real RM-875 catalog. OEM trust/device acceptance unverified; that image has no PLAT SWVERSION. Recovery remains blocked |
 | Partition extraction | Streaming FFU primary mappings and raw images | Local files only |
 | GPT conversion | CRC checks, bounds, UTF-16 names, Partitions.xml output | Local files only |
 | FAT image file operations | Directory listing, extraction, same-length patching on new copies | CLI; real RM-875 EFIESP directory read; patching not verified on phone firmware |
 | NTFS image file operations | Boot inspection, directory listing, file extraction; patched index addressing | CLI reads tested on one RM-875 MainOS; kernel hash matches upstream catalog; no writes or compressed/encrypted streams |
 | Root byte patches | Upstream hash-pinned catalog, reverse and obsolete-patch handling | Extracted files / copied FAT images only |
 | Stock FFU flashing/recovery | v1/v2 streaming workflow restricted to replay, preflight and interrupted-ack tests | Blocked; authenticated native executor and hardware validation pending |
-| Recovery preparation | Shared advisory checklist; native full-file/chunk verification, browser header preview | Offline only; exports cannot authorize execution |
+| Recovery preparation | Shared advisory checklist; native full-file/chunk verification, browser catalog/table verification; separate signature, binding, trust and observed-version checks | Offline only; missing version metadata and unvalidated downgrades are explicit; exports cannot authorize execution |
 | Read-only reconnection correlation | Fresh information comparison with a remembered baseline; serial/variant/firmware/mode checks and redacted reports | One user-confirmed RM-875 normal-mode browser unplug/replug cycle on Windows ARM64; exact browser version unknown; no Flash transition or write authorization |
 | Spec A / Spec B unlocking | Separate profile families only | Not implemented; blocked |
 | Bootloader restore/relock | Not implemented | Blocked |

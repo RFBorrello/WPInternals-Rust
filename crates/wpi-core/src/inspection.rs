@@ -10,6 +10,12 @@ pub struct Inspection {
     pub gpt: Option<Gpt>,
     pub filesystem: Option<FilesystemInfo>,
     pub notes: Vec<String>,
+    #[serde(default)]
+    pub catalog: Option<wpi_image::catalog::CatalogReport>,
+    #[serde(default)]
+    pub firmware_version: Option<String>,
+    #[serde(default)]
+    pub firmware_version_error: Option<String>,
 }
 pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> {
     let size = reader.seek(SeekFrom::End(0))?;
@@ -23,15 +29,26 @@ pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> 
         gpt: None,
         filesystem: None,
         notes: vec![],
+        catalog: None,
+        firmware_version: None,
+        firmware_version_error: None,
     };
     if &prefix[4..16] == b"SignedImage " {
         let ffu = FfuMetadata::read_headers(reader, size)?;
         let gpt = ffu.gpt(reader)?;
+        report.catalog = Some(
+            wpi_image::catalog::inspect(reader, &ffu)
+                .unwrap_or_else(wpi_image::catalog::unavailable),
+        );
+        match wpi_image::firmware::read_version(reader, &ffu, &gpt, |_, _| true) {
+            Ok(version) => report.firmware_version = version,
+            Err(e) => report.firmware_version_error = Some(e.to_string()),
+        }
         report.format = "FFU".into();
         report.ffu = Some(ffu);
         report.gpt = Some(gpt);
         report.notes.push(
-            "Structure and GPT CRCs checked. Signing catalog authenticity has not been verified."
+            "Structure and GPT CRCs checked. Signer trust and phone acceptance remain unverified."
                 .into(),
         );
         report.notes.push("Only legacy single-store FFUs are supported. End-relative writes are retained as metadata, not reconstructed into an assumed disk.".into());

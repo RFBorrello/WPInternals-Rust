@@ -19,7 +19,9 @@ export interface FfuMetadata {
 export interface Partition { name: string; type_guid: string; guid: string; first_sector: number; last_sector: number; attributes: string }
 export interface Gpt { disk_guid: string; current_lba: number; backup_lba: number; first_usable_sector: number; last_usable_sector: number; entry_count: number; entry_size: number; partitions: Partition[] }
 export interface FilesystemInfo { kind: string; bytes_per_sector: number; sectors_per_cluster: number; total_sectors: number; volume_serial: string }
-export interface Inspection { format: string; size: number; ffu: FfuMetadata | null; gpt: Gpt | null; filesystem: FilesystemInfo | null; notes: string[] }
+export interface CatalogCheck { status: 'valid' | 'invalid' | 'unsupported' | 'missing' | 'unverified'; message: string }
+export interface CatalogReport { signature: CatalogCheck; hash_table_binding: CatalogCheck; signer_trust: CatalogCheck; signer_subject: string | null; signer_certificate_sha256: string | null; catalog_sha256: string; membership_hash_algorithm: string | null }
+export interface Inspection { format: string; size: number; ffu: FfuMetadata | null; gpt: Gpt | null; filesystem: FilesystemInfo | null; notes: string[]; catalog?: CatalogReport | null; firmware_version?: string | null; firmware_version_error?: string | null }
 export interface ProbeResult { device: DeviceIdentity; info: Record<string, unknown> | null; normal: { manufacturer_model: string; product_code: string; firmware: string } | null; firmware: string | null }
 export interface OperationEvent { sequence: number; operation: string; state: string; completed_bytes: number; total_bytes: number; message: string }
 export interface ImportedArtifact { name: string; file?: File; path?: string; inspection: Inspection }

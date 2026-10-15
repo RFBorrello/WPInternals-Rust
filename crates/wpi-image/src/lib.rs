@@ -1,6 +1,8 @@
 //! Bounded offline image operations. No raw device handles or host mounting.
+pub mod catalog;
 pub mod ffu;
 pub mod filesystem;
+pub mod firmware;
 pub mod gpt;
 pub mod patch;
 pub mod stream;

@@ -1,0 +1,232 @@
+{
+  "recorded_on": "2026-10-14",
+  "scope": "Offline catalog signature, hash-table membership, PLAT version and recovery preparation",
+  "implementation_source_sha256": {
+    "crates/wpi-image/src/catalog.rs": "88b552cb851360b071a1f2c9165fd106cce325aa456e116b3f8cd22a0a5ff0df",
+    "crates/wpi-image/src/firmware.rs": "a42295214ec5ba93d8a589c0b0851d638a8ab4cb35e2f276054ae20cb1afca88",
+    "crates/wpi-core/src/inspection.rs": "8aa289b4d7a6f35b1af7194131d8d470122e6b7d5d6be4fae7f0e425a9489ee0",
+    "crates/wpi-core/src/recovery_prepare.rs": "b4e29d894b791f238554ee53ce43a99085b11295340237f79e5a6c6fa9c6feca",
+    "crates/wpi-wasm/src/lib.rs": "3df98b4964e1e27b65825a3ee9e237a07ba5fe43e297848086516803d5b9856d",
+    "apps/ui/src/firmware.worker.ts": "b040eb34ec6d049409517edaa1f12d89d87763927795b8757468f418b57bfaaf",
+    "Cargo.lock": "485e98d4e6648d5f19f08f176874f35b23932f5c67449bdeb8c20679cfb838aa"
+  },
+  "source": {
+    "filename": "RM875_3051.50009.1424.0002_RETAIL_eu_euro1_267_02_448151_prd_signed.ffu",
+    "size": 1716256768,
+    "sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "platform_id": "Nokia.MSM8960.P5217",
+    "source_unchanged_from_previous_fingerprint": true
+  },
+  "catalog": {
+    "signature": {
+      "status": "valid",
+      "message": "RSA/SHA-256 catalog signature and signed attributes verified. This does not establish signer trust or device acceptance."
+    },
+    "hash_table_binding": {
+      "status": "valid",
+      "message": "Signed catalog member matches the FFU hash table using legacy SHA-1. Legacy collision resistance is not a modern authenticity guarantee."
+    },
+    "signer_trust": {
+      "status": "unverified",
+      "message": "An embedded certificate is not a trust anchor. OEM chain, device root-key binding, certificate policy/time and revocation have not been validated."
+    },
+    "signer_subject": "O=Nokia,ST=Some-State,C=AU",
+    "signer_certificate_sha256": "f03dca985e1cf1fbc845bcfb36fc0f88e14482b2b7988ac30c20784adabd201a",
+    "catalog_sha256": "e81a8cb17893e34eb7c4b5f2e94fa3560cd67f8ec3f873f55ec3ab6f7f4f29ba",
+    "membership_hash_algorithm": "sha1"
+  },
+  "reference": {
+    "windows_dotnet_signature_only": "valid",
+    "certificate_trust_evaluated": false,
+    "browser": "Headless Microsoft Edge, built production WASM worker",
+    "native_browser_catalog_reports_identical": true,
+    "synthetic_pkcs7_and_cms_positive_signatures": "Windows/.NET signature-only and Rust agreed",
+    "ambiguous_signed_attributes": "Windows signature-only accepts the duplicate-digest fixture; Rust deliberately rejects ambiguous critical attributes"
+  },
+  "image_version": {
+    "plat_size_bytes": 8388608,
+    "swversion_found": false,
+    "version_from_filename_is_not_applicability_evidence": true
+  },
+  "preparation": {
+    "plan": {
+      "operation": "stock_flash",
+      "device": {
+        "id": "selected-device",
+        "vendor_id": 1057,
+        "product_id": 1633,
+        "manufacturer": null,
+        "product": "Nokia Lumia 909 (RM-875)",
+        "serial": null,
+        "model": "Lumia 1020",
+        "variant": "RM-875",
+        "firmware": "3051.50009.1451.1003",
+        "platform_id": null,
+        "family": "spec_a",
+        "mode": "normal",
+        "interfaces": [
+          {
+            "number": 0,
+            "class": 6,
+            "subclass": 1,
+            "protocol": 1
+          },
+          {
+            "number": 1,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 2,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          },
+          {
+            "number": 3,
+            "class": 255,
+            "subclass": 255,
+            "protocol": 255
+          }
+        ]
+      },
+      "host": "windows",
+      "transport": "usb",
+      "artifacts": [
+        {
+          "name": "RM875_3051.50009.1424.0002_RETAIL_eu_euro1_267_02_448151_prd_signed.ffu",
+          "size": 1716256768,
+          "sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+          "platform_id": "Nokia.MSM8960.P5217"
+        }
+      ],
+      "executable": false,
+      "blockers": [
+        "Device workflow is not implemented and hardware-validated in this release; execution is blocked.",
+        "An embedded certificate is not a trust anchor. OEM chain, device root-key binding, certificate policy/time and revocation have not been validated.",
+        "No unambiguous PLAT SWVERSION was found; never infer firmware compatibility from the filename.",
+        "Read an image PLAT version and installed phone version before comparing them. Filename versions and unsupported version formats are not applicability evidence.",
+        "The phone platform has not been established. Normal-mode information queries do not read a platform ID.",
+        "Stock recovery requires a validated FlashApp connection and identity checks after reconnection. This preview does not change phone modes.",
+        "No stock recovery workflow is hardware validated for this exact variant, firmware, host and transport. Identification evidence does not establish write support.",
+        "Native phone backup access is not implemented yet. Preserve recoverable originals and establish a data preservation plan before recovery.",
+        "Stock recovery currently runs only in protocol replay tests. No physical-device executor is enabled."
+      ],
+      "steps": [
+        "Inspect the local FFU, verify chunk hashes and record its SHA-256 fingerprint",
+        "Establish phone identity, exact firmware applicability, authenticity and a data preservation plan",
+        "Implement and validate mode transitions, reconnection, native recovery execution and interruption handling before enabling recovery"
+      ]
+    },
+    "checks": [
+      {
+        "key": "firmware",
+        "label": "Stock FFU image",
+        "status": "passed",
+        "message": "Legacy FFU parsed for Nokia.MSM8960.P5217. A filename alone does not establish phone applicability."
+      },
+      {
+        "key": "gpt",
+        "label": "Partition bounds",
+        "status": "passed",
+        "message": "FFU inspection must validate the primary GPT CRCs and partition bounds before recovery."
+      },
+      {
+        "key": "artifact_identity",
+        "label": "Image fingerprint",
+        "status": "passed",
+        "message": "Complete local file SHA-256 recorded for later revalidation."
+      },
+      {
+        "key": "chunk_hashes",
+        "label": "Chunk integrity",
+        "status": "passed",
+        "message": "FFU SHA-256 chunk table checked; this does not authenticate the signing catalog."
+      },
+      {
+        "key": "catalog_signature",
+        "label": "Catalog signature",
+        "status": "passed",
+        "message": "RSA/SHA-256 catalog signature and signed attributes verified. This does not establish signer trust or device acceptance."
+      },
+      {
+        "key": "catalog_binding",
+        "label": "Signed hash-table binding",
+        "status": "passed",
+        "message": "Signed catalog member matches the FFU hash table using legacy SHA-1. Legacy collision resistance is not a modern authenticity guarantee."
+      },
+      {
+        "key": "signing_catalog",
+        "label": "Firmware signer trust",
+        "status": "unverified",
+        "message": "An embedded certificate is not a trust anchor. OEM chain, device root-key binding, certificate policy/time and revocation have not been validated."
+      },
+      {
+        "key": "image_firmware",
+        "label": "Firmware version in image",
+        "status": "missing",
+        "message": "No unambiguous PLAT SWVERSION was found; never infer firmware compatibility from the filename."
+      },
+      {
+        "key": "firmware_relation",
+        "label": "Installed / image firmware",
+        "status": "unverified",
+        "message": "Read an image PLAT version and installed phone version before comparing them. Filename versions and unsupported version formats are not applicability evidence."
+      },
+      {
+        "key": "device_identity",
+        "label": "Phone identity",
+        "status": "passed",
+        "message": "Read-only model, hardware variant and installed firmware information are available; authenticated identity across mode changes is still required."
+      },
+      {
+        "key": "platform",
+        "label": "Phone / image platform",
+        "status": "unverified",
+        "message": "The phone platform has not been established. Normal-mode information queries do not read a platform ID."
+      },
+      {
+        "key": "mode",
+        "label": "Recovery mode",
+        "status": "missing",
+        "message": "Stock recovery requires a validated FlashApp connection and identity checks after reconnection. This preview does not change phone modes."
+      },
+      {
+        "key": "compatibility",
+        "label": "Validated recovery profile",
+        "status": "unverified",
+        "message": "No stock recovery workflow is hardware validated for this exact variant, firmware, host and transport. Identification evidence does not establish write support."
+      },
+      {
+        "key": "backup",
+        "label": "Data preservation",
+        "status": "missing",
+        "message": "Native phone backup access is not implemented yet. Preserve recoverable originals and establish a data preservation plan before recovery."
+      },
+      {
+        "key": "executor",
+        "label": "Recovery execution",
+        "status": "failed",
+        "message": "Stock recovery currently runs only in protocol replay tests. No physical-device executor is enabled."
+      }
+    ]
+  },
+  "tests": {
+    "rust_total_windows": 95,
+    "browser_integration": 27,
+    "typescript_unit": 3,
+    "native_clippy": "passed",
+    "native_arm64_cli_and_tauri_release": "passed",
+    "wasm_build_and_shared_ui": "passed"
+  },
+  "phone_mode_commands_sent": false,
+  "firmware_or_partition_writes_sent": false,
+  "limits": [
+    "Mathematical signature and signed member binding are verified; independent OEM root trust, chain policy/time/revocation, device acceptance and validated recovery applicability remain unknown.",
+    "The signed catalog member uses legacy SHA-1; no modern collision-resistance claim or write permission follows.",
+    "No PLAT SWVERSION was found. The filename is not accepted as an observed image version.",
+    "Native preparation verified all chunk hashes and full-file fingerprint; browser verified catalog/table binding only and leaves full-image hash checks unverified.",
+    "Only metadata, source-code hashes and certificate fingerprint are retained; proprietary firmware/catalog bytes, personal file paths and USB identifiers are excluded."
+  ]
+}

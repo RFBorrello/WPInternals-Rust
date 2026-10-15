@@ -144,3 +144,104 @@ fn native_preparation_verifies_fingerprints_and_reports_corruption_without_modif
         Err(wpi_image::ImageError::Cancelled)
     ));
 }
+#[test]
+fn catalog_signature_and_binding_never_promote_embedded_certificate_trust_or_execution() {
+    let bytes = include_bytes!("../../../tests/fixtures/synthetic-signed.ffu");
+    let mut input = tempfile::NamedTempFile::new().unwrap();
+    input.write_all(bytes).unwrap();
+    let prepared = wpi_core::artifacts::prepare_recovery(
+        input.path(),
+        None,
+        Host::Windows,
+        TransportKind::Usb,
+        |_, _| true,
+    )
+    .unwrap();
+    for key in ["catalog_signature", "catalog_binding", "chunk_hashes"] {
+        assert!(
+            prepared
+                .checks
+                .iter()
+                .any(|c| c.key == key && c.status == PreparationStatus::Passed),
+            "{key}"
+        );
+    }
+    assert!(prepared
+        .checks
+        .iter()
+        .any(|c| c.key == "signing_catalog" && c.status == PreparationStatus::Unverified));
+    assert!(!prepared.plan.executable);
+    let mut damaged = bytes.to_vec();
+    let catalog_size = u32::from_le_bytes(damaged[24..28].try_into().unwrap()) as usize;
+    damaged[32 + catalog_size] ^= 1;
+    std::fs::write(input.path(), &damaged).unwrap();
+    let prepared = wpi_core::artifacts::prepare_recovery(
+        input.path(),
+        None,
+        Host::Windows,
+        TransportKind::Usb,
+        |_, _| true,
+    )
+    .unwrap();
+    assert!(prepared
+        .checks
+        .iter()
+        .any(|c| c.key == "catalog_signature" && c.status == PreparationStatus::Passed));
+    assert!(prepared
+        .checks
+        .iter()
+        .any(|c| c.key == "catalog_binding" && c.status == PreparationStatus::Failed));
+    assert!(!prepared.plan.executable);
+}
+#[test]
+fn observed_firmware_branch_ordering_blocks_unvalidated_downgrades_without_using_filenames() {
+    for (version, status) in [
+        (Some("3051.50009.1424.0002"), PreparationStatus::Failed),
+        (Some("3051.50009.1451.1003"), PreparationStatus::Passed),
+        (Some("3051.50009.1452.1003"), PreparationStatus::Unverified),
+        (Some("9999.1.1.1"), PreparationStatus::Unverified),
+        (None, PreparationStatus::Unverified),
+    ] {
+        let mut image = inspection::inspect(&mut Cursor::new(FFU)).unwrap();
+        image.firmware_version = version.map(str::to_owned);
+        let mut device = phone("SYNTHETIC.LUMIA.TEST");
+        device.firmware = Some("3051.50009.1451.1003".into());
+        let mut file = artifact();
+        file.name = "RM875_9999.9999.9999.9999_signed.ffu".into();
+        let result = report(
+            Some(device),
+            Some(&image),
+            Some(file),
+            ChunkIntegrity::Passed,
+            Host::Windows,
+            TransportKind::Usb,
+        );
+        assert!(result
+            .checks
+            .iter()
+            .any(|c| c.key == "firmware_relation" && c.status == status));
+        assert!(!result.plan.executable);
+    }
+}
+#[test]
+fn platform_family_prefix_is_advisory_and_cannot_match_an_unrelated_product_number() {
+    let image = inspection::inspect(&mut Cursor::new(FFU)).unwrap();
+    for (platform, status) in [
+        ("SYNTHETIC.LUMIA.TEST.3.2.1", PreparationStatus::Unverified),
+        ("SYNTHETIC.LUMIA.TEST2.3", PreparationStatus::Failed),
+    ] {
+        let result = report(
+            Some(phone(platform)),
+            Some(&image),
+            None,
+            ChunkIntegrity::NotChecked,
+            Host::Windows,
+            TransportKind::Usb,
+        );
+        assert!(result
+            .checks
+            .iter()
+            .any(|c| c.key == "platform" && c.status == status));
+        assert!(!result.plan.executable);
+    }
+}

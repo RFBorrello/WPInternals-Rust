@@ -11,6 +11,13 @@ its chunk table with progress and cancellation. Browser preparation runs in a
 worker and explicitly leaves full-file fingerprint/chunk checks unverified.
 No preparation command switches modes, flashes, unlocks or reads phone storage.
 
+Catalog signature, signed hash-table binding and firmware signer trust are now
+separate checks in both native and browser preparation. A valid signature against
+an embedded certificate does not establish an independently trusted OEM signer.
+PLAT firmware metadata is scanned in bounded blocks; missing or contradictory
+versions are explicit, and filename versions never establish applicability.
+See [firmware validation and its limits](firmware-validation.md).
+
 CLI:
 
 ```sh

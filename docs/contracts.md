@@ -25,6 +25,13 @@ Authenticity, applicable hardware profiles, backup access and execution stay
 blocked independently. Exports redact USB serial and host instance identifiers.
 Changing a report cannot bypass the operation coordinator's execution gate.
 
+Inspection adds optional catalog, firmware_version and firmware_version_error
+evidence. CatalogReport (wpi-image) has separate signature, hash_table_binding and
+signer_trust checks, with valid/invalid/unsupported/missing/unverified states.
+RecoveryPreparation maps those to its existing preparation statuses; no new
+execution permission is inferred. The browser and native engine use the same
+verifier. PLAT-version absence is distinct from a malformed/contradictory value.
+
 ReplayBlockSource is a concrete simulated read-only disk with bounded fixtures.
 The backup engine cannot accept native USB or raw block devices. Successful replay
 backups produce a `replay_only` manifest and atomically publish a new local image;

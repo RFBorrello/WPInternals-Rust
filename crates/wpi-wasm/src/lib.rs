@@ -65,6 +65,19 @@ pub fn ffu_headers_json(headers: &[u8], total_size: u64) -> Result<String, JsVal
     json(&FfuMetadata::read_headers(&mut Cursor::new(headers), total_size).map_err(js_error)?)
 }
 #[wasm_bindgen]
+pub fn ffu_catalog_json(headers: &[u8], total_size: u64) -> Result<String, JsValue> {
+    let mut reader = Cursor::new(headers);
+    let ffu = FfuMetadata::read_headers(&mut reader, total_size).map_err(js_error)?;
+    json(
+        &wpi_image::catalog::inspect(&mut reader, &ffu)
+            .unwrap_or_else(wpi_image::catalog::unavailable),
+    )
+}
+#[wasm_bindgen]
+pub fn plat_version_json(bytes: &[u8], final_chunk: bool) -> Result<String, JsValue> {
+    json(&wpi_image::firmware::scan_chunk(bytes, final_chunk).map_err(js_error)?)
+}
+#[wasm_bindgen]
 pub fn ffu_segments_json(metadata: &str, start: u64, length: u64) -> Result<String, JsValue> {
     let ffu: FfuMetadata = serde_json::from_str(metadata).map_err(js_error)?;
     json(&ffu.segments(start, length).map_err(js_error)?)
