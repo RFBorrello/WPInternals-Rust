@@ -63,6 +63,9 @@ jobs:
             docs/public-identity.md
             docs/public-id-mode-test.md
             docs/firmware-validation.md
+            docs/native-backup.md
+            docs/rm875-firmware-search.md
+            tests/hardware/windows-arm64-storage-discovery.json
             resources/licenses/*
           if-no-files-found: error
   browser:

@@ -112,3 +112,14 @@ source_removal_observed. ReconnectProbe events record observed_mode and readines
 (attempting_read_only_probe or interface_not_ready_no_query_sent). These events
 carry no instance IDs or serials and cannot authorize commands. The Normal limit
 is an observation bound, not a measured boot time.
+
+StorageDiscovery is a redacted host inventory (`host_supported`,
+`hardware_validated=false`, candidate geometry/state/blockers). It contains no
+serial/PnP values. Desktop IPC exposes discovery only; browser fallback requests
+no USB permission. StorageInspection and StorageBackup are CLI research results;
+matched GPT fingerprints do not authenticate device identity. The native storage
+crate keeps raw read-only handles private and owns their access/state checks.
+The platform-independent backup engine accepts a ReadOnlySource contract, bounds
+ranges/chunks and revalidates before atomic output publication. The replay adapter
+uses the same engine. A dedicated read-only storage reservation shares the job
+coordinator without enabling caller-supplied Backup or device-write plans.

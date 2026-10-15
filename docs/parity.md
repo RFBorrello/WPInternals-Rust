@@ -13,7 +13,7 @@ Later upstream changes are not implicitly accepted or enabled.
 | Public-ID mode validation | Separate CLI-only experiment; command-handle identity and port revalidation, exact Flash profile, no FVER query | One complete native Windows ARM64 RM-875 / firmware 3051.50009.1451.1003 cycle matched Normal/Flash/returning Normal IDs with unchanged firmware. Normal USB arrived about 35 seconds after NOKR, identity confirmed about 3 seconds later. Repeatability and other profiles remain unvalidated; no production capability promoted |
 | Legacy FFU inspection | Single-store v1 headers, manifest and mapping bounds | Offline only |
 | Firmware integrity | SHA-256 chunk hashes; portable RSA/SHA-256 CTL signature and signed hash-table binding, bounded PLAT scan and MainOS registry/DSM version fallback | Native/browser reports agree on one real RM-875 catalog and MainOS version. Older image build is flagged; OEM trust/device acceptance unverified. Recovery remains blocked |
-| Signer / applicability assessment | Local-time dates, signing KU/EKU, bounded embedded RSA/SHA-256 certificate-chain checks; MainOS OEMSettings variant matching | Limited policy profile only. Real RM-875 matches; catalog issuer is missing. No independently authenticated OEM anchor, revocation, region/product mapping or write authorization |
+| Signer / applicability assessment | Local-time dates, signing KU/EKU, bounded catalog/image-local RSA/SHA-256 certificate-chain checks; MainOS OEMSettings variant matching | Limited policy profile only. Real RM-875 matches; image-local production PK completes internal signatures. No independently authenticated OEM anchor, revocation, region/product mapping or write authorization |
 | Partition extraction | Streaming FFU primary mappings and raw images | Local files only |
 | GPT conversion | CRC checks, bounds, UTF-16 names, Partitions.xml output | Local files only |
 | FAT image file operations | Directory listing, extraction, same-length patching on new copies | CLI; real RM-875 EFIESP directory read; patching not verified on phone firmware |
@@ -25,7 +25,7 @@ Later upstream changes are not implicitly accepted or enabled.
 | Spec A / Spec B unlocking | Separate profile families only | Not implemented; blocked |
 | Bootloader restore/relock | Not implemented | Blocked |
 | Root installation/removal | Offline target-file patching only | Phone workflow blocked |
-| Phone partition/full backup | Bounded sector-copy engine restricted to replay data; atomic output and failure tests | Blocked; native storage adapters, exclusive access and hardware validation pending |
+| Phone partition/full backup | Bounded sector-copy engine, atomic output and failure tests; Windows experimental read-only mass-storage CLI with identity, offline/read-only/exclusive access and primary/backup GPT guards | General backup capability remains blocked; experimental Windows CLI requires already exposed storage. No live backup or macOS/Linux raw adapter validation yet |
 | Phone restore/custom flashing | Not implemented | Blocked |
 | Emergency recovery | HDLC codecs, Sahara HELLO parser; no programmer transfer | Enumeration only |
 | Firmware/loader downloads | Not implemented | Local import required |

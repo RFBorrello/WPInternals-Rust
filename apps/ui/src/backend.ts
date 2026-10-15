@@ -2,6 +2,10 @@ import type { CapabilityReport, DeviceIdentity, DeviceMode, ImportedArtifact, In
 import { initialize, wasm } from './engine';
 
 export const desktop = Boolean(window.__TAURI_INTERNALS__);
+export async function storageDiscovery(): Promise<import('./types').StorageDiscovery> {
+  if (!desktop) return { host_supported: false, hardware_validated: false, candidates: [], message: 'Phone partition backups require native mass-storage access. Use the desktop build or CLI; WebUSB cannot open phone disks. Normal-mode information access does not expose partitions.' };
+  return invoke('storage_discovery');
+}
 let sequence = 0;
 let worker: Worker | undefined;
 const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; progress?: (done: number, total: number) => void }>();

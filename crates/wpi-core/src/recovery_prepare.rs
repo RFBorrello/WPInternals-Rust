@@ -199,7 +199,7 @@ pub fn report(
     check("mode", "Recovery mode", if device.as_ref().is_some_and(|d| d.mode == DeviceMode::Flash) { Passed } else { Missing },
         "Stock recovery requires a validated FlashApp connection and identity checks after reconnection. This preview does not change phone modes.".into());
     check("compatibility", "Validated recovery profile", Unverified, "No stock recovery workflow is hardware validated for this exact variant, firmware, host and transport. Identification evidence does not establish write support.".into());
-    check("backup", "Data preservation", Missing, "Native phone backup access is not implemented yet. Preserve recoverable originals and establish a data preservation plan before recovery.".into());
+    check("backup", "Data preservation", Missing, "No completed phone backup has been supplied. Experimental Windows CLI access requires already exposed mass storage; Normal-mode USB does not expose partitions. Establish a data preservation plan before recovery.".into());
     check("executor", "Recovery execution", Failed, "Stock recovery currently runs only in protocol replay tests. No physical-device executor is enabled.".into());
     let mut plan = crate::operations::prepare(
         Operation::StockFlash,

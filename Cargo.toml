@@ -2,7 +2,7 @@
 resolver = "2"
 members = ["crates/*", "apps/desktop"]
 exclude = ["vendor/ntfs"]
-default-members = ["crates/wpi-cli", "crates/wpi-core", "crates/wpi-image", "crates/wpi-protocol", "crates/wpi-transport", "crates/wpi-types"]
+default-members = ["crates/wpi-cli", "crates/wpi-core", "crates/wpi-image", "crates/wpi-protocol", "crates/wpi-transport", "crates/wpi-types", "crates/wpi-storage"]
 
 [workspace.package]
 version = "0.1.0"

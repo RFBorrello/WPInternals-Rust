@@ -59,3 +59,8 @@ executors. Device writing gates remain unchanged.
 Earlier browser preview with synthetic firmware (before complete integrity verification):
 
 ![Recovery preparation checklist](recovery-preview.png)
+
+Experimental Windows read-only storage access is documented in [native backup](native-backup.md).
+It requires a phone already exposing offline/read-only mass storage. Producing an
+experimental copy does not establish validated recovery, restoration or a complete
+data-preservation plan; the preparation gate remains independent.

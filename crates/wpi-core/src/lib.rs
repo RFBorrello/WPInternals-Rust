@@ -1,6 +1,8 @@
 #[cfg(not(target_arch = "wasm32"))]
 pub mod artifacts;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod backup;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod backup_replay;
 pub mod inspection;
 pub mod mode_replay;

@@ -316,6 +316,21 @@ fn cancel_operation(state: State<'_, DesktopState>) -> Result<(), String> {
     }
     Ok(())
 }
+#[tauri::command]
+async fn storage_discovery(
+    state: State<'_, DesktopState>,
+) -> Result<wpi_storage::Discovery, String> {
+    let session = state
+        .coordinator
+        .reserve_storage_read()
+        .map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _session = session;
+        wpi_storage::discover().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -331,7 +346,8 @@ fn main() {
             prepare_recovery,
             convert_gpt,
             extract_partition,
-            cancel_operation
+            cancel_operation,
+            storage_discovery
         ])
         .run(tauri::generate_context!())
         .expect("failed to run WPInternals Rust");

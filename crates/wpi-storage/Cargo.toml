@@ -1,0 +1,20 @@
+[package]
+name = "wpi-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+wpi-core.workspace = true
+wpi-image.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_SystemInformation"] }
+
+[dev-dependencies]
+tempfile = "3"
+crc32fast.workspace = true

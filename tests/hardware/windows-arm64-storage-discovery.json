@@ -1,0 +1,53 @@
+{
+  "recorded_on": "2026-10-14",
+  "scope": "Windows ARM64 storage inventory and absent-target guard only; not a phone backup validation",
+  "host": {
+    "os": "Windows",
+    "architecture": "aarch64-pc-windows-msvc"
+  },
+  "discovery": {
+    "host_supported": true,
+    "hardware_validated": false,
+    "candidates": [],
+    "message": "Read-only Windows inventory only. A phone must already expose mass storage. No phone mode, mount state or disk attribute was changed; normal-mode MTP is not block access."
+  },
+  "absent_target_rejected_before_raw_open": true,
+  "invalid_fingerprint_rejected_before_inventory": true,
+  "raw_device_handle_opened": false,
+  "phone_disk_read": false,
+  "backup_performed": false,
+  "phone_protocol_queries_sent": false,
+  "mode_changes_sent": false,
+  "phone_or_disk_settings_changed": false,
+  "firmware_or_partition_writes_sent": false,
+  "source_hash_normalization": "UTF-8 with CRLF normalized to LF",
+  "implementation_source_sha256": {
+    "crates/wpi-storage/src/lib.rs": "0495156709fe774e8d8702f3a737a9f715c3724d5d8e9b83035c622570d71e0c",
+    "crates/wpi-storage/src/windows.rs": "e0a37d8fa37921f0fde5a205411259cbc112f9f337744f37ece1c7d73db23674",
+    "crates/wpi-storage/src/discover-windows.ps1": "39d6c45efa6569e3631fa30ab1c9bee4c049aad08f9489c4f79c13a45a9d2013",
+    "crates/wpi-storage/src/layout.rs": "91b962d47673375e741d13892b3ff1077809e8fa5ba7db87e3f593edcf913b2e",
+    "crates/wpi-storage/src/policy.rs": "dbf68c3ed6414051de05e9fe719f2268820cb1e0c1fce86147b81226c23688bd",
+    "crates/wpi-core/src/backup.rs": "95393246f235a2d19a77cabff76a6a49d7bc6d6072d71d7cc959d13e60363c55",
+    "crates/wpi-core/src/backup_replay.rs": "d45980b1593b61f5086e9d8e63e2fa9e95c52b4c4471b331da22fdf5e2c19cc3",
+    "crates/wpi-core/src/operations.rs": "2e52fb35c461083c3f59bb314898c93f9d41ecff696a8e1cdaa5da5db50f61b0",
+    "crates/wpi-cli/src/main.rs": "4328a582a2d388dacc71ee5140080eeecd43c10873e3361e8afafc77cf36187f",
+    "apps/desktop/src/main.rs": "2e67a0e262a9d4e3882325300d0ade5ff7e67231204a027f0a9b7738c11fbfd1",
+    "apps/ui/src/backend.ts": "301be8de74a7fa62e8aa8d69c0cdf0c536f22e8d0021821a6729316b7aa395f6",
+    "apps/ui/src/App.tsx": "a551b6eaddf35da57d3f24d08555ef087168adfabc40363894c767be64c3ae88"
+  },
+  "software_validation": {
+    "rust_windows": 135,
+    "browser_edge_real_wasm_and_ipc_boundary": 39,
+    "typescript_unit": 3,
+    "native_and_wasm_clippy": "passed",
+    "wasm_ui_build": "passed",
+    "windows_arm64_cli_and_tauri_release": "passed"
+  },
+  "limits": [
+    "Only the inventory/no-candidate and absent-target guard paths were exercised on this host.",
+    "No actual raw disk open, sector read, partition/full phone backup, serial encoding or exclusive-driver behavior has been hardware validated.",
+    "Read-only storage requires an already exposed offline/read-only disk; the normal-mode retail Spec A phone cannot be backed up through this path as-is.",
+    "macOS/Linux raw storage adapters remain unimplemented.",
+    "Synthetic tests do not establish device compatibility, authenticated identity, snapshot consistency, restore safety or write support."
+  ]
+}

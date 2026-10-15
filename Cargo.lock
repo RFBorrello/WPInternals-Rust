@@ -5095,6 +5095,7 @@ dependencies = [
  "wpi-core",
  "wpi-image",
  "wpi-protocol",
+ "wpi-storage",
  "wpi-transport",
  "wpi-types",
 ]
@@ -5123,6 +5124,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "wpi-core",
  "wpi-image",
+ "wpi-storage",
  "wpi-transport",
  "wpi-types",
 ]
@@ -5159,6 +5161,21 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "wpi-types",
+]
+
+[[package]]
+name = "wpi-storage"
+version = "0.1.0"
+dependencies = [
+ "crc32fast",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "windows-sys 0.61.2",
+ "wpi-core",
+ "wpi-image",
 ]
 
 [[package]]

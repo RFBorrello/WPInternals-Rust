@@ -72,6 +72,11 @@ pub struct OperationSession {
     completed: u64,
 }
 impl OperationCoordinator {
+    /// Reserve only a read-only storage research job. This lease does not open
+    /// a device or grant a write capability; native adapters enforce admission.
+    pub fn reserve_storage_read(&self) -> Result<OperationSession, OperationError> {
+        self.acquire(Operation::Backup)
+    }
     /// Reserves an offline job before opening/validating its artifacts.
     pub fn reserve_local(&self, operation: Operation) -> Result<OperationSession, OperationError> {
         if !operation.offline() {

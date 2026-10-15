@@ -1,21 +1,21 @@
 # Local validation — October 13–14, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. Signer/targeting milestone `d120fc5` passed GitHub CI on all
-four native host targets and Chromium ([run `38669232608`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38669232608)).
+headless Microsoft Edge. Image-local issuer milestone `c99cbc6` passed GitHub CI on all
+four native host targets and Chromium ([run `38673075453`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38673075453)).
 Those remote build results do not establish device support.
-The latest local milestone adds bounded image-local production PK discovery and
-certificate-chain verification. Phone/USB evidence below remains historical; no phone
+The latest local milestone adds experimental Windows read-only storage discovery/backup
+and explicit browser fallback. Phone/USB evidence below remains historical; no phone
 commands were sent during this change. Remote CI for this new source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 119 passed on Windows: 79 integration tests, 37 native transport/harness unit tests and three image-parser unit tests |
+| Rust tests | 135 passed on Windows: 93 integration tests, 37 native transport/harness unit tests, three image-parser unit tests and two Windows metadata-decoder unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 37 passed |
+| Real-WASM browser integration tests | 39 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -375,3 +375,24 @@ slices at most 64 KiB. The existing chain row now passes internal consistency;
 OEM anchor, revocation and exact applicability remain unverified. The unvalidated
 downgrade check still fails. No fresh phone query or command was sent. See
 [the metadata-only record](../tests/fixtures/rm875-image-issuer-validation.json).
+
+## Read-only native storage research � October 14
+
+The shared copy engine now serves both replay and a private Windows read-only
+adapter. Sixteen new Rust tests cover candidate admission/redaction, native query
+response parsing, paired GPTs, range/identity/state failures, cancellation,
+disconnect/no-retry behavior and operation locking. Browser coverage adds an
+explicit native-storage fallback without USB requests and desktop IPC empty/error
+feedback (39 total). General Backup
+plans remain non-executable; the Windows CLI research path requires already
+exposed, offline/read-only phone storage under exclusive access.
+
+A real Windows ARM64 inventory returned no recognized phone-storage disks.
+No raw handle was opened and no USB protocol/mode/write command was sent.
+This is discovery-only evidence: raw access, disk reads, full/partition backup,
+serial decoding and snapshot consistency have not been hardware validated.
+macOS/Linux raw adapters are not yet implemented. The offline firmware search
+found the current 059T909 listing names the existing older recovery image;
+no verified exact-version FFU was located or downloaded.
+See [native backup limits](native-backup.md) and
+[firmware search findings](rm875-firmware-search.md).

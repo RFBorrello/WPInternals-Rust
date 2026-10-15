@@ -10,6 +10,7 @@ export interface DeviceIdentity {
 export interface Capability { operation: string; status: SupportStatus; executable: boolean; reason: string; requirements: string[] }
 export interface CapabilityReport { device_id: string | null; host: string; transport: string; capabilities: Capability[] }
 export interface ModelProfile { model: string; variants: string[]; family: string; hardware_validated: boolean }
+export interface StorageDiscovery { host_supported: boolean; hardware_validated: boolean; candidates: { disk_number: number; model: string; size: number; sector_size: number; offline: boolean; read_only: boolean; blockers: string[] }[]; message: string }
 export interface Mapping { disk_access: number; disk_chunk: number; chunk_count: number; payload_chunk: number }
 export interface FfuMetadata {
   platform_id: string; chunk_size: number; security_size: number; image_size: number; store_size: number;

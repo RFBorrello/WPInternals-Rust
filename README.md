@@ -27,6 +27,9 @@ hardware validation.
   signatures, signed hash-table membership, bounded PLAT scanning and a corroborated
   MainOS registry/DSM firmware-version fallback.
   Signer trust and device acceptance remain unverified; valid signatures cannot enable recovery.
+- Experimental [Windows read-only backup access](docs/native-backup.md): recognized
+  already exposed phone disks, exclusive read-only access, paired GPT validation
+  and bounded copies. Physical backup behavior is not hardware validated.
 - Offline [signer and applicability assessment](docs/oem-trust-and-applicability.md):
   certificate dates/usages, limited chain checks with image-local production PK
   discovery, missing-issuer diagnostics

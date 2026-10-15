@@ -33,6 +33,7 @@ export default function App() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [help, setHelp] = useState(false);
+  const [storage, setStorage] = useState<import('./types').StorageDiscovery | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const connectionEpoch = useRef(0);
   useEffect(() => { setPreparation(null); }, [artifact, selected]);
@@ -207,7 +208,15 @@ export default function App() {
                 <button className="secondary-button" disabled={disabled} onClick={() => backend.download(new Blob([JSON.stringify(reconnection, null, 2)], { type: 'application/json' }), 'reconnection-check.json')}>Export reconnection check</button>
               </div>}
             </section>
-          <section className="validation-note"><div className="validation-icon"><LockKeyhole size={20} /></div><div><h4>Built carefully, validated honestly.</h4><p>Unlocking, flashing, and phone backup/restore are not available in this development release. The Lumia 1020 and 730 are the first hardware validation targets.</p></div><button className="text-button" onClick={() => setPage('compatibility')}>View capabilities <ArrowRight size={15} /></button></section>
+          <section className="card mode-card"><div className="section-heading"><h3><HardDrive size={18} /> Backup access</h3><span className="subtle-badge">READ ONLY</span></div>
+            <p>Partition backups require a phone that already exposes Mass Storage mode. Normal-mode USB information access does not expose the phone’s disk. This check never changes phone modes or disk settings.</p>
+            <p className="info-note">On the Lumia 1020, stock Spec A bootloaders generally need an engineering bootloader before mass storage is available. Unlocking and that transition remain unavailable here.</p>
+            <button className="secondary-button" disabled={disabled} onClick={() => { setStorage(null); void task('Checking backup access', async () => { setStorage(await backend.storageDiscovery()); }); }}>Check backup access</button>
+            {storage && <div role="status"><p>{storage.message}</p>{storage.host_supported && !storage.candidates.length && <p>No recognized phone-storage disk is exposed. Leave the phone in its current mode.</p>}
+              {storage.candidates.map(disk => <div key={disk.disk_number}><h4>Disk {disk.disk_number} · {disk.model} · {bytes(disk.size)}</h4>{disk.blockers.length ? <ul>{disk.blockers.map(reason => <li key={reason}>{reason}</li>)}</ul> : <p>Storage-state checks passed. The experimental CLI can inspect this disk before any backup; phone hardware validation is still pending.</p>}</div>)}
+            </div>}
+          </section>
+          <section className="validation-note"><div className="validation-icon"><LockKeyhole size={20} /></div><div><h4>Built carefully, validated honestly.</h4><p>Unlocking, flashing, and validated phone backup/restore are not available in this development release. Windows has an experimental read-only storage CLI for phones already exposing storage. The Lumia 1020 and 730 are the first hardware validation targets.</p></div><button className="text-button" onClick={() => setPage('compatibility')}>View capabilities <ArrowRight size={15} /></button></section>
         </>}
 
         {page === 'firmware' && <>

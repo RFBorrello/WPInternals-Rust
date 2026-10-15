@@ -83,6 +83,8 @@ pub fn capabilities(
             (SupportStatus::Unknown, false, "Mode routes, reconnection checks and interruption handling are implemented in replay only. Live mode switching requires a native executor and hardware validation.")
         } else if host == Host::Browser && matches!(operation, Operation::Backup | Operation::Restore) {
             (SupportStatus::Unsupported, false, "Raw storage access requires the desktop app.")
+        } else if host == Host::Windows && operation == Operation::Backup {
+            (SupportStatus::Experimental, false, "Experimental Windows CLI backup requires already exposed phone mass storage, offline/read-only/exclusive access and a fresh GPT fingerprint. General backup execution remains blocked pending hardware validation.")
         } else {
             (SupportStatus::Unknown, false, "Device workflow is not implemented and hardware-validated in this release; execution is blocked.")
         };

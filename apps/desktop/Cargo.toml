@@ -20,3 +20,4 @@ wpi-types.workspace = true
 wpi-image.workspace = true
 wpi-core.workspace = true
 wpi-transport.workspace = true
+wpi-storage = { path = "../../crates/wpi-storage" }

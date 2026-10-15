@@ -18,3 +18,4 @@ wpi-protocol.workspace = true
 wpi-image.workspace = true
 wpi-core.workspace = true
 wpi-transport.workspace = true
+wpi-storage = { path = "../wpi-storage" }

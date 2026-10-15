@@ -10,14 +10,22 @@ async function fileHook(page: Page, mode: 'delay' | 'short' | 'error') {
       constructor(url: string | URL, options?: WorkerOptions) {
         const source = `
           const queue=[]; self.onmessage=e=>queue.push(e);
-          let preparing=false;
-          self.addEventListener('message',e=>{if(e.data.action==='recovery_prepare')preparing=true;});
+          let preparing=false, preparations=0, firstHashChunk=false, release;
+          const cancellation=new Promise(resolve=>{release=resolve;});
+          self.addEventListener('message',e=>{
+            if(e.data.action==='recovery_prepare'){preparing=true;preparations++;firstHashChunk=false;}
+            if(e.data.action==='cancel')release();
+          });
           const original=Blob.prototype.arrayBuffer;
           Blob.prototype.arrayBuffer=async function(){
+            // Hold the second preparation after one real hash chunk until a
+            // cancel event arrives. A 150 ms click window races under CPU load.
+            if(${JSON.stringify(mode)}==='delay' && preparations===2 && firstHashChunk)await cancellation;
             if(preparing && (${JSON.stringify(mode)}==='delay' || this.size===1048576)){
               await new Promise(resolve=>setTimeout(resolve,150));
               if(${JSON.stringify(mode)}==='error')throw new DOMException('Local file became unreadable','NotReadableError');
               const data=await original.call(this);
+              if(this.size===1048576)firstHashChunk=true;
               return ${JSON.stringify(mode)}==='short'?data.slice(0,-1):data;
             }
             return original.call(this);

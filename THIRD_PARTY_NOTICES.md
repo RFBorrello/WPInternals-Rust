@@ -30,6 +30,7 @@ and apps/ui/package-lock.json pin the resolved dependency graph. Key libraries:
 | flate2, miniz_oxide | MIT OR Apache-2.0 (miniz_oxide also offers Zlib) |
 | adler2 | 0BSD OR MIT OR Apache-2.0 |
 | simd-adler32 | MIT |
+| windows-sys | MIT OR Apache-2.0 |
 
 Review the complete transitive license inventory before publishing release bundles.
 The patched `ntfs` 0.4.0 runtime source is included under `vendor/ntfs`, with its
@@ -45,3 +46,7 @@ project-generated test data; no OEM catalog bytes or private test keys are inclu
 The MainOS package reader uses flate2's portable Rust backend; its flate2,
 miniz_oxide, adler2 and simd-adler32 license texts are retained under
 `resources/licenses`. No native compression library is required by this reader.
+The read-only Windows storage adapter uses windows-sys bindings; its license
+texts are retained as `resources/licenses/windows-sys-MIT` and `windows-sys-APACHE`.
+Storage candidate recognition follows the pinned upstream `Models/MassStorage.cs`;
+the OS access and validation policy is an independent, more conservative implementation.

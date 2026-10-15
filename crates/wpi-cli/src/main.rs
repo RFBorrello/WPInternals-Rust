@@ -15,6 +15,11 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Research-only read-only mass storage; never changes phone modes.
+    Storage {
+        #[command(subcommand)]
+        action: StorageCommand,
+    },
     /// List recognized USB interfaces without opening them.
     Devices {
         #[arg(long)]
@@ -122,6 +127,25 @@ enum Command {
         device_id: Option<String>,
         #[arg(long)]
         input: Option<PathBuf>,
+    },
+}
+#[derive(Subcommand)]
+enum StorageCommand {
+    /// List recognized phone-storage candidates without opening raw disks.
+    List,
+    /// Inspect an already offline/read-only phone disk under exclusive access.
+    Inspect { disk: u32 },
+    /// Copy a selected partition or full disk into a NEW file; experimental.
+    #[command(group(clap::ArgGroup::new("scope").required(true).args(["partition", "full"])))]
+    Backup {
+        disk: u32,
+        #[arg(long)]
+        expect_gpt: String,
+        #[arg(long)]
+        partition: Option<String>,
+        #[arg(long)]
+        full: bool,
+        output: PathBuf,
     },
 }
 fn parse_operation(s: &str) -> Result<Operation, String> {
@@ -256,6 +280,41 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::Storage { action } => {
+            let coordinator = wpi_core::operations::OperationCoordinator::default();
+            let session = coordinator.reserve_storage_read()?;
+            match action {
+                StorageCommand::List => print(wpi_storage::discover()?)?,
+                StorageCommand::Inspect { disk } => print(wpi_storage::inspect(disk)?)?,
+                StorageCommand::Backup {
+                    disk,
+                    expect_gpt,
+                    partition,
+                    full: _,
+                    output,
+                } => {
+                    let token = session.cancellation();
+                    ctrlc::set_handler(move || {
+                        token.store(true, std::sync::atomic::Ordering::Release)
+                    })?;
+                    let mut last = std::time::Instant::now();
+                    let result = wpi_storage::backup(
+                        disk,
+                        &expect_gpt,
+                        partition.as_deref(),
+                        &output,
+                        |done, total| {
+                            if done == 0 || done == total || last.elapsed().as_millis() >= 250 {
+                                eprintln!("Backing up: {done}/{total} bytes");
+                                last = std::time::Instant::now();
+                            }
+                            session.safe_boundary()
+                        },
+                    )?;
+                    print(result)?;
+                }
+            }
+        }
         Command::Devices { serial: true } => print(wpi_transport::serial_candidates()?)?,
         Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
         Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
