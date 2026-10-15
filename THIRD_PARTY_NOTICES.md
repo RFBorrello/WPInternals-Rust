@@ -27,6 +27,9 @@ and apps/ui/package-lock.json pin the resolved dependency graph. Key libraries:
 | ctrlc | MIT OR Apache-2.0 |
 | Playwright | Apache-2.0 |
 | RustCrypto cms, der, x509-cert, rsa | MIT OR Apache-2.0 |
+| flate2, miniz_oxide | MIT OR Apache-2.0 (miniz_oxide also offers Zlib) |
+| adler2 | 0BSD OR MIT OR Apache-2.0 |
+| simd-adler32 | MIT |
 
 Review the complete transitive license inventory before publishing release bundles.
 The patched `ntfs` 0.4.0 runtime source is included under `vendor/ntfs`, with its
@@ -39,3 +42,6 @@ standalone license files; its dual-license declaration and source provenance are
 retained in `resources/licenses/cms-declaration.txt`, alongside the shared
 RustCrypto formats license texts from DER. Synthetic signing fixtures use only
 project-generated test data; no OEM catalog bytes or private test keys are included.
+The MainOS package reader uses flate2's portable Rust backend; its flate2,
+miniz_oxide, adler2 and simd-adler32 license texts are retained under
+`resources/licenses`. No native compression library is required by this reader.

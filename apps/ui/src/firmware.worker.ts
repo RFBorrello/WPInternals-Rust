@@ -58,7 +58,28 @@ async function inspect(file: File): Promise<Inspection> {
     const report: Inspection = { format: ffu ? 'FFU' : 'GPT / raw disk image', size: file.size, ffu, gpt, filesystem: null, notes: ffu ? ['Structure and GPT CRCs checked. Signer trust and phone acceptance remain unverified.', 'End-relative FFU writes are metadata only; no disk capacity is assumed.'] : ['GPT header and entry CRCs checked.'] };
     if (ffu && ffuHeaders) {
       report.catalog = JSON.parse(wasm.ffu_catalog_json(ffuHeaders, BigInt(file.size)));
-      try { report.firmware_version = await platVersion(file, ffu, gpt); }
+      try {
+        report.firmware_version = await platVersion(file, ffu, gpt);
+        report.firmware_version_sources = report.firmware_version ? ['PLAT SWVERSION'] : [];
+        if (!report.firmware_version) {
+          // Yield before the bounded synchronous NTFS batch so queued cancellation
+          // is observed. This worker never sends image contents through the UI.
+          await new Promise(resolve => setTimeout(resolve, 0));
+          if (cancelled) throw new Error('Operation cancelled');
+          if (typeof FileReaderSync === 'undefined') throw new Error('MainOS inspection requires worker FileReaderSync; use the desktop app');
+          const reader = new FileReaderSync();
+          const slice = (offset: number, length: number) => {
+            safeNumber(offset); safeNumber(length); safeNumber(offset + length);
+            if (length > 64 * 1024 || offset + length > file.size) throw new Error('MainOS read exceeds bounded file slice');
+            return new Uint8Array(reader.readAsArrayBuffer(file.slice(offset, offset + length)));
+          };
+          const evidence: { version: string; sources: string[] } | null = JSON.parse(wasm.mainos_firmware_json(JSON.stringify(ffu), JSON.stringify(gpt), BigInt(file.size), slice));
+          await new Promise(resolve => setTimeout(resolve, 0));
+          if (cancelled) throw new Error('Operation cancelled');
+          report.firmware_version = evidence?.version ?? null;
+          report.firmware_version_sources = evidence?.sources ?? [];
+        }
+      }
       catch (error) { if (cancelled) throw error; report.firmware_version_error = String(error); }
     }
     return report;

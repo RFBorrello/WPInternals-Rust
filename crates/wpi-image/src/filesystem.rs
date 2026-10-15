@@ -48,11 +48,11 @@ fn relative(path: &str) -> Result<String> {
         crate::patch::safe_relative_path(path)
     }
 }
-fn ntfs_file<'n, R: Read + Seek>(
+fn ntfs_find_file<'n, R: Read + Seek>(
     ntfs: &'n ntfs::Ntfs,
     reader: &mut R,
     path: &str,
-) -> Result<ntfs::NtfsFile<'n>> {
+) -> Result<Option<ntfs::NtfsFile<'n>>> {
     let mut file = ntfs
         .root_directory(reader)
         .map_err(|e| invalid(e.to_string()))?;
@@ -62,16 +62,68 @@ fn ntfs_file<'n, R: Read + Seek>(
                 .directory_index(reader)
                 .map_err(|e| invalid(e.to_string()))?;
             let mut finder = index.finder();
-            let entry = ntfs::indexes::NtfsFileNameIndex::find(&mut finder, ntfs, reader, part)
-                .ok_or_else(|| invalid(format!("file {path} not found")))?
-                .map_err(|e| invalid(e.to_string()))?;
+            let Some(entry) =
+                ntfs::indexes::NtfsFileNameIndex::find(&mut finder, ntfs, reader, part)
+            else {
+                return Ok(None);
+            };
+            let entry = entry.map_err(|e| invalid(e.to_string()))?;
             entry
                 .to_file(ntfs, reader)
                 .map_err(|e| invalid(e.to_string()))?
         };
         file = next;
     }
-    Ok(file)
+    Ok(Some(file))
+}
+fn ntfs_file<'n, R: Read + Seek>(
+    ntfs: &'n ntfs::Ntfs,
+    reader: &mut R,
+    path: &str,
+) -> Result<ntfs::NtfsFile<'n>> {
+    ntfs_find_file(ntfs, reader, path)?.ok_or_else(|| invalid(format!("file {path} not found")))
+}
+/// Optional NTFS metadata file lookup. Missing is distinct from corruption, and
+/// the stream length is checked before allocating or reading file contents.
+pub fn read_small_ntfs_file<R: Read + Seek>(
+    reader: &mut R,
+    path: &str,
+    limit: usize,
+) -> Result<Option<Vec<u8>>> {
+    use ntfs::NtfsReadSeek;
+    if limit > crate::MAX_METADATA {
+        return Err(invalid("metadata file limit exceeds 32 MiB"));
+    }
+    reader.seek(SeekFrom::Start(0))?;
+    let mut fs = ntfs::Ntfs::new(reader).map_err(|e| invalid(e.to_string()))?;
+    fs.read_upcase_table(reader)
+        .map_err(|e| invalid(e.to_string()))?;
+    let Some(file) = ntfs_find_file(&fs, reader, path)? else {
+        return Ok(None);
+    };
+    let item = file
+        .data(reader, "")
+        .ok_or_else(|| invalid("metadata file has no unnamed data stream"))?
+        .map_err(|e| invalid(e.to_string()))?;
+    let attribute = item.to_attribute().map_err(|e| invalid(e.to_string()))?;
+    if attribute
+        .flags()
+        .intersects(ntfs::NtfsAttributeFlags::COMPRESSED | ntfs::NtfsAttributeFlags::ENCRYPTED)
+    {
+        return Err(ImageError::Unsupported(
+            "Compressed or encrypted NTFS metadata streams are not implemented".into(),
+        ));
+    }
+    let mut data = attribute
+        .value(reader)
+        .map_err(|e| invalid(e.to_string()))?;
+    if data.len() > limit as u64 {
+        return Err(invalid("metadata file exceeds bounded length"));
+    }
+    let mut bytes = vec![0; data.len() as usize];
+    data.read_exact(reader, &mut bytes)
+        .map_err(|e| invalid(e.to_string()))?;
+    Ok(Some(bytes))
 }
 pub fn list<R: Read + Seek>(reader: &mut R, path: &str) -> Result<Vec<DirectoryEntry>> {
     let info = inspect(reader)?;

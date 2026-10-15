@@ -1,22 +1,22 @@
 # Local validation — October 13–14, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. Tested source revision `8f6c8ca` passed GitHub CI on all
-four native host targets and Chromium ([run `38565887540`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38565887540)).
+headless Microsoft Edge. Catalog milestone `e6ed0bc` passed GitHub CI on all
+four native host targets and Chromium ([run `38659589224`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38659589224)).
 Those remote build results do not establish device support.
-Browser/UI checks below are retained from the preceding milestone; this change
-adds native-only inspection and protocol codecs without changing the browser UI
-or its information-query allowlist. The latest evidence/documentation changes do
-not change executable source.
+The latest local milestone adds offline MainOS package metadata lookup to native
+and browser inspection. Phone/USB evidence below remains historical; no phone
+commands were sent during this firmware-reader change. Remote CI for the new
+MainOS source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 96 passed on Windows: 58 integration tests, 37 native transport/harness unit tests and one decoded-CTL bounds unit test |
+| Rust tests | 100 passed on Windows: 62 integration tests, 37 native transport/harness unit tests and one decoded-CTL bounds unit test |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 27 passed |
+| Real-WASM browser integration tests | 29 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -272,3 +272,24 @@ personal paths/identifiers are excluded from the published evidence.
 The final parser review also added a decoded-CTL depth/node guard, because CMS
 octet-string wrappers are opaque to the outer ASN.1 walk. A regression exercises
 deep and node-dense decoded blocks before schema parsing.
+
+## MainOS firmware revision fallback — October 14
+
+When PLAT lacks a version, native and browser inspection now use the same Rust
+NTFS parser to look up the Nokia PhoneFirmwareRevision registry and DSM package
+files. Both must agree, with explicit source locations in inspection and checklist
+reports. Gzip, UTF-16 and XML parsing are bounded; malformed/contradictory metadata
+fails without enabling recovery. Synthetic tests cover encodings, missing files,
+duplicate/conflicting values, CRC/truncation/trailing gzip members, oversized
+expansion, XML namespace/DTD/depth limits, partition geometry, cancellation and
+truncated input. Two browser tests exercise positive and corrupt MainOS FFUs.
+
+The real RM-875 package files independently decode with Python gzip/UTF-16/XML
+and agree with native Rust and production WASM on `3051.50009.1424.0002`. Browser
+MainOS lookup fetched 2,228,224 bytes in 34 reads, each at most 65,536 bytes, from
+the 1.6 GiB FFU; it did not reconstruct MainOS. The full native fingerprint and
+chunk checks still pass. Comparison with previously recorded phone firmware
+`3051.50009.1451.1003` now fails the unvalidated-downgrade check. This comparison
+used saved, redacted phone metadata, not a fresh device query. All recovery gates
+remain blocked. See [the metadata-only record](../tests/fixtures/rm875-mainos-validation.json)
+and [profile limits](firmware-validation.md).

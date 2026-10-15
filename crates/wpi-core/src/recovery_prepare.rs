@@ -83,12 +83,14 @@ pub fn report(
         }).unwrap_or((Unverified,"Signing-catalog evidence has not been inspected. Chunk hashes alone do not establish authenticity.".into()));
         check(key, label, status, message);
     }
-    let image_version = image.and_then(|i| i.firmware_version.as_deref());
+    let image_version = image
+        .filter(|i| i.firmware_version_error.is_none())
+        .and_then(|i| i.firmware_version.as_deref());
     let version_error = image.and_then(|i| i.firmware_version_error.as_deref());
     check("image_firmware","Firmware version in image",if version_error.is_some(){Failed}else if image_version.is_some(){Passed}else{Missing},
-        version_error.map(|e|format!("PLAT firmware metadata failed: {e}"))
-            .or_else(||image_version.map(|v|format!("PLAT SWVERSION is {v}. This observed metadata does not establish signer trust.")))
-            .unwrap_or_else(||"No unambiguous PLAT SWVERSION was found; never infer firmware compatibility from the filename.".into()));
+        version_error.map(|e|format!("Image firmware metadata failed: {e}"))
+            .or_else(||image_version.map(|v|format!("Image firmware revision is {v}. Sources: {}. This observed metadata does not establish signer trust.", image.map(|i|i.firmware_version_sources.join("; ")).filter(|s|!s.is_empty()).unwrap_or_else(||"unspecified".into()))))
+            .unwrap_or_else(||"No supported PLAT or corroborated MainOS firmware revision was found; never infer firmware compatibility from the filename.".into()));
     let (status, message) = firmware_relation(
         image_version,
         device.as_ref().and_then(|d| d.firmware.as_deref()),
@@ -158,6 +160,6 @@ fn firmware_relation(image: Option<&str>, installed: Option<&str>) -> (Preparati
         (Some(image),Some(phone)) if image[..2]==phone[..2] && image[2..]<phone[2..] =>(Failed,"The image is numerically older within the same firmware branch. No downgrade acceptance/profile is validated; recovery remains blocked.".into()),
         (Some(image),Some(phone)) if image[..2]==phone[..2] =>(Unverified,"The image is numerically newer within the same firmware branch. An upgrade is not approved by version ordering alone.".into()),
         (Some(_),Some(_)) =>(Unverified,"Firmware branches differ. Version numbers alone cannot establish chronology, applicability or rollback acceptance.".into()),
-        _=>(Unverified,"Read an image PLAT version and installed phone version before comparing them. Filename versions and unsupported version formats are not applicability evidence.".into()),
+        _=>(Unverified,"Read an image firmware revision and installed phone version before comparing them. Filename versions and unsupported version formats are not applicability evidence.".into()),
     }
 }

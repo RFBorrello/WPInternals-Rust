@@ -26,7 +26,11 @@ blocked independently. Exports redact USB serial and host instance identifiers.
 Changing a report cannot bypass the operation coordinator's execution gate.
 
 Inspection adds optional catalog, firmware_version and firmware_version_error
-evidence. CatalogReport (wpi-image) has separate signature, hash_table_binding and
+evidence, plus a default-empty firmware_version_sources array naming the observed
+partition/file/key locations. PLAT is preferred; a missing PLAT version permits
+the corroborated MainOS Nokia package fallback. Metadata errors suppress version
+comparison. Old exports without source fields still deserialize.
+CatalogReport (wpi-image) has separate signature, hash_table_binding and
 signer_trust checks, with valid/invalid/unsupported/missing/unverified states.
 RecoveryPreparation maps those to its existing preparation statuses; no new
 execution permission is inferred. The browser and native engine use the same

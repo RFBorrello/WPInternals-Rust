@@ -2,6 +2,29 @@
 //! The result is observed image metadata, not proof of phone acceptance.
 use crate::{ffu::FfuMetadata, gpt::Gpt, invalid, ImageError, Result, SECTOR_SIZE};
 use std::io::{Read, Seek};
+pub mod mainos;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct VersionEvidence {
+    pub version: String,
+    pub sources: Vec<String>,
+}
+/// PLAT is the upstream source. When absent, consult the narrowly supported
+/// MainOS OEM package profile; filenames never supply a version.
+pub fn inspect<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
+    reader: &mut R,
+    ffu: &FfuMetadata,
+    gpt: &Gpt,
+    mut progress: F,
+) -> Result<Option<VersionEvidence>> {
+    if let Some(version) = read_version(reader, ffu, gpt, &mut progress)? {
+        return Ok(Some(VersionEvidence {
+            version,
+            sources: vec!["PLAT SWVERSION".into()],
+        }));
+    }
+    mainos::read(reader, ffu, gpt, progress)
+}
 const MARKER: &[u8] = b"SWVERSION=";
 const MAX_VALUE: usize = 128;
 const BLOCK: usize = 64 * 1024;

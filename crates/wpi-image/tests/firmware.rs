@@ -66,3 +66,126 @@ fn plat_scan_spans_chunk_boundaries_and_cancels_before_reading() {
     large.partitions[0].last_sector = u64::MAX;
     assert!(firmware::read_version(&mut Cursor::new(&bytes), &ffu, &large, |_, _| true).is_err());
 }
+
+fn reg(value: &str) -> Vec<u8> {
+    format!("Windows Registry Editor Version 5.00\r\n[HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo]\r\n\"PhoneFirmwareRevision\"=\"{value}\"\r\n").into_bytes()
+}
+fn dsm(build: &str) -> Vec<u8> {
+    format!("<Package xmlns=\"http://schemas.microsoft.com/embedded/2004/10/ImageUpdate\"><Identity><Owner>Nokia</Owner><Component>DeviceInfo</Component><SubComponent>PhoneFirmwareRevision</SubComponent><Version Major=\"1\" Minor=\"2\" QFE=\"3\" Build=\"{build}\" /></Identity><Partition>MainOS</Partition><IsRemoval>false</IsRemoval></Package>").into_bytes()
+}
+#[test]
+fn package_versions_require_corroboration_and_preserve_registry_zeroes() {
+    use firmware::mainos::package;
+    let observed = package(Some(&reg("1.2.3.0004")), Some(&dsm("4")))
+        .unwrap()
+        .unwrap();
+    assert_eq!(observed.version, "1.2.3.0004");
+    assert_eq!(observed.sources.len(), 2);
+    assert!(observed
+        .sources
+        .iter()
+        .all(|s| s.starts_with("MainOS/Windows/Packages/")));
+    assert_eq!(package(None, None).unwrap(), None);
+    assert!(package(Some(&reg("1.2.3.4")), None).is_err());
+    assert!(package(None, Some(&dsm("4"))).is_err());
+    assert!(package(Some(&reg("1.2.3.4")), Some(&dsm("5"))).is_err());
+    assert!(package(Some(&reg("1.2.3.4")), Some(&dsm("4294967296"))).is_err());
+    for bad in [
+        "1.2.x.4",
+        "1.2.3.4294967296",
+        "1.2.3.4\"\n\"PhoneFirmwareRevision\"=\"1.2.3.4",
+        "1.2.3.4\"\n\"PhoneFirmwareRevision\"=\"1.2.3.5",
+    ] {
+        assert!(package(Some(&reg(bad)), Some(&dsm("4"))).is_err());
+    }
+    let wrong = String::from_utf8(reg("1.2.3.4"))
+        .unwrap()
+        .replace("DeviceTargetingInfo", "WrongKey");
+    assert!(package(Some(wrong.as_bytes()), Some(&dsm("4"))).is_err());
+    let wrong = String::from_utf8(dsm("4"))
+        .unwrap()
+        .replace("Nokia", "Other");
+    assert!(package(Some(&reg("1.2.3.4")), Some(wrong.as_bytes())).is_err());
+}
+fn gzip(bytes: &[u8]) -> Vec<u8> {
+    use std::io::Write;
+    let mut writer = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    writer.write_all(bytes).unwrap();
+    writer.finish().unwrap()
+}
+#[test]
+fn package_decoding_checks_gzip_crc_trailing_bytes_expansion_utf16_and_xml_limits() {
+    use firmware::mainos::package;
+    let text = String::from_utf8(reg("1.2.3.0004")).unwrap();
+    let mut utf16 = vec![0xff, 0xfe];
+    utf16.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    let compressed = gzip(&utf16);
+    assert_eq!(
+        package(Some(&compressed), Some(&gzip(&dsm("4"))))
+            .unwrap()
+            .unwrap()
+            .version,
+        "1.2.3.0004"
+    );
+    let mut corrupt = compressed.clone();
+    let n = corrupt.len();
+    corrupt[n - 8] ^= 1;
+    let mut trailing = compressed.clone();
+    trailing.push(0);
+    let mut multiple = compressed.clone();
+    multiple.extend(&compressed);
+    for bad in [
+        corrupt,
+        trailing,
+        multiple,
+        compressed[..compressed.len() - 1].to_vec(),
+        gzip(&vec![b'x'; 65537]),
+        vec![b'x'; 65537],
+        vec![0xff, 0xfe, 1],
+        vec![0xff, 0xfe, 0, 0xd8],
+    ] {
+        assert!(package(Some(&bad), Some(&dsm("4"))).is_err());
+    }
+    let valid = String::from_utf8(dsm("4")).unwrap();
+    for bad in [
+        format!("<!DOCTYPE Package [<!ENTITY x 'y'>]>{valid}"),
+        format!("{valid}{valid}"),
+        valid.replace(
+            "</Package>",
+            &format!("{}{}</Package>", "<x>".repeat(20), "</x>".repeat(20)),
+        ),
+        valid.replace("ImageUpdate", "WrongNamespace"),
+        valid.replace("</Package>", ""),
+    ] {
+        assert!(package(Some(&reg("1.2.3.4")), Some(bad.as_bytes())).is_err());
+    }
+}
+#[test]
+fn mainos_sparse_ffu_uses_bounded_ntfs_lookup_and_rejects_bad_geometry_or_disconnect() {
+    let bytes = include_bytes!("../../../tests/fixtures/synthetic-mainos.ffu");
+    let mut input = Cursor::new(bytes);
+    let ffu = FfuMetadata::open(&mut input).unwrap();
+    let gpt = ffu.gpt(&mut input).unwrap();
+    ffu.verify_hashes(&mut input, |_, _| true).unwrap();
+    let mut fetched = 0;
+    let observed = firmware::inspect(&mut input, &ffu, &gpt, |done, _| {
+        fetched = fetched.max(done);
+        true
+    })
+    .unwrap()
+    .unwrap();
+    assert_eq!(observed.version, "1.2.3.0004");
+    assert!(fetched <= 16 * 1024 * 1024);
+    assert!(matches!(
+        firmware::inspect(&mut input, &ffu, &gpt, |_, _| false),
+        Err(wpi_image::ImageError::Cancelled)
+    ));
+    let mut small = gpt.clone();
+    small.partitions[0].last_sector = small.partitions[0].first_sector + 1;
+    assert!(firmware::inspect(&mut input, &ffu, &small, |_, _| true).is_err());
+    let mut dup = gpt.clone();
+    dup.partitions.push(dup.partitions[0].clone());
+    assert!(firmware::inspect(&mut input, &ffu, &dup, |_, _| true).is_err());
+    let mut truncated = Cursor::new(&bytes[..bytes.len() / 2]);
+    assert!(firmware::inspect(&mut truncated, &ffu, &gpt, |_, _| true).is_err());
+}

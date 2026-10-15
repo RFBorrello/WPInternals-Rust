@@ -16,6 +16,8 @@ pub struct Inspection {
     pub firmware_version: Option<String>,
     #[serde(default)]
     pub firmware_version_error: Option<String>,
+    #[serde(default)]
+    pub firmware_version_sources: Vec<String>,
 }
 pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> {
     let size = reader.seek(SeekFrom::End(0))?;
@@ -32,6 +34,7 @@ pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> 
         catalog: None,
         firmware_version: None,
         firmware_version_error: None,
+        firmware_version_sources: vec![],
     };
     if &prefix[4..16] == b"SignedImage " {
         let ffu = FfuMetadata::read_headers(reader, size)?;
@@ -40,8 +43,12 @@ pub fn inspect<R: Read + Seek>(reader: &mut R) -> wpi_image::Result<Inspection> 
             wpi_image::catalog::inspect(reader, &ffu)
                 .unwrap_or_else(wpi_image::catalog::unavailable),
         );
-        match wpi_image::firmware::read_version(reader, &ffu, &gpt, |_, _| true) {
-            Ok(version) => report.firmware_version = version,
+        match wpi_image::firmware::inspect(reader, &ffu, &gpt, |_, _| true) {
+            Ok(Some(evidence)) => {
+                report.firmware_version = Some(evidence.version);
+                report.firmware_version_sources = evidence.sources;
+            }
+            Ok(None) => {}
             Err(e) => report.firmware_version_error = Some(e.to_string()),
         }
         report.format = "FFU".into();

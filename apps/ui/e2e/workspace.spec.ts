@@ -3,6 +3,35 @@ import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 const fixtures = resolve(import.meta.dirname, '../../../tests/fixtures');
 
+test('browser reads compressed MainOS registry and DSM metadata through bounded WASM NTFS', async ({ page }) => {
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
+  await page.locator('input[type=file]').setInputFiles({ name: 'firmware_9.9.9.9.ffu', mimeType: 'application/octet-stream', buffer: await readFile(resolve(fixtures, 'synthetic-mainos.ffu')) });
+  await page.getByRole('button', { name: 'Check preparation' }).click();
+  const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Firmware version in image', exact: true }) });
+  await expect(row).toContainText('Passed'); await expect(row).toContainText('1.2.3.0004');
+  await expect(row).toContainText('RegistryFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.reg');
+  await expect(row).toContainText('DsmFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml');
+  await expect(row).not.toContainText('9.9.9.9');
+  const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: 'Export preparation' }).click();
+  const report = JSON.parse(await readFile((await (await downloadPromise).path())!, 'utf8'));
+  expect(report.plan.executable).toBe(false);
+  expect(report.checks.find((c: { key: string }) => c.key === 'signing_catalog').status).not.toBe('passed');
+});
+
+test('browser reports corrupt MainOS package metadata and keeps recovery blocked', async ({ page }) => {
+  const data = await readFile(resolve(fixtures, 'synthetic-mainos.ffu'));
+  // The synthetic registry file is a resident gzip member in MFT record 15.
+  const security = Math.ceil((32 + data.readUInt32LE(28)) / 4096) * 4096;
+  const record = security + 8192 + 128 * 4096 + 16384 + 15 * 1024;
+  const gzip = data.indexOf(Buffer.from([0x1f, 0x8b]), record);
+  expect(gzip).toBeLessThan(record + 1024); data[gzip + 10] ^= 0xff;
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
+  await page.locator('input[type=file]').setInputFiles({ name: 'corrupt-mainos.ffu', mimeType: 'application/octet-stream', buffer: data });
+  await page.getByRole('button', { name: 'Check preparation' }).click();
+  await expect(page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Firmware version in image', exact: true }) })).toContainText('Failed');
+  await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
+});
+
 test('browser reads PLAT firmware metadata instead of a version in the filename', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
   await page.locator('input[type=file]').setInputFiles({ name: 'firmware_9.9.9.9.ffu', mimeType: 'application/octet-stream', buffer: await readFile(resolve(fixtures, 'synthetic-plat.ffu')) });

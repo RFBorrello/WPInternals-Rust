@@ -77,6 +77,80 @@ pub fn ffu_catalog_json(headers: &[u8], total_size: u64) -> Result<String, JsVal
 pub fn plat_version_json(bytes: &[u8], final_chunk: bool) -> Result<String, JsValue> {
     json(&wpi_image::firmware::scan_chunk(bytes, final_chunk).map_err(js_error)?)
 }
+/// The dedicated worker supplies bounded FileReaderSync slices. Rust retains
+/// sparse FFU mapping, partition bounds, NTFS parsing and package validation.
+#[wasm_bindgen]
+pub fn mainos_firmware_json(
+    metadata: &str,
+    gpt: &str,
+    total_size: u64,
+    read: &js_sys::Function,
+) -> Result<String, JsValue> {
+    use std::io::{Read, Seek, SeekFrom};
+    struct Reader<'a> {
+        callback: &'a js_sys::Function,
+        size: u64,
+        position: u64,
+    }
+    impl Read for Reader<'_> {
+        fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+            let n = bytes
+                .len()
+                .min(self.size.saturating_sub(self.position).min(64 * 1024) as usize);
+            if n == 0 {
+                return Ok(0);
+            }
+            if self.position > 9_007_199_254_740_991 {
+                return Err(std::io::Error::other("unsafe browser offset"));
+            }
+            let value = self
+                .callback
+                .call2(
+                    &JsValue::NULL,
+                    &JsValue::from_f64(self.position as f64),
+                    &JsValue::from_f64(n as f64),
+                )
+                .map_err(|_| std::io::Error::other("Browser metadata slice failed"))?;
+            let data = value
+                .dyn_into::<js_sys::Uint8Array>()
+                .map_err(|_| std::io::Error::other("Browser reader must return Uint8Array"))?;
+            if data.length() as usize != n {
+                return Err(std::io::Error::other("Browser metadata slice is truncated"));
+            }
+            data.copy_to(&mut bytes[..n]);
+            self.position += n as u64;
+            Ok(n)
+        }
+    }
+    impl Seek for Reader<'_> {
+        fn seek(&mut self, from: SeekFrom) -> std::io::Result<u64> {
+            let position = match from {
+                SeekFrom::Start(p) => i128::from(p),
+                SeekFrom::End(p) => i128::from(self.size) + i128::from(p),
+                SeekFrom::Current(p) => i128::from(self.position) + i128::from(p),
+            };
+            if position < 0 || position > i128::from(self.size) {
+                return Err(std::io::Error::other("Browser seek outside file"));
+            }
+            self.position = position as u64;
+            Ok(self.position)
+        }
+    }
+    if total_size > 9_007_199_254_740_991 {
+        return Err(js_error("unsafe browser file size"));
+    }
+    let ffu: FfuMetadata = serde_json::from_str(metadata).map_err(js_error)?;
+    let gpt: Gpt = serde_json::from_str(gpt).map_err(js_error)?;
+    let mut reader = Reader {
+        callback: read,
+        size: total_size,
+        position: 0,
+    };
+    json(
+        &wpi_image::firmware::mainos::read(&mut reader, &ffu, &gpt, |_, _| true)
+            .map_err(js_error)?,
+    )
+}
 #[wasm_bindgen]
 pub fn ffu_segments_json(metadata: &str, start: u64, length: u64) -> Result<String, JsValue> {
     let ffu: FfuMetadata = serde_json::from_str(metadata).map_err(js_error)?;

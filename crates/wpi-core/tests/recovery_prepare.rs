@@ -245,3 +245,35 @@ fn platform_family_prefix_is_advisory_and_cannot_match_an_unrelated_product_numb
         assert!(!result.plan.executable);
     }
 }
+#[test]
+fn mainos_version_provenance_reaches_preparation_and_keeps_older_image_blocked() {
+    let image = inspection::inspect(&mut Cursor::new(include_bytes!(
+        "../../../tests/fixtures/synthetic-mainos.ffu"
+    )))
+    .unwrap();
+    assert_eq!(image.firmware_version.as_deref(), Some("1.2.3.0004"));
+    assert!(image.firmware_version_error.is_none());
+    assert_eq!(image.firmware_version_sources.len(), 2);
+    let mut device = phone("SYNTHETIC.LUMIA.TEST");
+    device.firmware = Some("1.2.4.0".into());
+    let result = report(
+        Some(device),
+        Some(&image),
+        None,
+        ChunkIntegrity::NotChecked,
+        Host::Windows,
+        TransportKind::Usb,
+    );
+    let version = result
+        .checks
+        .iter()
+        .find(|c| c.key == "image_firmware")
+        .unwrap();
+    assert_eq!(version.status, PreparationStatus::Passed);
+    assert!(version.message.contains("MainOS/Windows/Packages"));
+    assert!(result
+        .checks
+        .iter()
+        .any(|c| c.key == "firmware_relation" && c.status == PreparationStatus::Failed));
+    assert!(!result.plan.executable);
+}

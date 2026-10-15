@@ -1,5 +1,11 @@
 # Synthetic fixtures
 
+`python scripts/make-mainos-fixture.py` generates `ntfs-firmware.img` and
+`synthetic-mainos.ffu` with project-generated, gzip-compressed registry/DSM package
+metadata, nested NTFS directories and matching version `1.2.3.0004`. These are
+reader fixtures, never flashable firmware. `rm875-mainos-validation.json` records
+only local validation metadata; no proprietary package contents are included.
+
 FFU/GPT images are generated with `python scripts/generate-fixtures.py`.
 The minimal NTFS reader image is generated with `python scripts/generate-ntfs-fixture.py`.
 These images contain recognizable test bytes, not a phone operating system. Never flash or mount them.

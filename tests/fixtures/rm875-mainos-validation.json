@@ -1,0 +1,132 @@
+{
+  "recorded_on": "2026-10-14",
+  "scope": "Offline MainOS firmware revision fallback; no fresh phone access",
+  "implementation_source_sha256": {
+    "crates/wpi-image/src/firmware.rs": "d7d40ede7ab67bf1a7dbeca7f0cd0c8948e26955c86d22ff952fdbcc9e54f6dc",
+    "crates/wpi-image/src/firmware/mainos.rs": "78efa99e0744dac859e1bee315b9e1e1af780c0b6c94d2066d22ab904823a134",
+    "crates/wpi-image/src/filesystem.rs": "32bc9742cfff996aa3eb3e416394c599e170a562f17a72f6ec2cafc86eddf8d7",
+    "crates/wpi-core/src/inspection.rs": "6f4fccb192bcfd73f97c37f8f1a4eed32ae98b566639a8d78b10de64867fb282",
+    "crates/wpi-core/src/recovery_prepare.rs": "2e3e9527c36a835f1b85987ee17eb8988998504cf4e6e38418faa5624665a035",
+    "crates/wpi-wasm/src/lib.rs": "40ec105e388cfaac15f574eb9fdb37d2be01612ce1fb66b788daf7c73bc1a06d",
+    "apps/ui/src/firmware.worker.ts": "720c79313945f8c6270b9dd7d92b2fb9feb4016203639d2236da22a2278fec4e",
+    "Cargo.lock": "8a33cc46d1313f39870793c03b3299d9cb602292433240876dab81680fb6d8e0"
+  },
+  "source": {
+    "filename": "RM875_3051.50009.1424.0002_RETAIL_eu_euro1_267_02_448151_prd_signed.ffu",
+    "size": 1716256768,
+    "sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "platform_id": "Nokia.MSM8960.P5217",
+    "source_unchanged_from_previous_fingerprint": true
+  },
+  "image_firmware": {
+    "firmware_version": "3051.50009.1424.0002",
+    "firmware_version_sources": [
+      "MainOS/Windows/Packages/RegistryFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.reg: HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo\\PhoneFirmwareRevision",
+      "MainOS/Windows/Packages/DsmFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml: Identity/Version"
+    ],
+    "firmware_version_error": null
+  },
+  "reference": {
+    "decoder": "Python standard-library gzip, UTF-16 and ElementTree XML",
+    "registry_version": "3051.50009.1424.0002",
+    "dsm_components": [
+      3051,
+      50009,
+      1424,
+      2
+    ],
+    "versions_agree": true,
+    "registry": {
+      "stored_bytes": 213,
+      "expanded_bytes": 294,
+      "stored_sha256": "143248ed7db9e3a006872d0f3ceb7c349b0bfcfc247046d5fa1ce59cb509e227"
+    },
+    "dsm": {
+      "stored_bytes": 657,
+      "expanded_bytes": 1764,
+      "stored_sha256": "28698f5eff8497aa0f32b4b084039d718b0db46e3ad89410631da0539dcdf358"
+    },
+    "native_browser_version_provenance_and_catalog_identical": true
+  },
+  "browser_mainos_file_reads": {
+    "calls": 34,
+    "bytes": 2228224,
+    "maximum_slice": 65536
+  },
+  "native_full_image_checks": [
+    {
+      "key": "artifact_identity",
+      "label": "Image fingerprint",
+      "status": "passed",
+      "message": "Complete local file SHA-256 recorded for later revalidation."
+    },
+    {
+      "key": "chunk_hashes",
+      "label": "Chunk integrity",
+      "status": "passed",
+      "message": "FFU SHA-256 chunk table checked; this does not authenticate the signing catalog."
+    },
+    {
+      "key": "catalog_signature",
+      "label": "Catalog signature",
+      "status": "passed",
+      "message": "RSA/SHA-256 catalog signature and signed attributes verified. This does not establish signer trust or device acceptance."
+    },
+    {
+      "key": "catalog_binding",
+      "label": "Signed hash-table binding",
+      "status": "passed",
+      "message": "Signed catalog member matches the FFU hash table using legacy SHA-1. Legacy collision resistance is not a modern authenticity guarantee."
+    },
+    {
+      "key": "signing_catalog",
+      "label": "Firmware signer trust",
+      "status": "unverified",
+      "message": "An embedded certificate is not a trust anchor. OEM chain, device root-key binding, certificate policy/time and revocation have not been validated."
+    }
+  ],
+  "comparison": {
+    "phone_metadata_source": "Previously recorded Normal-mode identification; not refreshed during this change",
+    "variant": "RM-875",
+    "phone_firmware": "3051.50009.1451.1003",
+    "checks": [
+      {
+        "key": "image_firmware",
+        "label": "Firmware version in image",
+        "status": "passed",
+        "message": "Image firmware revision is 3051.50009.1424.0002. Sources: MainOS/Windows/Packages/RegistryFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.reg: HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo\\PhoneFirmwareRevision; MainOS/Windows/Packages/DsmFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml: Identity/Version. This observed metadata does not establish signer trust."
+      },
+      {
+        "key": "firmware_relation",
+        "label": "Installed / image firmware",
+        "status": "failed",
+        "message": "The image is numerically older within the same firmware branch. No downgrade acceptance/profile is validated; recovery remains blocked."
+      },
+      {
+        "key": "executor",
+        "label": "Recovery execution",
+        "status": "failed",
+        "message": "Stock recovery currently runs only in protocol replay tests. No physical-device executor is enabled."
+      }
+    ],
+    "executable": false
+  },
+  "tests": {
+    "rust_total_windows": 100,
+    "browser_integration": 29,
+    "typescript_unit": 3,
+    "native_and_wasm_clippy": "passed",
+    "native_arm64_cli_and_tauri_release": "passed",
+    "wasm_and_shared_ui_build": "passed"
+  },
+  "phone_commands_sent": false,
+  "firmware_or_partition_writes_sent": false,
+  "limits": [
+    "The supported fallback requires matching Nokia registry and DSM packages; it does not parse registry hives or prove staged metadata equals the live registry.",
+    "PLAT is preferred when present; the fallback does not cross-check MainOS in that case.",
+    "Older same-branch metadata fails preparation because downgrade acceptance is unvalidated; this does not prove the phone would reject the image.",
+    "OEM trust, exact applicability, data preservation and a physical recovery executor remain unresolved.",
+    "Browser full-image chunk verification and fingerprinting remain unverified; synchronous MainOS lookup cancellation occurs at batch boundaries.",
+    "Only metadata and hashes are published. No proprietary package bytes, firmware, personal paths or USB identifiers are retained."
+  ]
+}

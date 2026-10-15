@@ -24,7 +24,8 @@ hardware validation.
 - Legacy single-store FFU inspection, SHA-256 chunk verification, sparse primary
   partition extraction, GPT CRC/bounds checks, and Partitions.xml export.
 - Portable [FFU catalog verification](docs/firmware-validation.md): RSA/SHA-256
-  signatures, signed hash-table membership and bounded PLAT version scanning.
+  signatures, signed hash-table membership, bounded PLAT scanning and a corroborated
+  MainOS registry/DSM firmware-version fallback.
   Signer trust and device acceptance remain unverified; valid signatures cannot enable recovery.
 - FAT/NTFS boot-sector inspection, native filesystem directory listing and file extraction.
 - Reversible, hash-pinned upstream patches on extracted files and **new copies** of FAT images.
@@ -58,8 +59,8 @@ and matching EFIESP/MainOS reconstructions. Metadata-only evidence is recorded i
 `tests/fixtures/rm875-validation.json`; proprietary firmware is not included.
 NTFS image writes, modern/multi-store FFUs, WP7 protocols, and complete device
 workflows are not implemented. Hash verification does not authenticate an FFU’s
-signing catalog. Browser FAT/NTFS support currently covers boot-sector inspection;
-filesystem file access and patching are CLI features.
+signing catalog. The browser also uses Rust NTFS lookup for the narrow MainOS
+firmware-version fallback; general filesystem browsing and patching are CLI features.
 Compressed/encrypted NTFS streams are rejected. The backup engine currently
 accepts replay block data only; native phone storage access is not implemented.
 
