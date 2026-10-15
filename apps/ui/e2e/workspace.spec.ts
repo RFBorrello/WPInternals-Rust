@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 const fixtures = resolve(import.meta.dirname, '../../../tests/fixtures');
 
 test('browser reads compressed MainOS registry and DSM metadata through bounded WASM NTFS', async ({ page }) => {
@@ -145,13 +146,31 @@ test('recovery preparation is advisory, exports missing checks, and clears on a 
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
   await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'synthetic.ffu'));
   await page.getByRole('button', { name: 'Check preparation' }).click();
-  await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('Unverified');
+  await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('Passed');
   await expect(page.getByRole('row').filter({ hasText: 'Phone identity' })).toContainText('Missing');
   await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export preparation' }).click();
   const result = JSON.parse(await readFile((await (await downloadPromise).path())!, 'utf8'));
   expect(result.plan.executable).toBe(false); expect(result.plan.operation).toBe('stock_flash');
+  const input = await readFile(resolve(fixtures, 'synthetic.ffu'));
+  expect(result.plan.artifacts[0].sha256).toBe(createHash('sha256').update(input).digest('hex'));
+  await expect(page.getByRole('row').filter({ hasText: 'Image fingerprint' })).toContainText('Passed');
   await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'gpt.bin'));
   await expect(page.getByRole('button', { name: 'Export preparation' })).toHaveCount(0);
+});
+
+test('browser detects payload corruption despite valid catalog and records its actual file digest', async ({ page }) => {
+  const data = await readFile(resolve(fixtures, 'synthetic-signed.ffu'));
+  data[data.length - 1] ^= 1;
+  await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
+  await page.locator('input[type=file]').setInputFiles({ name: 'bad-payload.ffu', mimeType: 'application/octet-stream', buffer: data });
+  await page.getByRole('button', { name: 'Check preparation' }).click();
+  await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('Failed');
+  await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('hash mismatch at chunk');
+  await expect(page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Catalog signature', exact: true }) })).toContainText('Passed');
+  const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: 'Export preparation' }).click();
+  const report = JSON.parse(await readFile((await (await downloadPromise).path())!, 'utf8'));
+  expect(report.plan.artifacts[0].sha256).toBe(createHash('sha256').update(data).digest('hex'));
+  expect(report.plan.executable).toBe(false);
 });

@@ -47,11 +47,27 @@ pub fn report(
             && image.is_some_and(|i| a.size == i.size)
             && ffu.is_some_and(|f| a.platform_id.as_deref() == Some(f.platform_id.as_str()))
     });
-    check("artifact_identity", "Image fingerprint", if valid_identity { Passed } else { Unverified },
-        if valid_identity { "Complete local file SHA-256 recorded for later revalidation." } else { "A complete file fingerprint is not available. The native preparation command can calculate it." }.into());
+    check(
+        "artifact_identity",
+        "Image fingerprint",
+        if valid_identity { Passed } else { Unverified },
+        if valid_identity {
+            format!(
+                "Complete local file SHA-256: {}. Recorded for later revalidation.",
+                artifact.as_ref().unwrap().sha256
+            )
+        } else {
+            "A complete file fingerprint is not available. Run full recovery preparation to calculate it.".into()
+        },
+    );
+    let chunk_count = ffu.and_then(|f| {
+        f.total_size
+            .checked_sub(f.security_size)?
+            .checked_div(u64::from(f.chunk_size))
+    });
     let (status, message) = match integrity {
-        ChunkIntegrity::NotChecked => (Unverified, "Chunk hashes have not been verified in this preview. Use native preparation to check the complete image.".into()),
-        ChunkIntegrity::Passed if ffu.is_some() && valid_identity => (Passed, "FFU SHA-256 chunk table checked; this does not authenticate the signing catalog.".into()),
+        ChunkIntegrity::NotChecked => (Unverified, "Chunk hashes have not been verified. Run full recovery preparation to check the complete image.".into()),
+        ChunkIntegrity::Passed if chunk_count.is_some() && valid_identity => (Passed, format!("All {} FFU SHA-256 chunks checked; this does not authenticate the signing catalog.", chunk_count.unwrap())),
         ChunkIntegrity::Passed => (Unverified, "Chunk verification requires a parsed FFU and complete artifact identity.".into()),
         ChunkIntegrity::Failed(error) => (Failed, format!("Chunk verification failed: {error}")),
     };

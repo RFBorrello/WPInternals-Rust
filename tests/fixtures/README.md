@@ -1,5 +1,9 @@
 # Synthetic fixtures
 
+`rm875-browser-integrity-validation.json` records complete browser hashing and
+chunk verification of the separately supplied local FFU, read-size/progress
+auditing and comparison with the prior native digest. It contains no image bytes.
+
 `python scripts/make-mainos-fixture.py` generates `ntfs-firmware.img` and
 `synthetic-mainos.ffu` with project-generated, gzip-compressed registry/DSM package
 metadata, nested NTFS directories and matching version `1.2.3.0004`. These are

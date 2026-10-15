@@ -105,7 +105,9 @@ export default function App() {
   async function prepareRecovery() {
     if (!artifact) return;
     const epoch = connectionEpoch.current;
-    await task('Checking recovery preparation', async () => {
+    setPreparation(null);
+    setProgress({ done: 0, total: artifact.inspection.size });
+    await task('Verifying firmware and checking preparation', async () => {
       const result = await backend.prepareRecovery(artifact, selected, (done, total) => setProgress({ done, total }));
       if (epoch !== connectionEpoch.current) return;
       setPreparation(result);

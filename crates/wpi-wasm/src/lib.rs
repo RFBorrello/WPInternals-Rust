@@ -60,6 +60,76 @@ pub fn recovery_preparation_json(device: &str, inspection: &str) -> Result<Strin
         TransportKind::WebUsb,
     ))
 }
+/// An owned streaming verification session. Successful chunk evidence is created
+/// by feeding the complete file, never by accepting a caller-supplied pass flag.
+#[wasm_bindgen]
+pub struct BrowserFfuVerifier {
+    inner: Option<wpi_image::integrity::FfuVerifier>,
+}
+#[wasm_bindgen]
+impl BrowserFfuVerifier {
+    #[wasm_bindgen(constructor)]
+    pub fn new(headers: &[u8], total_size: u64) -> Result<BrowserFfuVerifier, JsValue> {
+        Ok(Self {
+            inner: Some(
+                wpi_image::integrity::FfuVerifier::new(headers, total_size).map_err(js_error)?,
+            ),
+        })
+    }
+    pub fn update(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        self.inner
+            .as_mut()
+            .ok_or_else(|| js_error("verification session is already finished"))?
+            .update(bytes)
+            .map_err(js_error)
+    }
+    pub fn finish_preparation_json(
+        &mut self,
+        device: &str,
+        inspection: &str,
+        name: &str,
+    ) -> Result<String, JsValue> {
+        let verifier = self
+            .inner
+            .take()
+            .ok_or_else(|| js_error("verification session is already finished"))?;
+        let device: Option<DeviceIdentity> = serde_json::from_str(device).map_err(js_error)?;
+        let image: wpi_core::inspection::Inspection =
+            serde_json::from_str(inspection).map_err(js_error)?;
+        let ffu = verifier.metadata();
+        if image.size != ffu.total_size
+            || serde_json::to_string(&image.ffu).map_err(js_error)?
+                != serde_json::to_string(&Some(ffu)).map_err(js_error)?
+        {
+            return Err(js_error(
+                "inspection and verification refer to different FFU metadata",
+            ));
+        }
+        let mut artifact = ArtifactIdentity {
+            name: name.into(),
+            size: ffu.total_size,
+            sha256: String::new(),
+            platform_id: Some(ffu.platform_id.clone()),
+        };
+        let verified = verifier.finish().map_err(js_error)?;
+        artifact.sha256 = verified.sha256;
+        let integrity = match verified.first_mismatch {
+            Some(index) => wpi_core::recovery_prepare::ChunkIntegrity::Failed(format!(
+                "FFU hash mismatch at chunk {index}; checked {} chunks",
+                verified.chunk_count
+            )),
+            None => wpi_core::recovery_prepare::ChunkIntegrity::Passed,
+        };
+        json(&wpi_core::recovery_prepare::report(
+            device,
+            Some(&image),
+            Some(artifact),
+            integrity,
+            Host::Browser,
+            TransportKind::WebUsb,
+        ))
+    }
+}
 #[wasm_bindgen]
 pub fn ffu_headers_json(headers: &[u8], total_size: u64) -> Result<String, JsValue> {
     json(&FfuMetadata::read_headers(&mut Cursor::new(headers), total_size).map_err(js_error)?)

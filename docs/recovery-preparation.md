@@ -7,8 +7,12 @@ checks remain missing until its information is available.
 The checklist explains format, partition bounds, image identity, chunk integrity,
 firmware authenticity, phone identity/platform/mode, compatibility, data
 preservation and execution. Native preparation hashes the complete file and checks
-its chunk table with progress and cancellation. Browser preparation runs in a
-worker and explicitly leaves full-file fingerprint/chunk checks unverified.
+its chunk table with progress and cancellation. Browser preparation now streams
+the full file through Rust/WASM in a worker, checking its chunk table and computing
+its SHA-256 fingerprint in one pass. Progress and cancellation appear while it
+runs. The checklist displays the digest and exports it in `plan.artifacts`.
+File selection performs metadata inspection; choose **Check preparation** to run
+the full verification. Keep the selected local file unchanged while it runs.
 No preparation command switches modes, flashes, unlocks or reads phone storage.
 
 Catalog signature, signed hash-table binding and firmware signer trust are now
@@ -44,6 +48,6 @@ access, preservation of recoverable data, authenticated firmware applicability,
 verified mode transitions/reconnection, and complete hardware-tested recovery
 executors. Device writing gates remain unchanged.
 
-Browser preview with synthetic firmware (full-image integrity checks remain unverified):
+Earlier browser preview with synthetic firmware (before complete integrity verification):
 
 ![Recovery preparation checklist](recovery-preview.png)

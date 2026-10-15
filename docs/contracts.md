@@ -20,7 +20,13 @@ verification status remains independent of that match.
 
 RecoveryPreparation wraps a blocked stock-flash plan plus per-check statuses
 (`passed`, `failed`, `missing`, `unverified`). Native preparation reads and verifies
-the complete local FFU; the browser reports unverified chunk/fingerprint checks.
+the complete local FFU; browser preparation now verifies every SHA-256 chunk and
+the full-file fingerprint as well. Metadata-only inspection alone does not supply
+that evidence. Browser streaming sessions accept sequential blocks up to 1 MiB;
+only a complete, consistent session can produce an artifact identity and chunk
+result. `plan.artifacts[].sha256` records the full selected file's digest even if
+payload chunks fail. Progress counts actual file bytes, and incomplete/cancelled
+sessions cannot publish a checklist. The shared report schema is unchanged.
 Authenticity, applicable hardware profiles, backup access and execution stay
 blocked independently. Exports redact USB serial and host instance identifiers.
 Changing a report cannot bypass the operation coordinator's execution gate.

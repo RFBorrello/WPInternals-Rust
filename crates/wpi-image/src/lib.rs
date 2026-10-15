@@ -4,6 +4,7 @@ pub mod ffu;
 pub mod filesystem;
 pub mod firmware;
 pub mod gpt;
+pub mod integrity;
 pub mod patch;
 pub mod stream;
 

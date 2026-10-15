@@ -12,7 +12,10 @@ async function read(file: File, offset: number, length: number): Promise<Uint8Ar
   safeNumber(offset); safeNumber(length); safeNumber(offset + length);
   if (length > MAX_METADATA || offset + length > file.size) throw new Error('Image is truncated or metadata exceeds 32 MiB');
   if (cancelled) throw new Error('Operation cancelled');
-  return new Uint8Array(await file.slice(offset, offset + length).arrayBuffer());
+  const bytes = new Uint8Array(await file.slice(offset, offset + length).arrayBuffer());
+  if (cancelled) throw new Error('Operation cancelled');
+  if (bytes.length !== length) throw new Error('Image read was truncated; reselect the local file');
+  return bytes;
 }
 function le32(data: Uint8Array, offset: number): number { return new DataView(data.buffer, data.byteOffset, data.byteLength).getUint32(offset, true); }
 function le64(data: Uint8Array, offset: number): number { return safeNumber(new DataView(data.buffer, data.byteOffset, data.byteLength).getBigUint64(offset, true)); }
@@ -27,7 +30,7 @@ async function disk(file: File, ffu: FfuMetadata | null, start: number, length: 
   }
   return output;
 }
-async function inspect(file: File): Promise<Inspection> {
+async function inspect(file: File, captureHeaders?: (headers: Uint8Array) => void): Promise<Inspection> {
   safeNumber(file.size);
   const first = await read(file, 0, Math.min(file.size, 512));
   if (first.length < 512) throw new Error('File is too short to contain a supported image');
@@ -46,6 +49,7 @@ async function inspect(file: File): Promise<Inspection> {
     const headerSize = storeOffset + aligned(248 + le32(store, 212) + le32(store, 220), chunk);
     ffuHeaders = await read(file, 0, headerSize);
     ffu = JSON.parse(wasm.ffu_headers_json(ffuHeaders, BigInt(file.size))) as FfuMetadata;
+    captureHeaders?.(ffuHeaders);
   }
   const headerAt = !ffu && text(0, 8) === 'EFI PART' ? 0 : 512;
   const header = !ffu && headerAt === 512 && file.size < 1024 ? new Uint8Array(512) : await disk(file, ffu, headerAt, 512);
@@ -87,6 +91,29 @@ async function inspect(file: File): Promise<Inspection> {
   if (ffu) throw new Error('FFU does not contain a valid primary GPT');
   return { format: 'Filesystem image', size: file.size, ffu: null, gpt: null, filesystem: JSON.parse(wasm.filesystem_json(first)), notes: [] };
 }
+async function prepare(file: File, report: Inspection, headers: Uint8Array | undefined, request: WorkerRequest) {
+  if (!report.ffu || !headers) return JSON.parse(wasm.recovery_preparation_json(JSON.stringify(request.device ?? null), JSON.stringify(report)));
+  const verifier = new wasm.BrowserFfuVerifier(headers, BigInt(file.size));
+  try {
+    reply({ id: request.id, kind: 'progress', completed: 0, total: file.size });
+    let lastYield = performance.now();
+    for (let done = 0; done < file.size; done += CHUNK) {
+      const data = await read(file, done, Math.min(CHUNK, file.size - done));
+      verifier.update(data);
+      const completed = done + data.length;
+      if (performance.now() - lastYield >= 50 || completed === file.size) {
+        reply({ id: request.id, kind: 'progress', completed, total: file.size });
+        // A task boundary delivers cancellation even when local slice promises
+        // resolve immediately. Incomplete state is freed and never exported.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (cancelled) throw new Error('Operation cancelled');
+        lastYield = performance.now();
+      }
+    }
+    if (cancelled) throw new Error('Operation cancelled');
+    return JSON.parse(verifier.finish_preparation_json(JSON.stringify(request.device ?? null), JSON.stringify(report), file.name));
+  } finally { verifier.free(); }
+}
 async function platVersion(file: File, ffu: FfuMetadata, gpt: Gpt): Promise<string | null> {
   const matches = gpt.partitions.filter(p => p.name === 'PLAT');
   if (!matches.length) return null;
@@ -121,9 +148,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       reply({ id: request.id, kind: 'result', result: wasm.gpt_xml(JSON.stringify(request.gpt)) });
     } else {
       if (!request.file) throw new Error('No local file selected');
-      const report = await inspect(request.file);
+      let headers: Uint8Array | undefined;
+      const report = await inspect(request.file, value => { headers = value; });
       if (request.action === 'inspect') reply({ id: request.id, kind: 'result', result: report });
-      else if (request.action === 'recovery_prepare') reply({ id: request.id, kind: 'result', result: JSON.parse(wasm.recovery_preparation_json(JSON.stringify(request.device ?? null), JSON.stringify(report))) });
+      else if (request.action === 'recovery_prepare') reply({ id: request.id, kind: 'result', result: await prepare(request.file, report, headers, request) });
       else {
         const matches = report.gpt?.partitions.filter(p => p.name === request.partition) ?? [];
         if (matches.length !== 1) throw new Error('Partition not found or ambiguous');

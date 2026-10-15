@@ -7,6 +7,8 @@ Recovery remains blocked, and exported preparation reports cannot enable writes.
 
 | Check | What a passing result establishes | Remaining limit |
 | --- | --- | --- |
+| Image fingerprint | Complete selected file's SHA-256 | Identifies bytes; it is not an authenticity or compatibility decision |
+| Chunk integrity | All image/store-header and payload chunks match the FFU SHA-256 table | The table itself needs independently trusted signing evidence |
 | Catalog signature | Embedded key verifies RSA/SHA-256 signature and mandatory signed attributes | Embedded certificates are not independently trusted |
 | Signed hash-table binding | Signed `HashTable.blob` member matches the actual FFU hash table | SHA-1 members are legacy evidence, not modern collision resistance |
 | Firmware signer trust | Currently always unverified | OEM chain, device root-key binding, certificate policy/time and revocation need validation |
@@ -16,10 +18,27 @@ Recovery remains blocked, and exported preparation reports cannot enable writes.
 Native preparation still verifies the complete SHA-256 chunk table, records a
 full-file fingerprint, supports cancellation and checks source-file metadata for
 changes. Browser preparation verifies the catalog and its table binding from
-bounded header bytes, then scans PLAT in 64 KiB blocks and uses the MainOS fallback
-when PLAT has no version. Full-file fingerprint and
-payload chunk verification remain unverified in the browser. No multi-gigabyte
-file is passed through UI messages.
+bounded header bytes, scans PLAT in 64 KiB blocks and uses the MainOS fallback
+when PLAT has no version. **Check preparation** then streams the complete file
+in 1 MiB blocks through an incremental Rust/WASM verifier. One pass calculates
+the full-file SHA-256 and checks every FFU SHA-256 chunk. File selection alone
+still performs quick metadata inspection. No multi-gigabyte buffer is allocated
+or passed through UI messages.
+
+The browser retains bounded headers (at most 32 MiB), the bounded hash table,
+two SHA-256 states and one input block; it does not retain payload bytes. Streamed
+header bytes must exactly match the initial inspection headers, and the complete
+file length must match before a fingerprint can be published. The security region
+contributes to the fingerprint; image/store headers and payload contribute to
+both the fingerprint and their chunk-table comparisons. A payload mismatch still
+produces its actual full-file digest, with chunk integrity failed. Read errors,
+short slices, header changes and cancellation publish no complete report.
+
+Progress counts file bytes once. The worker yields at bounded processing intervals
+and checks cancellation before/after reads and before finalization. Starting a new
+check clears the previous checklist. Cancelled sessions release their Rust/WASM
+state and can be restarted. Only SHA-256 FFU chunk tables are supported. This does
+not authenticate the OEM signer or enable recovery.
 
 ## Supported verification profile
 
@@ -113,4 +132,8 @@ contradictions, cancellation, advisory prefix matching, version ordering, and
 browser recovery gating. Successful mathematical checks never grant signer trust
 or authorize a phone write.
 
-![Real FFU catalog and recovery checks](firmware-catalog-preparation.png)
+The complete browser check also verifies all 13,090 chunks in this file and
+produces the same full SHA-256 as native preparation. See
+[browser integrity evidence](../tests/fixtures/rm875-browser-integrity-validation.json).
+
+![Real FFU browser integrity and recovery checks](browser-integrity-preparation.png)

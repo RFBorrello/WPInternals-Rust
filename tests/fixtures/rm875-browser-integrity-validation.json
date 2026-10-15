@@ -1,0 +1,112 @@
+{
+  "recorded_on": "2026-10-14",
+  "scope": "Complete local FFU SHA-256 and chunk verification in a production browser worker",
+  "implementation_source_sha256": {
+    "crates/wpi-image/src/integrity.rs": "359553daf09c3fc1224fe33748243075c9a35083128e1bb70bf5675a435ab46e",
+    "crates/wpi-image/src/firmware/mainos.rs": "4374ba69d932e6dda78128abd56a7cd97fc2ad82d92e33a042d663754b739e79",
+    "crates/wpi-core/src/recovery_prepare.rs": "73c6c81b0db2621671297165d7ef1c0211bb9a2597170da98cb1015b8eba291f",
+    "crates/wpi-wasm/src/lib.rs": "56a5f366ca26c0e83d5ff825d79cd6a00da6ef6d36d0018d0f1a39768c871381",
+    "apps/ui/src/firmware.worker.ts": "a983de75ecd828e8d48dfdd32ac91d88c1330f9657a6c4e5dc90bf411ff0418b",
+    "apps/ui/src/App.tsx": "5b96ca1c63af8922c1a7b0c5767e604033d7ae3db006c4068982054a0dc047c5"
+  },
+  "source": {
+    "filename": "RM875_3051.50009.1424.0002_RETAIL_eu_euro1_267_02_448151_prd_signed.ffu",
+    "size": 1716256768,
+    "sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "platform_id": "Nokia.MSM8960.P5217",
+    "source_unchanged_from_previous_fingerprint": true
+  },
+  "browser": "Headless Microsoft Edge, production Vite worker and Rust/WASM",
+  "previous_native_full_file_sha256_matches": true,
+  "previous_native_chunk_checks_agree": true,
+  "artifact": {
+    "name": "RM875_3051.50009.1424.0002_RETAIL_eu_euro1_267_02_448151_prd_signed.ffu",
+    "size": 1716256768,
+    "sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "platform_id": "Nokia.MSM8960.P5217"
+  },
+  "checks": [
+    {
+      "key": "artifact_identity",
+      "label": "Image fingerprint",
+      "status": "passed",
+      "message": "Complete local file SHA-256: ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4. Recorded for later revalidation."
+    },
+    {
+      "key": "chunk_hashes",
+      "label": "Chunk integrity",
+      "status": "passed",
+      "message": "All 13090 FFU SHA-256 chunks checked; this does not authenticate the signing catalog."
+    },
+    {
+      "key": "catalog_signature",
+      "label": "Catalog signature",
+      "status": "passed",
+      "message": "RSA/SHA-256 catalog signature and signed attributes verified. This does not establish signer trust or device acceptance."
+    },
+    {
+      "key": "catalog_binding",
+      "label": "Signed hash-table binding",
+      "status": "passed",
+      "message": "Signed catalog member matches the FFU hash table using legacy SHA-1. Legacy collision resistance is not a modern authenticity guarantee."
+    },
+    {
+      "key": "signing_catalog",
+      "label": "Firmware signer trust",
+      "status": "unverified",
+      "message": "An embedded certificate is not a trust anchor. OEM chain, device root-key binding, certificate policy/time and revocation have not been validated."
+    },
+    {
+      "key": "image_firmware",
+      "label": "Firmware version in image",
+      "status": "passed",
+      "message": "Image firmware revision is 3051.50009.1424.0002. Sources: MainOS/Windows/Packages/RegistryFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.reg: HKEY_LOCAL_MACHINE\\SYSTEM\\Platform\\DeviceTargetingInfo\\PhoneFirmwareRevision; MainOS/Windows/Packages/DsmFiles/Nokia.DeviceInfo.PhoneFirmwareRevision.dsm.xml: Identity/Version. This observed metadata does not establish signer trust."
+    },
+    {
+      "key": "firmware_relation",
+      "label": "Installed / image firmware",
+      "status": "failed",
+      "message": "The image is numerically older within the same firmware branch. No downgrade acceptance/profile is validated; recovery remains blocked."
+    },
+    {
+      "key": "executor",
+      "label": "Recovery execution",
+      "status": "failed",
+      "message": "Stock recovery currently runs only in protocol replay tests. No physical-device executor is enabled."
+    }
+  ],
+  "phone_comparison": {
+    "variant": "RM-875",
+    "firmware": "3051.50009.1451.1003",
+    "source": "Previously recorded redacted phone metadata; no fresh USB queries"
+  },
+  "read_audit": {
+    "async_calls": 1739,
+    "async_bytes": 1723483408,
+    "max_async_slice": 1048576,
+    "sync_calls": 34,
+    "sync_bytes": 2228224,
+    "max_sync_slice": 65536
+  },
+  "progress_events": 392,
+  "final_progress_bytes": 1716256768,
+  "elapsed_ms": 23683,
+  "executable": false,
+  "phone_commands_sent": false,
+  "firmware_or_partition_writes_sent": false,
+  "tests": {
+    "rust_windows": 105,
+    "browser_integration": 33,
+    "typescript_unit": 3,
+    "native_and_wasm_clippy": "passed",
+    "native_windows_arm64_cli_and_tauri_release": "passed",
+    "wasm_and_shared_ui_production_build": "passed"
+  },
+  "limits": [
+    "Hashes establish integrity against the supplied table, not independent OEM trust or exact device applicability.",
+    "Same-branch older firmware remains blocked because downgrade acceptance is unvalidated.",
+    "Cancelled, failed-read, changed-header and incomplete sessions publish no complete checklist; payload mismatches publish a failed check with the actual full-file digest.",
+    "Files above 4 GiB are exercised through bounded metadata construction, not a complete hardware/browser multi-gigabyte validation run. The real browser file is 1,716,256,768 bytes.",
+    "No proprietary firmware bytes, serial numbers, public IDs, personal paths or loader data are published."
+  ]
+}

@@ -32,7 +32,7 @@ hardware validation.
 - Shared React UI, Rust WebAssembly processing in a worker, bounded streaming,
   native extraction cancellation, and a capability matrix that blocks phone writes.
 - Recovery preparation checklist in CLI, browser and desktop; native preparation
-  verifies full-file/chunk hashes, while browser previews leave those checks unverified.
+  and browser preparation verify full-file/chunk hashes with progress and cancellation.
 - Mode-change previews and read-only reconnection checks in all frontends;
   the core transition engine runs in replay, with cancellation,
   permission, identity and deadline checks. Live mode switching remains blocked.

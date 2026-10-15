@@ -179,8 +179,11 @@ fn registry_version(bytes: &[u8]) -> Result<String> {
         }
         String::from_utf16(
             &body
-                .chunks_exact(2)
-                .map(|p| u16::from_le_bytes([p[0], p[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .copied()
+                .map(u16::from_le_bytes)
                 .collect::<Vec<_>>(),
         )
         .map_err(|_| invalid("invalid UTF-16 registry metadata"))?

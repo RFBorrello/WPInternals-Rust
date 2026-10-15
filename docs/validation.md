@@ -4,19 +4,21 @@ Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
 headless Microsoft Edge. Catalog milestone `e6ed0bc` passed GitHub CI on all
 four native host targets and Chromium ([run `38659589224`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38659589224)).
 Those remote build results do not establish device support.
-The latest local milestone adds offline MainOS package metadata lookup to native
-and browser inspection. Phone/USB evidence below remains historical; no phone
-commands were sent during this firmware-reader change. Remote CI for the new
-MainOS source is pending.
+The latest local milestone adds complete browser FFU integrity verification.
+Phone/USB evidence below remains historical; no phone commands were sent during
+this change. MainOS milestone `83e11fb` passed remote tests and Chromium, but
+native jobs stopped on a new Rust 1.99 Clippy lint about constant-size
+`chunks_exact`. This change uses `as_chunks` for that UTF-16 conversion; behavior
+is unchanged. Remote CI for the new source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 100 passed on Windows: 62 integration tests, 37 native transport/harness unit tests and one decoded-CTL bounds unit test |
+| Rust tests | 105 passed on Windows: 67 integration tests, 37 native transport/harness unit tests and one decoded-CTL bounds unit test |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 29 passed |
+| Real-WASM browser integration tests | 33 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -293,3 +295,32 @@ chunk checks still pass. Comparison with previously recorded phone firmware
 used saved, redacted phone metadata, not a fresh device query. All recovery gates
 remain blocked. See [the metadata-only record](../tests/fixtures/rm875-mainos-validation.json)
 and [profile limits](firmware-validation.md).
+
+## Complete browser FFU integrity — October 14
+
+Browser **Check preparation** now streams the selected FFU in 1 MiB blocks to
+an owned Rust/WASM verifier. It computes the full-file SHA-256 and checks all
+image/store-header and payload chunks in one pass. Headers must match inspection,
+the exact declared file length must be supplied, and incomplete/failed sessions
+cannot publish a fingerprint. A payload mismatch retains its actual digest and
+fails chunk integrity without granting trust or recovery permission.
+
+Five new Rust tests cover arbitrary split boundaries, native/reference digest
+agreement, payload corruption, partial/oversized/extra input, changed headers,
+unsupported algorithms and malformed hash tables. A metadata-only case describes
+a file larger than 4 GiB without allocating or verifying its payload. Four new
+browser tests cover actual digest export, valid-catalog/corrupt-payload separation,
+partial cancellation/restart, short reads and read errors; the full suite has
+33 tests. Local Rust has 105 passing tests. Native/WASM Clippy and release builds
+also pass. The earlier constant-size UTF-16 chunk conversion now uses `as_chunks`
+to satisfy the newer CI toolchain without changing decoding behavior.
+
+The real 1,716,256,768-byte RM-875 FFU passed all 13,090 chunk checks in the
+production browser worker. Its full digest matches the previous independent
+native result. Read auditing confirms async slices at most 1 MiB and MainOS
+sync slices at most 64 KiB; monotonic progress ends at the exact file length.
+The UI checklist and JSON export show passing fingerprint/chunk checks while
+OEM signer trust remains unverified. Comparing with saved phone metadata still
+fails unvalidated downgrade preparation. No phone queries, mode commands or
+partition/firmware writes were sent. See
+[the metadata-only evidence](../tests/fixtures/rm875-browser-integrity-validation.json).
