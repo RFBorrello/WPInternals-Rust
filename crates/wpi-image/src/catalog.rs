@@ -366,6 +366,9 @@ struct DigestInfo {
     digest: OctetString,
 }
 fn bind_table(content: &[u8], hashes: &[u8]) -> Result<&'static str> {
+    // CMS wraps CTL DER in an opaque OCTET STRING, so the outer walk cannot
+    // enforce limits inside it. Bound this decoded block before CTL parsing.
+    bound_der(content, 0, &mut 0)?;
     let ctl = Ctl::from_der(content).map_err(malformed)?;
     if ctl.usage != [oid("1.3.6.1.4.1.311.12.1.1")]
         || ctl.algorithm.oid != oid("1.3.6.1.4.1.311.12.1.2")
@@ -411,4 +414,30 @@ fn bind_table(content: &[u8], hashes: &[u8]) -> Result<&'static str> {
         ));
     }
     Ok(name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn decoded_ctl_blocks_reject_deep_and_node_dense_asn1_before_schema_parsing() {
+        let mut nested = vec![0x30, 0];
+        for _ in 0..25 {
+            let mut next = vec![0x30, nested.len() as u8];
+            next.extend(nested);
+            nested = next;
+        }
+        assert!(bind_table(&nested, &[])
+            .unwrap_err()
+            .to_string()
+            .contains("nesting"));
+        let mut many = vec![0x30, 0x82, 0x20, 0x08]; // 4100 NULLs, independent of a valid signature.
+        for _ in 0..4100 {
+            many.extend([0x05, 0]);
+        }
+        assert!(bind_table(&many, &[])
+            .unwrap_err()
+            .to_string()
+            .contains("node count"));
+    }
 }

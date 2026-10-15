@@ -2,7 +2,7 @@
   "recorded_on": "2026-10-14",
   "scope": "Offline catalog signature, hash-table membership, PLAT version and recovery preparation",
   "implementation_source_sha256": {
-    "crates/wpi-image/src/catalog.rs": "88b552cb851360b071a1f2c9165fd106cce325aa456e116b3f8cd22a0a5ff0df",
+    "crates/wpi-image/src/catalog.rs": "eb0e8aabdc54c0031032516b4fdb96e280d67cf41b2a550d94c34ad08a860d81",
     "crates/wpi-image/src/firmware.rs": "a42295214ec5ba93d8a589c0b0851d638a8ab4cb35e2f276054ae20cb1afca88",
     "crates/wpi-core/src/inspection.rs": "8aa289b4d7a6f35b1af7194131d8d470122e6b7d5d6be4fae7f0e425a9489ee0",
     "crates/wpi-core/src/recovery_prepare.rs": "b4e29d894b791f238554ee53ce43a99085b11295340237f79e5a6c6fa9c6feca",
@@ -213,7 +213,7 @@
     ]
   },
   "tests": {
-    "rust_total_windows": 95,
+    "rust_total_windows": 96,
     "browser_integration": 27,
     "typescript_unit": 3,
     "native_clippy": "passed",

@@ -28,7 +28,8 @@ with SHA-256 signed attributes. Content-type and message-digest attributes must
 each occur exactly once with one value. Unsupported profiles stay unverified;
 malformed structures, conflicting attributes or bad signatures fail.
 
-Catalogs are capped at 1 MiB, ASN.1 nesting at 24, nodes at 4096, embedded
+Catalogs are capped at 1 MiB; each decoded ASN.1 block is capped at nesting 24
+and 4096 nodes (including CTL inside CMS octet strings). Embedded
 certificates at 16 and signed attributes at 32. A single, explicitly named UTF-16
 `HashTable.blob` member must contain a supported indirect-data SHA-1 or SHA-256
 digest. Arbitrary digest bytes elsewhere in the catalog do not establish binding.

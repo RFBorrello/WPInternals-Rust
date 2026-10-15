@@ -11,7 +11,7 @@ not change executable source.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 95 passed on Windows: 58 integration tests and 37 native transport/harness unit tests |
+| Rust tests | 96 passed on Windows: 58 integration tests, 37 native transport/harness unit tests and one decoded-CTL bounds unit test |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
@@ -253,7 +253,7 @@ unvalidated downgrade handling and bounded platform-family prefix matching.
 
 Three new real-WASM Edge tests verify signed-catalog checklist results, a failed
 tampered signature, and PLAT metadata taking precedence over a filename version.
-The full browser suite passed all 27 cases. Rust passed all 95 Windows tests,
+The full browser suite passed all 27 cases. Rust passed all 96 Windows tests,
 strict native Clippy, WASM build/check, shared TypeScript production build and
 Windows ARM64 CLI/Tauri release builds. Remote CI for this new source is pending;
 the earlier CI link above applies to the earlier tested mode-observer revision.
@@ -269,3 +269,6 @@ phone metadata during native preparation; no mode or device writes were sent.
 See `tests/fixtures/rm875-catalog-validation.json` and
 [the verification limits](firmware-validation.md). OEM bytes, extracted PLAT and
 personal paths/identifiers are excluded from the published evidence.
+The final parser review also added a decoded-CTL depth/node guard, because CMS
+octet-string wrappers are opaque to the outer ASN.1 walk. A regression exercises
+deep and node-dense decoded blocks before schema parsing.
