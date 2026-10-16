@@ -4,19 +4,20 @@ Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
 headless Microsoft Edge. Native storage milestone `ed3e008` passed GitHub CI on all
 four native host targets and Chromium ([run `38675937109`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38675937109)).
 Those remote build results do not establish device support.
-The latest local milestone adds offline Spec A boot-file preparation through the
-CLI, browser worker and desktop IPC. Native read-only identification was repeated
-on October 15; no mode changes, uploads, firmware or partition writes were sent.
+The latest local milestone extends offline Spec A preparation with SBL1 patterns,
+bounded UEFI decompression/patch previews and stock/donor EFIESP file checks.
+Native identification was previously repeated on October 15. No phone commands
+were sent during this extension; SBL3 and donor candidates were inspected offline.
 Remote CI for this new source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 141 passed on Windows: 99 integration tests, 37 native transport/harness unit tests, three image-parser unit tests and two Windows metadata-decoder unit tests |
+| Rust tests | 153 passed on Windows: 105 integration tests, 37 native transport/harness unit tests, nine image/parser/cache unit tests and two Windows metadata-decoder unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser / mocked desktop IPC integration tests | 44 passed |
+| Real-WASM browser / mocked desktop IPC integration tests | 46 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -32,6 +33,7 @@ Remote CI for this new source is pending.
 | Native recovery preparation | Real FFU digest/chunk checks passed; advisory report kept recovery blocked |
 | Backup engine | Replay-only ranges, hashing, atomic publication and interruption/cancellation tests; no physical storage access |
 | Offline Spec A preparation | Real stock SBL1/SBL2/SBL3 and two local V1 programmers match native Rust, browser WASM and independent upstream-algorithm results; unlock remains blocked |
+| Extended offline checks | Real SBL1 patterns, 75-file compressed UEFI, community SBL3 candidate and local donor boot-file checks agree across native/browser/reference implementations; no patched image exported |
 
 Tests cover malformed/truncated image metadata, FFU hash corruption, GPT CRCs,
 lossless 64-bit GPT attribute serialization, sparse map precedence, output
@@ -68,11 +70,15 @@ All device writing workflows remain blocked.
 Spec A preparation tests cover short/long MBN bounds, size/address overflow,
 malformed DER and chain padding, unsupported ELF, HEX checksums/addresses/EOF,
 code-only unique patch matching, wrong certificate fingerprints, missing markers,
-oversized imports, and reports that never enable writes. Browser tests cover real
+oversized imports, and reports that never enable writes. Additional tests exercise
+FV/FFS checksums and duplicate GUIDs, malformed PE regions, decompression bounds,
+exact expected/resulting EFIESP bytes, stale donor reassessment and bounded FAT
+cache behavior. Browser tests cover real
 worker/WASM imports, stale-report clearing, missing boot partitions, oversized
-inputs and desktop IPC routing. Real-image browser auditing observed 64 KiB maximum
-synchronous reads and a 917,504-byte maximum asynchronous header slice; the entire
-1.7 GB FFU was not copied through UI messages. See [Spec A preparation](spec-a-preparation.md).
+inputs and desktop IPC routing. The extended real-file browser audit observed
+64 KiB maximum synchronous reads and a 1,310,720-byte maximum asynchronous header
+slice while reading stock and donor FFUs. Whole multi-gigabyte FFUs were not copied
+through UI messages. See [Spec A preparation](spec-a-preparation.md).
 
 Mode-transition coverage includes fresh source contradictions, Spec A protocol-1
 removal requirements, Spec B protocol-2 in-place observation, Flash-to-Normal

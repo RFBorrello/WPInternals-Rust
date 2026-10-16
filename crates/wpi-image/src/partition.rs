@@ -1,5 +1,6 @@
 //! Bounded, read-only partition-relative access over sparse FFU mappings.
 use crate::{ffu::FfuMetadata, gpt::Gpt, invalid, ImageError, Result, SECTOR_SIZE};
+use std::collections::VecDeque;
 use std::io::{self, Read, Seek, SeekFrom};
 const LIMIT: usize = 64 * 1024;
 const IO_BUDGET: u64 = 16 * 1024 * 1024;
@@ -11,8 +12,9 @@ pub(crate) struct Partition<'a, R, F> {
     start: u64,
     length: u64,
     position: u64,
-    cache_at: u64,
-    cache: Vec<u8>,
+    // FAT alternates allocation-table and data reads. Eight LRU pages avoid
+    // thrashing while retaining a 512 KiB cache and the same total I/O budget.
+    cache: VecDeque<(u64, Vec<u8>)>,
     fetched: u64,
     calls: u32,
     progress: F,
@@ -36,22 +38,29 @@ impl<R: Read + Seek, F: FnMut(u64, u64) -> bool> Read for Partition<'_, R, F> {
         if n == 0 {
             return Ok(0);
         }
-        if self.position < self.cache_at || self.position >= self.cache_at + self.cache.len() as u64
-        {
-            self.cache_at = self.position / LIMIT as u64 * LIMIT as u64;
-            let count = (self.length - self.cache_at).min(LIMIT as u64) as usize;
+        let cache_at = self.position / LIMIT as u64 * LIMIT as u64;
+        let cached = self.cache.iter().position(|(at, _)| *at == cache_at);
+        let page = if let Some(index) = cached {
+            self.cache.remove(index).unwrap()
+        } else {
+            let count = (self.length - cache_at).min(LIMIT as u64) as usize;
             if self.fetched + count as u64 > IO_BUDGET {
                 return Err(io::Error::other("Partition metadata I/O exceeds 16 MiB"));
             }
             self.fetched += count as u64;
-            self.cache = self
+            let bytes = self
                 .ffu
-                .read_disk(self.reader, self.start + self.cache_at, count)
+                .read_disk(self.reader, self.start + cache_at, count)
                 .map_err(io::Error::other)?;
+            (cache_at, bytes)
+        };
+        let at = (self.position - cache_at) as usize;
+        let n = n.min(page.1.len() - at);
+        buffer[..n].copy_from_slice(&page.1[at..at + n]);
+        if self.cache.len() == 8 {
+            self.cache.pop_back();
         }
-        let at = (self.position - self.cache_at) as usize;
-        let n = n.min(self.cache.len() - at);
-        buffer[..n].copy_from_slice(&self.cache[at..at + n]);
+        self.cache.push_front(page);
         self.position += n as u64;
         Ok(n)
     }
@@ -108,8 +117,7 @@ pub(crate) fn with_partition<R: Read + Seek, F: FnMut(u64, u64) -> bool, T>(
         start,
         length,
         position: 0,
-        cache_at: 0,
-        cache: vec![],
+        cache: VecDeque::new(),
         fetched: 0,
         calls: 0,
         progress,
@@ -120,4 +128,64 @@ pub(crate) fn with_partition<R: Read + Seek, F: FnMut(u64, u64) -> bool, T>(
         return Err(ImageError::Cancelled);
     }
     result
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Cursor, Write};
+    #[test]
+    fn fat_allocation_and_data_reads_share_bounded_lru_without_budget_bypass() {
+        let mut disk = Cursor::new(vec![0; 4 * 1024 * 1024]);
+        fatfs::format_volume(&mut disk, fatfs::FormatVolumeOptions::new()).unwrap();
+        let fs = fatfs::FileSystem::new(&mut disk, fatfs::FsOptions::new()).unwrap();
+        let root = fs.root_dir();
+        let mut file = root.create_file("boot.bin").unwrap();
+        let bytes = vec![0x5a; 1024 * 1024];
+        file.write_all(&bytes).unwrap();
+        drop(file);
+        drop(root);
+        fs.unmount().unwrap();
+        let mut ffu = FfuMetadata::open(&mut Cursor::new(
+            include_bytes!("../../../tests/fixtures/synthetic.ffu").as_slice(),
+        ))
+        .unwrap();
+        ffu.header_size = 0;
+        ffu.payload_size = disk.get_ref().len() as u64;
+        ffu.total_size = ffu.payload_size;
+        ffu.mappings = vec![crate::ffu::Mapping {
+            disk_access: 0,
+            disk_chunk: 0,
+            chunk_count: ffu.payload_size / ffu.chunk_size as u64,
+            payload_chunk: 0,
+        }];
+        let mut p = Partition {
+            reader: &mut disk,
+            ffu: &ffu,
+            start: 0,
+            length: ffu.payload_size,
+            position: 0,
+            cache: VecDeque::new(),
+            fetched: 0,
+            calls: 0,
+            progress: |_, _| true,
+            cancelled: false,
+        };
+        let read = crate::filesystem::read_small_fat_file(&mut p, "boot.bin", 2 * 1024 * 1024)
+            .unwrap()
+            .unwrap();
+        assert_eq!(read, bytes);
+        assert!(p.fetched < 4 * 1024 * 1024);
+        assert!(p.cache.len() <= 8);
+        let mut exhausted = false;
+        for i in 0..400 {
+            p.seek(SeekFrom::Start((i % 64) * LIMIT as u64)).unwrap();
+            if p.read_exact(&mut [0]).is_err() {
+                exhausted = true;
+                break;
+            }
+        }
+        assert!(exhausted);
+        assert!(p.fetched <= IO_BUDGET);
+        assert!(p.cache.len() <= 8);
+    }
 }

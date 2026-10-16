@@ -1,0 +1,329 @@
+{
+  "date": "2026-10-15",
+  "host": "Windows ARM64",
+  "scope": "Offline file preparation only; no phone commands, uploads, writes or unlock",
+  "stock_ffu_previously_verified_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+  "candidate_source": {
+    "source_page": "https://lumiadb.com/developers",
+    "requested_url": "https://api.lumiadb.com/SBL3/Engineering-SBL3-Lumia-1020.bin",
+    "final_url": "https://api.lumiadb.com/SBL3/Engineering-SBL3-Lumia-1020.bin",
+    "size": 332700,
+    "sha256": "fdd7f541eefcb0a4d3d7bba5ab2632a4236cf9dd78772fe5717ce719c5a3ae73",
+    "retrieved": "2026-10-15",
+    "provenance": "Community archive; authenticity, engineering status and device suitability unverified",
+    "content_type": "application/octet-stream"
+  },
+  "donor_file": "RM1085_1078.0053.10586.13169.12547.035242_retail_prod_signed.ffu",
+  "native_browser_comparison": "matches",
+  "independent_upstream_algorithm_comparison": "matches",
+  "browser_io": {
+    "async_calls": 227,
+    "async_bytes": 16903488,
+    "max_async_slice": 1310720,
+    "sync_calls": 217,
+    "sync_bytes": 13883687,
+    "max_sync_slice": 65536
+  },
+  "browser_elapsed_ms": 6439,
+  "preparation": {
+    "upstream_revision": "d8fd0aa516b16dc094df0422a3adc525af005c29",
+    "platform_id": "Nokia.MSM8960.P5217",
+    "stock": [
+      {
+        "name": "SBL1",
+        "size": 1536000,
+        "sha256": "2851560a792503bc6259e08d9643a4815fc69ee400f28a904132e7aef6e4ff39",
+        "image": {
+          "header_kind": "long",
+          "header_offset": 10260,
+          "image_offset": 10320,
+          "image_address": 704643072,
+          "image_size": 77288,
+          "code_size": 70888,
+          "signature_offset": 81208,
+          "signature_size": 256,
+          "certificates_offset": 81464,
+          "certificates_size": 6144,
+          "certificate_sha256": [
+            "a24167dd4296a71368d645423645bb2be17811d7a0664e9f30b80868dc6c4079",
+            "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          ],
+          "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+        },
+        "patch": null,
+        "error": null
+      },
+      {
+        "name": "SBL2",
+        "size": 1536000,
+        "sha256": "78d7cef78b94668898f07bd428ec8e632cd60ec35a1c6894642749723b7a8a52",
+        "image": {
+          "header_kind": "short_v3",
+          "header_offset": 8,
+          "image_offset": 40,
+          "image_address": 771751936,
+          "image_size": 114560,
+          "code_size": 108160,
+          "signature_offset": 108200,
+          "signature_size": 256,
+          "certificates_offset": 108456,
+          "certificates_size": 6144,
+          "certificate_sha256": [
+            "8a5d22e02ce2477d5453d2d7998d4491fa739e95d380c34f48d42f9539fe910c",
+            "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          ],
+          "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+        },
+        "patch": {
+          "status": "unique",
+          "match_count": 1,
+          "offset": 36792,
+          "expected": "2800d0e5",
+          "replacement": "0000a0e3"
+        },
+        "error": null
+      },
+      {
+        "name": "SBL3",
+        "size": 2097152,
+        "sha256": "a9e72102767eeab65d19b5338ae71af243d175f5f4ed0e6f5c5b7c132e6d29de",
+        "image": {
+          "header_kind": "short_v3",
+          "header_offset": 8,
+          "image_offset": 40,
+          "image_address": 2414870528,
+          "image_size": 329248,
+          "code_size": 322848,
+          "signature_offset": 322888,
+          "signature_size": 256,
+          "certificates_offset": 323144,
+          "certificates_size": 6144,
+          "certificate_sha256": [
+            "3494c9e986097cc660d0f8be502e382f93b2d14f48bdc170887cd33c7c1ed7b9",
+            "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          ],
+          "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+        },
+        "patch": {
+          "status": "unique",
+          "match_count": 1,
+          "offset": 141216,
+          "expected": "2800d0e5",
+          "replacement": "0000a0e3"
+        },
+        "error": null
+      }
+    ],
+    "external_sbl3": {
+      "name": "Engineering-SBL3-Lumia-1020.bin",
+      "size": 332700,
+      "sha256": "fdd7f541eefcb0a4d3d7bba5ab2632a4236cf9dd78772fe5717ce719c5a3ae73",
+      "image": {
+        "header_kind": "short_v3",
+        "header_offset": 8,
+        "image_offset": 40,
+        "image_address": 2414870528,
+        "image_size": 332660,
+        "code_size": 326260,
+        "signature_offset": 326300,
+        "signature_size": 256,
+        "certificates_offset": 326556,
+        "certificates_size": 6144,
+        "certificate_sha256": [
+          "fcf2def30b780ea25646f2685cd108c3dee6c35a4b2169b4558eba8d0e774ca2",
+          "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+        ],
+        "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+      },
+      "patch": {
+        "status": "unique",
+        "match_count": 1,
+        "offset": 141540,
+        "expected": "2800d0e5",
+        "replacement": "0000a0e3"
+      },
+      "error": null
+    },
+    "external_sbl3_fits": true,
+    "loaders": [
+      {
+        "name": "FAST8960_RM875.hex",
+        "input_sha256": "8eea1d5d5edace177d7dee502c9b3bb70f85e623f5b38bbcc0a6b64e0b97aa41",
+        "decoded": {
+          "name": "FAST8960_RM875.hex",
+          "size": 72960,
+          "sha256": "d30979f362a740e9e8ea79e02583abbba2a8bbb33b9efc512c2bfefca5714f37",
+          "image": {
+            "header_kind": "long",
+            "header_offset": 20,
+            "image_offset": 80,
+            "image_address": 704643152,
+            "image_size": 72880,
+            "code_size": 66480,
+            "signature_offset": 66560,
+            "signature_size": 256,
+            "certificates_offset": 66816,
+            "certificates_size": 6144,
+            "certificate_sha256": [
+              "f0fa3c3fdbde9c4431bb637d3ac5e2ea969c0a81ee92e6d881e605b8ff03528b",
+              "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+            ],
+            "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          },
+          "patch": null,
+          "error": null
+        },
+        "v1_marker_present": true,
+        "matches_stock_sbl1_root": true,
+        "error": null
+      },
+      {
+        "name": "RM875_prg_v1.0.hex",
+        "input_sha256": "4ea2f29917f29b57dcd80d50adb13a29a96d3b2d85a62a484cd771d0a3e80830",
+        "decoded": {
+          "name": "RM875_prg_v1.0.hex",
+          "size": 74036,
+          "sha256": "c24582baa992294f1a28e313882dda385a7ebf222d3b1857330770b51f13c4ab",
+          "image": {
+            "header_kind": "long",
+            "header_offset": 20,
+            "image_offset": 80,
+            "image_address": 704643152,
+            "image_size": 73956,
+            "code_size": 67556,
+            "signature_offset": 67636,
+            "signature_size": 256,
+            "certificates_offset": 67892,
+            "certificates_size": 6144,
+            "certificate_sha256": [
+              "caa7f5e0dd5bdb7b91945cab6bb33cc4bda79656ff0c6f19e5e3fc3e961c1019",
+              "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+            ],
+            "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          },
+          "patch": null,
+          "error": null
+        },
+        "v1_marker_present": true,
+        "matches_stock_sbl1_root": true,
+        "error": null
+      }
+    ],
+    "sbl1_prerequisites": {
+      "loader_table_offset": 79916,
+      "loader_table_size": 80,
+      "security_function_offset": 31480,
+      "shared_memory_address": 704714000,
+      "security_flag_address": 704714040,
+      "return_function_offset": 33540,
+      "return_address": 704666292,
+      "payload_generated": false
+    },
+    "sbl1_error": null,
+    "uefi": {
+      "partition_sha256": "9497815e89f9359e8a7f4f181564cb7a62dcf949e6e41588547ec1e491fb7e4d",
+      "outer_volume_size": 1048576,
+      "compressed_size": 696189,
+      "decompressed_size": 3590088,
+      "decompressed_sha256": "2f3a8f3bea059044e97ac8f9e3cfe9922c0818369b9823843185b4d45de6092b",
+      "file_count": 75,
+      "targets": [
+        {
+          "name": "SecurityDxe",
+          "guid": "5e0eae60-eaed-4d75-b8bf-edbbaabc3f09",
+          "size": 145056,
+          "sha256": "8632cdc67f462abbd48dc9dffd7bc080d0ed2556cc43e89b8f72427f4db63c14",
+          "pe_checksum_offset": 216,
+          "patches": [
+            {
+              "label": "PE checksum clear",
+              "offset": 216,
+              "expected": "00000000",
+              "replacement": "00000000"
+            },
+            {
+              "label": "SecurityDxe authentication",
+              "offset": 36920,
+              "expected": "f0412de90250b0e1",
+              "replacement": "0000a0e31eff2fe1"
+            }
+          ]
+        },
+        {
+          "name": "SecurityServicesDxe",
+          "guid": "6357e21c-f8d6-438a-8b8d-af0c1d94eebb",
+          "size": 58648,
+          "sha256": "8eefef8e3a02a4fa75872b55240b1bc8159dc5731a17d33e3c9c29ca3bd29001",
+          "pe_checksum_offset": 216,
+          "patches": [
+            {
+              "label": "PE checksum clear",
+              "offset": 216,
+              "expected": "00c20100",
+              "replacement": "00000000"
+            },
+            {
+              "label": "SecurityServicesDxe policy 1",
+              "offset": 10115,
+              "expected": "0a",
+              "replacement": "ea"
+            },
+            {
+              "label": "SecurityServicesDxe policy 2",
+              "offset": 10451,
+              "expected": "0a",
+              "replacement": "ea"
+            }
+          ]
+        }
+      ],
+      "rebuilt_image": false
+    },
+    "uefi_error": null,
+    "efiesp": {
+      "path": "Windows/System32/Boot/mobilestartup.efi",
+      "size": 687568,
+      "sha256": "5e0732f273c50813626f065bbc969a22248b53a68edc6b27f612c3062a841f93",
+      "sha1": "40941860A7B7CED19BEAF25E76227AAFDFED689B",
+      "status": "unsupported_donor_required",
+      "catalog_target_descriptions": [],
+      "prepared_copy_sha256": null,
+      "bcd_present": true,
+      "bcd_sha256": "0fe13ace095f451212ce737ecf6c91ee765389cde12f135e807bfbb27b1e59bb",
+      "bcd_editing_implemented": false
+    },
+    "efiesp_error": null,
+    "donor_efiesp": {
+      "path": "Windows/System32/Boot/mobilestartup.efi",
+      "size": 814160,
+      "sha256": "a3afb9b63ede88a73621705b9124413d4c0a85e3839ae9361a7c9841eb368d2f",
+      "sha1": "8E71D1F0255E8C71BDE6F8D3780C4827C244375B",
+      "status": "original_supported",
+      "catalog_target_descriptions": [
+        "10.0.10586.318"
+      ],
+      "prepared_copy_sha256": "6e175479c2484d7c88800540d8b62d3031e2b1ce77d6c1de61f68d10bce0bff5",
+      "bcd_present": true,
+      "bcd_sha256": "3d51f96bac91742b6758a2db5c0abb89a5adc84b2071f730b11291ef23309fdd",
+      "bcd_editing_implemented": false
+    },
+    "donor_error": null,
+    "phone_writes_enabled": false,
+    "blockers": [
+      "FFU chunk integrity, OEM authenticity and firmware applicability require the separate Recovery preparation checks.",
+      "Phone RRKH and Flash security/application state have not been read in this offline check.",
+      "Live GPT, recoverable installed originals, and interruption recovery are not validated.",
+      "SBL1 payload generation, UEFI rebuild, EFIESP donor replacement and BCD editing are not implemented by this check.",
+      "Certificate fingerprints and code patterns do not establish signature trust, engineering status, hardware compatibility or mass-storage support.",
+      "Spec A unlock executor and hardware validation are incomplete; this report never authorizes phone writes.",
+      "Imported donor boot bytes match the pinned patch catalog, but replacement, BCD edits and cross-version/device compatibility remain unvalidated."
+    ]
+  },
+  "limitations": [
+    "Community SBL3 provenance, engineering status and phone suitability are not independently authenticated.",
+    "Donor boot bytes matching a pinned catalog do not establish cross-version/device compatibility.",
+    "BCD presence and hashes do not validate hive contents; editing is unimplemented.",
+    "No exploit payload, rebuilt UEFI, modified FAT image or phone executor was produced.",
+    "No proprietary bytes or unique phone identifiers are included."
+  ]
+}

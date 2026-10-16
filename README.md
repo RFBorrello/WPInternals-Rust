@@ -76,7 +76,9 @@ suitable disk; it has not been validated on phone storage. See
 
 [Spec A offline preparation](docs/spec-a-preparation.md) now parses stock boot
 images and imported V1 programmers, checks HEX records and fingerprints, and
-previews unique SBL2/SBL3 patch locations. It does not enable unlocking.
+previews unique SBL2/SBL3 patch locations. It also checks SBL1 prerequisites,
+compressed UEFI targets, and stock/optional-donor EFIESP patch applicability.
+It does not enable unlocking or export modified boot images.
 
 ## Quick start
 

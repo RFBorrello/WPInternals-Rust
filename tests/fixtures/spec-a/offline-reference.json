@@ -1,0 +1,23 @@
+{
+  "decompressed_sha256": "9eecb0f326ad91de974f6141f0730ce7ed68d0c2de1707958dc4960508858eb4",
+  "targets": [
+    {
+      "name": "SecurityDxe",
+      "sha256": "a4be05ec4ca9c727f8a6c3ec790d0158f97ab84c036d46fda233e962af3b6958",
+      "code_patch_offsets": [
+        576
+      ]
+    },
+    {
+      "name": "SecurityServicesDxe",
+      "sha256": "e65cb20b5f38839f0e960fb5ca653200cbf7feb8f637dcdabbaf601e8d671db3",
+      "code_patch_offsets": [
+        587,
+        651
+      ]
+    }
+  ],
+  "sbl1_loader_table_offset": 10448,
+  "sbl1_security_flag_address": 704647208,
+  "sbl1_return_address": 704643136
+}

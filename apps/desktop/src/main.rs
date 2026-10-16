@@ -102,6 +102,7 @@ async fn prepare_spec_a(
     input: String,
     sbl3: Option<String>,
     loaders: Vec<String>,
+    donor: Option<String>,
     state: State<'_, DesktopState>,
 ) -> Result<wpi_image::spec_a::Preparation, String> {
     let session = state
@@ -115,6 +116,7 @@ async fn prepare_spec_a(
             &PathBuf::from(input),
             sbl3.as_deref().map(std::path::Path::new),
             &loaders,
+            donor.as_deref().map(std::path::Path::new),
         )
         .map_err(|e| e.to_string())
     })

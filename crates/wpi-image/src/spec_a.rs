@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Seek};
 use x509_cert::Certificate;
+pub mod efiesp;
+pub mod sbl1;
+pub mod uefi;
 
 pub const MAX_BOOT_IMAGE: usize = 4 * 1024 * 1024;
 pub const MAX_LOADER_FILE: usize = 512 * 1024;
@@ -304,6 +307,22 @@ pub struct Preparation {
     pub external_sbl3: Option<BootReport>,
     pub external_sbl3_fits: Option<bool>,
     pub loaders: Vec<LoaderReport>,
+    #[serde(default)]
+    pub sbl1_prerequisites: Option<sbl1::Prerequisites>,
+    #[serde(default)]
+    pub sbl1_error: Option<String>,
+    #[serde(default)]
+    pub uefi: Option<uefi::Report>,
+    #[serde(default)]
+    pub uefi_error: Option<String>,
+    #[serde(default)]
+    pub efiesp: Option<efiesp::Report>,
+    #[serde(default)]
+    pub efiesp_error: Option<String>,
+    #[serde(default)]
+    pub donor_efiesp: Option<efiesp::Report>,
+    #[serde(default)]
+    pub donor_error: Option<String>,
     pub phone_writes_enabled: bool,
     pub blockers: Vec<String>,
 }
@@ -334,6 +353,8 @@ pub fn prepare<R: Read + Seek>(
         return Err(invalid("loader import exceeds 512 KiB"));
     }
     let mut stock = Vec::new();
+    let mut sbl1_prerequisites = None;
+    let mut sbl1_error = None;
     for (name, offset, patch) in [
         ("SBL1", 0x2800, None),
         ("SBL2", 0, Some(true)),
@@ -344,13 +365,36 @@ pub fn prepare<R: Read + Seek>(
         if size > MAX_BOOT_IMAGE as u64 {
             return Err(invalid(format!("{name} partition exceeds 4 MiB")));
         }
-        stock.push(boot(
-            name,
-            &ffu.read_disk(reader, start, size as usize)?,
-            offset,
-            patch,
-        ));
+        let bytes = ffu.read_disk(reader, start, size as usize)?;
+        let report = boot(name, &bytes, offset, patch);
+        if name == "SBL1" {
+            match report
+                .image
+                .as_ref()
+                .ok_or_else(|| invalid("SBL1 header did not parse"))
+                .and_then(|image| sbl1::inspect(&bytes, image))
+            {
+                Ok(v) => sbl1_prerequisites = Some(v),
+                Err(e) => sbl1_error = Some(e.to_string()),
+            }
+        }
+        stock.push(report);
     }
+    let uefi_result = (|| {
+        let (start, size) = gpt.partition("UEFI")?.byte_range()?;
+        if size > MAX_BOOT_IMAGE as u64 {
+            return Err(invalid("UEFI partition exceeds 4 MiB"));
+        }
+        uefi::inspect(&ffu.read_disk(reader, start, size as usize)?)
+    })();
+    let (uefi, uefi_error) = match uefi_result {
+        Ok(v) => (Some(v), None),
+        Err(e) => (None, Some(e.to_string())),
+    };
+    let (efiesp, efiesp_error) = match efiesp::inspect(reader, ffu, gpt) {
+        Ok(v) => (Some(v), None),
+        Err(e) => (None, Some(e.to_string())),
+    };
     let stock_root = stock[0]
         .image
         .as_ref()
@@ -390,10 +434,25 @@ pub fn prepare<R: Read + Seek>(
         "FFU chunk integrity, OEM authenticity and firmware applicability require the separate Recovery preparation checks.".into(),
         "Phone RRKH and Flash security/application state have not been read in this offline check.".into(),
         "Live GPT, recoverable installed originals, and interruption recovery are not validated.".into(),
-        "SBL1 exploit prerequisites, UEFI and EFIESP patch applicability are not implemented by this check.".into(),
+        "SBL1 payload generation, UEFI rebuild, EFIESP donor replacement and BCD editing are not implemented by this check.".into(),
         "Certificate fingerprints and code patterns do not establish signature trust, engineering status, hardware compatibility or mass-storage support.".into(),
         "Spec A unlock executor and hardware validation are incomplete; this report never authorizes phone writes.".into(),
     ];
+    if sbl1_prerequisites.is_none() {
+        blockers.push(
+            "SBL1 prerequisite inspection failed; review its error before further preparation."
+                .into(),
+        );
+    }
+    if uefi.is_none() {
+        blockers.push("UEFI inspection or unique patch matching failed; review its error.".into());
+    }
+    if efiesp
+        .as_ref()
+        .is_none_or(|v| v.prepared_copy_sha256.is_none())
+    {
+        blockers.push("EFIESP boot target is missing, unsupported, or unreadable; a separately validated donor may be required.".into());
+    }
     if stock
         .iter()
         .any(|v| v.error.is_some() || v.patch.as_ref().is_some_and(|p| p.status != "unique"))
@@ -425,7 +484,54 @@ pub fn prepare<R: Read + Seek>(
         external_sbl3,
         external_sbl3_fits,
         loaders: reports,
+        sbl1_prerequisites,
+        sbl1_error,
+        uefi,
+        uefi_error,
+        efiesp,
+        efiesp_error,
+        donor_efiesp: None,
+        donor_error: None,
         phone_writes_enabled: false,
         blockers,
     })
+}
+/// A donor's boot-file match is not permission to install its files on a phone.
+pub fn assess_donor<R: Read + Seek>(
+    report: &mut Preparation,
+    reader: &mut R,
+    ffu: &FfuMetadata,
+    gpt: &Gpt,
+) {
+    report
+        .blockers
+        .retain(|v| !v.starts_with("Imported donor "));
+    report.donor_efiesp = None;
+    report.donor_error = None;
+    match efiesp::inspect(reader, ffu, gpt) {
+        Ok(v) => report.donor_efiesp = Some(v),
+        Err(e) => report.donor_error = Some(e.to_string()),
+    }
+    if report
+        .donor_efiesp
+        .as_ref()
+        .is_some_and(|v| v.prepared_copy_sha256.is_some())
+    {
+        report.blockers.retain(|v|v!="EFIESP boot target is missing, unsupported, or unreadable; a separately validated donor may be required.");
+        report.blockers.push("Imported donor boot bytes match the pinned patch catalog, but replacement, BCD edits and cross-version/device compatibility remain unvalidated.".into());
+    } else {
+        if report
+            .efiesp
+            .as_ref()
+            .is_none_or(|v| v.prepared_copy_sha256.is_none())
+            && !report
+                .blockers
+                .iter()
+                .any(|v| v.starts_with("EFIESP boot target is missing"))
+        {
+            report.blockers.push("EFIESP boot target is missing, unsupported, or unreadable; a separately validated donor may be required.".into());
+        }
+        report.blockers.push("Imported donor has no supported EFIESP patch result; inspect its error or boot-file status.".into());
+    }
+    report.phone_writes_enabled = false;
 }

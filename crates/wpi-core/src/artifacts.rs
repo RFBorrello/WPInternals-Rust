@@ -26,6 +26,7 @@ pub fn prepare_spec_a(
     path: &Path,
     sbl3: Option<&Path>,
     loaders: &[std::path::PathBuf],
+    donor: Option<&Path>,
 ) -> Result<wpi_image::spec_a::Preparation> {
     use wpi_image::{
         ffu::FfuMetadata,
@@ -66,7 +67,7 @@ pub fn prepare_spec_a(
     let mut source = open_artifact(path)?;
     let ffu = FfuMetadata::open(&mut source)?;
     let gpt = ffu.gpt(&mut source)?;
-    spec_a::prepare(
+    let mut report = spec_a::prepare(
         &mut source,
         &ffu,
         &gpt,
@@ -74,7 +75,14 @@ pub fn prepare_spec_a(
             .as_ref()
             .map(|(name, bytes)| Import { name, bytes }),
         &loader_refs,
-    )
+    )?;
+    if let Some(path) = donor {
+        let mut source = open_artifact(path)?;
+        let ffu = FfuMetadata::open(&mut source)?;
+        let gpt = ffu.gpt(&mut source)?;
+        spec_a::assess_donor(&mut report, &mut source, &ffu, &gpt);
+    }
+    Ok(report)
 }
 fn reference_time() -> Option<u64> {
     std::time::SystemTime::now()

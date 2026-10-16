@@ -41,15 +41,15 @@ export async function checkReconnect(before: DeviceIdentity, after: DeviceIdenti
   return desktop ? invoke('check_reconnect', { before, after, target }) : JSON.parse(wasm.reconnect_json(JSON.stringify(before), JSON.stringify(after), JSON.stringify(target)));
 }
 export async function importBrowserFile(file: File): Promise<ImportedArtifact> { return { name: file.name, file, inspection: await request<Inspection>({ action: 'inspect', file }) }; }
-export async function chooseSpecAImports(multiple: boolean): Promise<import('./types').SpecAImport[]> {
+export async function chooseSpecAImports(multiple: boolean, donor = false): Promise<import('./types').SpecAImport[]> {
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const selected = await open({ multiple, directory: false, filters: [{ name: multiple ? 'Local programmers' : 'Extracted SBL3 image', extensions: multiple ? ['hex', 'mbn', 'bin'] : ['bin', 'img', 'mbn'] }] });
+  const selected = await open({ multiple, directory: false, filters: [{ name: donor ? 'Donor FFU' : multiple ? 'Local programmers' : 'Extracted SBL3 image', extensions: donor ? ['ffu'] : multiple ? ['hex', 'mbn', 'bin'] : ['bin', 'img', 'mbn'] }] });
   return (selected ? Array.isArray(selected) ? selected : [selected] : []).map(path => ({ path, name: path.split(/[\\/]/).pop() ?? path }));
 }
-export async function prepareSpecA(artifact: ImportedArtifact, sbl3: import('./types').SpecAImport | null, loaders: import('./types').SpecAImport[]): Promise<import('./types').SpecAPreparation> {
-  if (desktop && artifact.path) return invoke('prepare_spec_a', { input: artifact.path, sbl3: sbl3?.path ?? null, loaders: loaders.map(v => v.path) });
+export async function prepareSpecA(artifact: ImportedArtifact, sbl3: import('./types').SpecAImport | null, loaders: import('./types').SpecAImport[], donor: import('./types').SpecAImport | null = null): Promise<import('./types').SpecAPreparation> {
+  if (desktop && artifact.path) return invoke('prepare_spec_a', { input: artifact.path, sbl3: sbl3?.path ?? null, loaders: loaders.map(v => v.path), donor: donor?.path ?? null });
   if (!artifact.file) throw new Error('No local FFU selected');
-  return request({ action: 'spec_a_prepare', file: artifact.file, sbl3: sbl3?.file, loaders: loaders.flatMap(v => v.file ? [v.file] : []) });
+  return request({ action: 'spec_a_prepare', file: artifact.file, sbl3: sbl3?.file, loaders: loaders.flatMap(v => v.file ? [v.file] : []), donor: donor?.file });
 }
 export async function prepareRecovery(artifact: ImportedArtifact, device: DeviceIdentity | null, progress: (done: number, total: number) => void): Promise<RecoveryPreparation> {
   if (desktop && artifact.path) {

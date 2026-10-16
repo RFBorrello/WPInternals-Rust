@@ -161,7 +161,18 @@ async function prepareSpecA(file: File, report: Inspection, request: WorkerReque
       if (length > 64 * 1024 || offset + length > file.size) throw new Error('Boot-image read exceeds bounded file slice');
       return new Uint8Array(reader.readAsArrayBuffer(file.slice(offset, offset + length)));
     };
-    const result = JSON.parse(session.finish_json(JSON.stringify(report.ffu), JSON.stringify(report.gpt), BigInt(file.size), slice));
+    let result = JSON.parse(session.finish_json(JSON.stringify(report.ffu), JSON.stringify(report.gpt), BigInt(file.size), slice));
+    if (request.donor) {
+      const donorFile = request.donor;
+      const donor = await inspect(donorFile);
+      if (!donor.ffu || !donor.gpt) throw new Error('Donor must be a supported FFU image');
+      const donorSlice = (offset: number, length: number) => {
+        safeNumber(offset); safeNumber(length); safeNumber(offset + length);
+        if (length > 64 * 1024 || offset + length > donorFile.size) throw new Error('Donor read exceeds bounded file slice');
+        return new Uint8Array(reader.readAsArrayBuffer(donorFile.slice(offset, offset + length)));
+      };
+      result = JSON.parse(wasm.spec_a_donor_json(JSON.stringify(result), JSON.stringify(donor.ffu), JSON.stringify(donor.gpt), BigInt(donorFile.size), donorSlice));
+    }
     await new Promise(resolve => setTimeout(resolve, 0));
     if (cancelled) throw new Error('Operation cancelled');
     return result;

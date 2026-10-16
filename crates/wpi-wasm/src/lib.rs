@@ -192,6 +192,24 @@ enum MetadataTask {
     Targeting,
     Catalog(Option<u64>),
     SpecA(SpecAInputs),
+    SpecADonor(Box<wpi_image::spec_a::Preparation>),
+}
+#[wasm_bindgen]
+pub fn spec_a_donor_json(
+    report: &str,
+    metadata: &str,
+    gpt: &str,
+    total_size: u64,
+    read: &js_sys::Function,
+) -> Result<String, JsValue> {
+    let report = serde_json::from_str(report).map_err(js_error)?;
+    metadata_json(
+        metadata,
+        gpt,
+        total_size,
+        read,
+        MetadataTask::SpecADonor(report),
+    )
 }
 #[derive(Default)]
 struct SpecAInputs {
@@ -323,6 +341,10 @@ fn metadata_json(
         position: 0,
     };
     match task {
+        MetadataTask::SpecADonor(mut report) => {
+            wpi_image::spec_a::assess_donor(&mut report, &mut reader, &ffu, &gpt);
+            json(&report)
+        }
         MetadataTask::SpecA(inputs) => {
             use wpi_image::spec_a::{self, Import};
             let loaders: Vec<_> = inputs

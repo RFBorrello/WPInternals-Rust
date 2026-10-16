@@ -1,5 +1,13 @@
 # Synthetic fixtures
 
+`python scripts/make-spec-a-offline-fixtures.py` generates synthetic SBL1 patterns,
+UEFI FV/FFS/LZMA containers, dummy ARM PE sections and `synthetic-spec-a-offline.ffu`
+with a small FAT tree. `spec-a/offline-reference.json` contains independent expected
+hashes/offsets. Firmware signatures are zero-filled; no real firmware, exploit
+sector, private keys or usable programmer is included. The dummy BCD file is only
+a presence/read fixture, not a validated hive. Real metadata/provenance comparisons
+are in `rm875-offline-checks-validation.json`; downloaded SBL3 bytes are excluded.
+
 `python scripts/make-spec-a-fixtures.py` generates the non-flashable
 `synthetic-spec-a.ffu` and `spec-a/` raw/HEX fixtures, using the existing synthetic
 image-issuer certificate. The code regions are invented test bytes, signatures
