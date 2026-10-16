@@ -4,20 +4,20 @@ Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
 headless Microsoft Edge. Native storage milestone `ed3e008` passed GitHub CI on all
 four native host targets and Chromium ([run `38675937109`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38675937109)).
 Those remote build results do not establish device support.
-The latest local milestone extends offline Spec A preparation with SBL1 patterns,
-bounded UEFI decompression/patch previews and stock/donor EFIESP file checks.
+The latest local milestone adds offline UEFI rebuilding and EFIESP donor/BCD
+assembly into new local image copies, with independent output comparisons.
 Native identification was previously repeated on October 15. No phone commands
 were sent during this extension; SBL3 and donor candidates were inspected offline.
 Remote CI for this new source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 153 passed on Windows: 105 integration tests, 37 native transport/harness unit tests, nine image/parser/cache unit tests and two Windows metadata-decoder unit tests |
+| Rust tests | 165 passed on Windows: 108 integration tests, 37 native transport/harness unit tests, 18 image/parser/cache unit tests and two Windows metadata-decoder unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser / mocked desktop IPC integration tests | 46 passed |
+| Real-WASM browser / mocked desktop IPC integration tests | 50 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -34,6 +34,7 @@ Remote CI for this new source is pending.
 | Backup engine | Replay-only ranges, hashing, atomic publication and interruption/cancellation tests; no physical storage access |
 | Offline Spec A preparation | Real stock SBL1/SBL2/SBL3 and two local V1 programmers match native Rust, browser WASM and independent upstream-algorithm results; unlock remains blocked |
 | Extended offline checks | Real SBL1 patterns, 75-file compressed UEFI, community SBL3 candidate and local donor boot-file checks agree across native/browser/reference implementations; no patched image exported |
+| Offline image assembly | Real 2,560,000-byte unsigned UEFI and 67,108,864-byte EFIESP copies match native Rust, real browser worker and independent Python checks; source files and unrelated contents preserved; no phone commands |
 
 Tests cover malformed/truncated image metadata, FFU hash corruption, GPT CRCs,
 lossless 64-bit GPT attribute serialization, sparse map precedence, output
@@ -413,3 +414,30 @@ found the current 059T909 listing names the existing older recovery image;
 no verified exact-version FFU was located or downloaded.
 See [native backup limits](native-backup.md) and
 [firmware search findings](rm875-firmware-search.md).
+
+## Offline image assembly — October 15
+
+UEFI rebuilding applies the three reviewed code patches across two EFI targets,
+clears PE checksums, recomputes FFS checksums and recompresses to the original
+volume capacity. Signature references and old signature/certificate data are
+removed. EFIESP assembly replaces the unsupported stock boot file with the
+catalog-patched local donor and creates two one-byte BCD NoCodeIntegrity entries.
+The entire resulting partition and every other file are checked. Both native
+outputs and the actual browser-published files have identical SHA-256 digests.
+
+Independent Python LZMA, direct FAT16 allocation traversal and REGF semantic
+comparison confirm the exact expected changes. Metadata-only evidence is in
+[the assembly record](../tests/fixtures/rm875-assembly-validation.json). Real
+proprietary inputs and modified images remain local ignored artifacts. Browser
+synchronous reads are at most 64 KiB; the largest metadata slice observed was
+1,310,720 bytes. Assembly and publication took approximately 3.8 seconds for UEFI
+and 16.5 seconds for EFIESP in this test, with no residual scratch file.
+
+Twelve additional Rust tests cover hive creation/update/idempotence, dirty or
+truncated/oversized inputs, cyclic indexes, invalid parents/hashes, free-cell
+exhaustion, UEFI reconstruction and unrelated file preservation, FAT reallocation,
+unsupported donors, cancellation and atomic output cleanup. Four new browser
+tests cover real UEFI export, refusal of nonempty destinations, failed EFIESP
+cleanup and native fallback; desktop IPC tests also cover both assembly paths.
+The two real images are intermediate artifacts only: no complete unlock package,
+SBL1 payload, GPT modification, phone executor or hardware write validation.

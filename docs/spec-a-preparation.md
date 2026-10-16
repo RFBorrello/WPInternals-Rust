@@ -51,7 +51,8 @@ suitability. All processing and imports stay local.
 - Unique SecurityDxe/SecurityServicesDxe names and aligned patch patterns inside
   bounded executable ARM32 PE sections. Reports show exact original/replacement
   bytes and checksum offsets within each decompressed executable, not offsets
-  in the compressed FFU. No UEFI rebuild or patched image export is implemented.
+  in the compressed FFU. The inspection exports metadata; a separate
+  [offline assembly path](spec-a-assembly.md) rebuilds local image copies.
 - EFIESP `Windows/System32/Boot/mobilestartup.efi` fingerprint and pinned
   `SecureBootHack-V1.1-EFIESP` catalog matching. Supported files are patched only
   on an ephemeral memory copy, verifying expected bytes and the resulting catalog
@@ -59,7 +60,8 @@ suitability. All processing and imports stay local.
 - Optional donor FFU import through the CLI, desktop IPC and browser worker.
   This checks the donor's EFIESP boot bytes, not its suitability as phone firmware.
   Catalog target descriptions are matching catalog entries, not detected donor OS
-  versions. BCD presence/hash is recorded; hive validation/editing is unimplemented.
+  versions. BCD presence/hash is recorded here; the separate assembly path
+  validates and edits a supported hive in a new image copy.
 
 Browser File references go to the worker without copying whole FFUs through UI
 messages. Rust's file callbacks read at most 64 KiB. Only bounded boot partitions
@@ -106,10 +108,10 @@ are compared in `tests/fixtures/rm875-offline-checks-validation.json`.
 
 ## Remaining work before a live unlock
 
-This milestone does not implement SBL1 payload generation, UEFI reconstruction,
-EFIESP donor replacement, BCD editing, GPT changes, or an unlock executor.
-Offline pattern/file-level applicability checks do not validate these transforms
-or phone workflows. FFU integrity, OEM trust and firmware applicability require the
+SBL1 payload generation, GPT changes and an unlock executor remain unimplemented.
+UEFI reconstruction, EFIESP donor replacement and BCD editing now have a separate
+offline assembly path with image-level validation. These results do not validate
+phone workflows. FFU integrity, OEM trust and firmware applicability require the
 separate recovery preparation checks; boot-file preparation does not reverify
 the entire FFU.
 

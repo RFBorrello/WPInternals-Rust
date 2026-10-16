@@ -199,6 +199,101 @@ async function platVersion(file: File, ffu: FfuMetadata, gpt: Gpt): Promise<stri
   }
   return version;
 }
+// OPFS scratch files stay in this worker. Only bounded chunks enter WASM or the
+// destination stream; neither multi-GB FFUs nor partition arrays reach the UI.
+interface SyncFile {
+  read(buffer: Uint8Array, options: { at: number }): number;
+  write(buffer: Uint8Array, options: { at: number }): number;
+  flush(): void; close(): void;
+}
+async function assembleSpecA(request: WorkerRequest) {
+  const file = request.file;
+  if (!file || !request.handle) throw new Error('Select local firmware and an output file');
+  const ensureEmpty = async () => {
+    if ((await request.handle!.getFile()).size !== 0) throw new Error('Output already contains data; choose a new empty file.');
+  };
+  await ensureEmpty();
+  const report = await inspect(file);
+  if (!report.ffu || !report.gpt) throw new Error('Offline assembly requires a supported FFU');
+  const sync = new FileReaderSync();
+  const slice = (offset: number, length: number) => {
+    safeNumber(offset); safeNumber(length);
+    if (length > 65536 || offset + length > file.size) throw new Error('Assembly read exceeds file bounds');
+    return new Uint8Array(sync.readAsArrayBuffer(file.slice(offset, offset + length)));
+  };
+  if (request.component === 'uefi') {
+    const parts = report.gpt.partitions.filter(p => p.name === 'UEFI');
+    if (parts.length !== 1) throw new Error('UEFI partition missing or ambiguous');
+    const { start, length } = partitionRange(parts[0].first_sector, parts[0].last_sector);
+    if (length > 4 * CHUNK) throw new Error('UEFI exceeds 4 MiB');
+    const rebuilt = wasm.rebuild_uefi(await disk(file, report.ffu, start, length));
+    try {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (cancelled) throw new Error('Operation cancelled');
+      await ensureEmpty();
+      const writer = await request.handle.createWritable();
+      try { await writer.write(rebuilt.bytes() as Uint8Array<ArrayBuffer>); if (cancelled) throw new Error('Operation cancelled'); await writer.close(); }
+      catch (error) { await writer.abort().catch(() => undefined); throw error; }
+      return JSON.parse(rebuilt.report_json());
+    } finally { rebuilt.free(); }
+  }
+  if (request.component !== 'efiesp' || !request.donor) throw new Error('Select a donor FFU for EFIESP assembly');
+  if (!navigator.storage?.getDirectory) throw new Error('Browser scratch storage is unavailable; use the desktop app.');
+  const donor = await inspect(request.donor);
+  if (!donor.ffu || !donor.gpt) throw new Error('Donor must be a supported FFU');
+  const donorFile = request.donor;
+  const boot = wasm.spec_a_donor_boot(JSON.stringify(donor.ffu), JSON.stringify(donor.gpt), BigInt(donorFile.size), (at: number, n: number) => {
+    if (n > 65536 || at < 0 || at + n > donorFile.size) throw new Error('Donor read exceeds bounds');
+    return new Uint8Array(sync.readAsArrayBuffer(donorFile.slice(at, at + n)));
+  });
+  const parts = report.gpt.partitions.filter(p => p.name === 'EFIESP');
+  if (parts.length !== 1) throw new Error('EFIESP partition missing or ambiguous');
+  const { start, length } = partitionRange(parts[0].first_sector, parts[0].last_sector);
+  if (length > 128 * CHUNK) throw new Error('EFIESP exceeds 128 MiB');
+  const segments: { output_offset: number; file_offset: number | null; length: number }[] = JSON.parse(wasm.ffu_segments_json(JSON.stringify(report.ffu), BigInt(start), BigInt(length)));
+  const source = (at: number, n: number) => {
+    if (n > 65536 || at < 0 || at + n > length) throw new Error('EFIESP read exceeds bounds');
+    const bytes = new Uint8Array(n);
+    for (const segment of segments) {
+      const first = Math.max(at, segment.output_offset), end = Math.min(at + n, segment.output_offset + segment.length);
+      if (end > first && segment.file_offset !== null) bytes.set(slice(segment.file_offset + first - segment.output_offset, end - first), first - at);
+    }
+    return bytes;
+  };
+  const directory = await navigator.storage.getDirectory();
+  const name = `wpi-assembly-${crypto.randomUUID()}`;
+  let scratch: SyncFile | undefined;
+  try {
+    const handle = await directory.getFileHandle(name, { create: true });
+    const create = (handle as FileSystemFileHandle & { createSyncAccessHandle?: () => Promise<SyncFile> }).createSyncAccessHandle;
+    if (!create) throw new Error('Browser scratch access is unavailable; use the desktop app.');
+    scratch = await create.call(handle);
+    const readScratch = (at: number, n: number) => {
+      const bytes = new Uint8Array(n);
+      if (scratch!.read(bytes, { at }) !== n) throw new Error('Scratch read truncated');
+      return bytes;
+    };
+    const result = JSON.parse(wasm.assemble_efiesp_json(BigInt(length), source, readScratch,
+      (at: number, bytes: Uint8Array) => scratch!.write(bytes, { at }), boot));
+    scratch.flush(); scratch.close(); scratch = undefined;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (cancelled) throw new Error('Operation cancelled');
+    const output = await handle.getFile();
+    await ensureEmpty();
+    const writer = await request.handle.createWritable();
+    try {
+      for (let at = 0; at < output.size; at += CHUNK) {
+        if (cancelled) throw new Error('Operation cancelled');
+        await writer.write(await output.slice(at, at + CHUNK).arrayBuffer());
+        reply({ id: request.id, kind: 'progress', completed: Math.min(at + CHUNK, output.size), total: output.size });
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      if (cancelled) throw new Error('Operation cancelled');
+      await writer.close();
+    } catch (error) { await writer.abort().catch(() => undefined); throw error; }
+    return result;
+  } finally { scratch?.close(); await directory.removeEntry(name).catch(() => undefined); }
+}
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
   if (request.action === 'cancel') { cancelled = true; return; }
@@ -207,7 +302,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   let writer: FileSystemWritableFileStream | undefined;
   try {
     await initialize();
-    if (request.action === 'gpt_xml') {
+    if (request.action === 'spec_a_assemble') {
+      reply({ id: request.id, kind: 'result', result: await assembleSpecA(request) });
+    } else if (request.action === 'gpt_xml') {
       if (!request.gpt) throw new Error('No partition table selected');
       reply({ id: request.id, kind: 'result', result: wasm.gpt_xml(JSON.stringify(request.gpt)) });
     } else {

@@ -9,10 +9,16 @@ export function SpecAPreparation({ artifact, disabled, task }: { artifact: Impor
   const [loaders, setLoaders] = useState<SpecAImport[]>([]);
   const [donor, setDonor] = useState<SpecAImport | null>(null);
   const [report, setReport] = useState<Report | null>(null);
+  const [assembly, setAssembly] = useState<{ component: string; report: import('./types').AssemblyReport } | null>(null);
   const sblPicker = useRef<HTMLInputElement>(null);
   const loaderPicker = useRef<HTMLInputElement>(null);
   const donorPicker = useRef<HTMLInputElement>(null);
-  useEffect(() => { setReport(null); }, [artifact, sbl3, loaders, donor]);
+  useEffect(() => { setReport(null); setAssembly(null); }, [artifact, sbl3, loaders, donor]);
+  async function assemble(component: 'uefi' | 'efiesp') {
+    setAssembly(null);
+    const result = await backend.assembleSpecA(artifact, donor, component);
+    if (result) setAssembly({ component: component.toUpperCase(), report: result });
+  }
   async function choose(multiple: boolean, donorFile = false) {
     if (!backend.desktop) { (donorFile ? donorPicker : multiple ? loaderPicker : sblPicker).current?.click(); return; }
     await task('Selecting local boot files', async () => {
@@ -35,6 +41,17 @@ export function SpecAPreparation({ artifact, disabled, task }: { artifact: Impor
     <input ref={donorPicker} hidden aria-label="Select donor FFU" type="file" accept=".ffu" onChange={e => { const file = e.currentTarget.files?.[0]; if (file) setDonor({ name: file.name, file }); e.currentTarget.value = ''; }} />
     <input ref={sblPicker} hidden aria-label="Select raw SBL3" type="file" accept=".bin,.img,.mbn" onChange={e => { const file = e.currentTarget.files?.[0]; if (file) setSbl3({ name: file.name, file }); e.currentTarget.value = ''; }} />
     <input ref={loaderPicker} hidden aria-label="Select local loaders" type="file" multiple accept=".hex,.mbn,.bin" onChange={e => { setLoaders(Array.from(e.currentTarget.files ?? []).map(file => ({ name: file.name, file }))); e.currentTarget.value = ''; }} />
+    <p>Create offline intermediate images from this FFU. UEFI rebuilding removes its invalidated signature. EFIESP assembly replaces the boot file with the catalog-patched donor and sets the two BCD integrity options. These images are not a complete unlock package; cross-device donor compatibility remains unvalidated.</p>
+    <div className="mode-actions">
+      <button className="secondary-button compact" disabled={disabled} onClick={() => void task('Rebuilding local UEFI copy', () => assemble('uefi'))}>Save rebuilt UEFI copy</button>
+      <button className="secondary-button compact" disabled={disabled || !donor} onClick={() => void task('Assembling local EFIESP copy', () => assemble('efiesp'))}>Save assembled EFIESP copy</button>
+    </div>
+    {assembly && <div className="info-note" role="status">
+      <p>{assembly.component} offline copy saved and verified. Source files preserved; no phone commands sent.</p>
+      <p>{bytes(assembly.report.size)} · SHA-256: <code>{assembly.report.resulting_sha256}</code></p>
+      {assembly.report.bcd && <p>BCD: {assembly.report.bcd.created_elements} entries created, {assembly.report.bcd.changed_values} values changed; other entries preserved.</p>}
+      <button className="secondary-button compact" onClick={() => backend.download(new Blob([JSON.stringify(assembly.report, null, 2)], { type: 'application/json' }), `spec-a-${assembly.component.toLowerCase()}-assembly.json`)}>Export assembly report</button>
+    </div>}
     {report && <>
       <div className="info-note">Offline report ready. Unlocking remains unavailable. A matching fingerprint or patch pattern does not establish engineering status, device compatibility, or mass-storage support.</div>
       <div className="table-scroll"><table><thead><tr><th>Boot image</th><th>Size</th><th>Parser / patch preview</th></tr></thead><tbody>

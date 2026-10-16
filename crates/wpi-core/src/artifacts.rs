@@ -173,6 +173,80 @@ pub fn write_new<F: FnOnce(&mut File) -> Result<()>>(output: &Path, action: F) -
         .map_err(|e| ImageError::Io(e.error))?;
     Ok(())
 }
+/// Offline intermediate images only. No device handles or phone commands.
+pub fn assemble_spec_a(
+    input: &Path,
+    donor: Option<&Path>,
+    component: &str,
+    output: &Path,
+) -> Result<serde_json::Value> {
+    assemble_spec_a_with_progress(input, donor, component, output, |_, _| true)
+}
+pub fn assemble_spec_a_with_progress<F: FnMut(u64, u64) -> bool>(
+    input: &Path,
+    donor: Option<&Path>,
+    component: &str,
+    output: &Path,
+    mut progress: F,
+) -> Result<serde_json::Value> {
+    use wpi_image::{ffu::FfuMetadata, spec_a};
+    if !progress(0, 0) {
+        return Err(ImageError::Cancelled);
+    }
+    let mut source = open_artifact(input)?;
+    let ffu = FfuMetadata::open(&mut source)?;
+    let gpt = ffu.gpt(&mut source)?;
+    match component {
+        "uefi" => {
+            let (start, size) = gpt.partition("UEFI")?.byte_range()?;
+            if size > spec_a::MAX_BOOT_IMAGE as u64 {
+                return Err(ImageError::Invalid("UEFI exceeds 4 MiB".into()));
+            }
+            let mut bytes = Vec::new();
+            ffu.extract(&mut source, &mut bytes, start, size, &mut progress)?;
+            let (bytes, report) = spec_a::uefi::rebuild(&bytes)?;
+            write_new(output, |file| {
+                if !progress(size, size) {
+                    return Err(ImageError::Cancelled);
+                }
+                file.write_all(&bytes)?;
+                if !progress(size, size) {
+                    return Err(ImageError::Cancelled);
+                }
+                Ok(())
+            })?;
+            serde_json::to_value(report).map_err(|e| ImageError::Invalid(e.to_string()))
+        }
+        "efiesp" => {
+            let donor = donor.ok_or_else(|| ImageError::Invalid("select a donor FFU".into()))?;
+            let mut donor = open_artifact(donor)?;
+            let donor_ffu = FfuMetadata::open(&mut donor)?;
+            let donor_gpt = donor_ffu.gpt(&mut donor)?;
+            let boot = spec_a::efiesp::boot_from_ffu(&mut donor, &donor_ffu, &donor_gpt)?;
+            let mut scratch = tempfile::tempfile()?;
+            let (start, size) = gpt.partition("EFIESP")?.byte_range()?;
+            if size > 128 * 1024 * 1024 {
+                return Err(ImageError::Invalid("EFIESP exceeds 128 MiB".into()));
+            }
+            ffu.extract(&mut source, &mut scratch, start, size, &mut progress)?;
+            let mut report = None;
+            write_new(output, |file| {
+                report = Some(spec_a::efiesp::assemble(
+                    &mut scratch,
+                    file,
+                    &boot,
+                    &mut progress,
+                )?);
+                if !progress(size, size) {
+                    return Err(ImageError::Cancelled);
+                }
+                Ok(())
+            })?;
+            serde_json::to_value(report.unwrap()).map_err(|e| ImageError::Invalid(e.to_string()))
+        }
+        _ => Err(ImageError::Invalid("choose uefi or efiesp".into())),
+    }
+}
 pub fn extract_partition<F: FnMut(u64, u64) -> bool>(
     input: &Path,
     name: &str,

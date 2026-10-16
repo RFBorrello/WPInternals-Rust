@@ -1,4 +1,5 @@
 //! The same parsers and profiles used by the native app, with async nusb WebUSB.
+mod assembly;
 use std::io::Cursor;
 use wasm_bindgen::prelude::*;
 use wpi_image::{ffu::FfuMetadata, gpt::Gpt};

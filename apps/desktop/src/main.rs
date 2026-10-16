@@ -98,6 +98,39 @@ async fn inspect_file(path: String, state: State<'_, DesktopState>) -> Result<In
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn assemble_spec_a(
+    input: String,
+    donor: Option<String>,
+    component: String,
+    output: String,
+    state: State<'_, DesktopState>,
+) -> Result<serde_json::Value, String> {
+    let session = state
+        .coordinator
+        .reserve_local(Operation::InspectFirmware)
+        .map_err(|e| e.to_string())?;
+    *state
+        .cancellation
+        .lock()
+        .map_err(|_| "Operation state lock failed")? = Some(session.cancellation());
+    let registry = state.cancellation.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = artifacts::assemble_spec_a_with_progress(
+            std::path::Path::new(&input),
+            donor.as_deref().map(std::path::Path::new),
+            &component,
+            std::path::Path::new(&output),
+            |_, _| session.safe_boundary(),
+        );
+        if let Ok(mut current) = registry.lock() {
+            *current = None;
+        }
+        result.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn prepare_spec_a(
     input: String,
     sbl3: Option<String>,
@@ -371,6 +404,7 @@ fn main() {
             inspect_file,
             prepare_recovery,
             prepare_spec_a,
+            assemble_spec_a,
             convert_gpt,
             extract_partition,
             cancel_operation,

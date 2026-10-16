@@ -51,6 +51,19 @@ export async function prepareSpecA(artifact: ImportedArtifact, sbl3: import('./t
   if (!artifact.file) throw new Error('No local FFU selected');
   return request({ action: 'spec_a_prepare', file: artifact.file, sbl3: sbl3?.file, loaders: loaders.flatMap(v => v.file ? [v.file] : []), donor: donor?.file });
 }
+export async function assembleSpecA(artifact: ImportedArtifact, donor: import('./types').SpecAImport | null, component: 'uefi' | 'efiesp'): Promise<import('./types').AssemblyReport | null> {
+  const name = `${component.toUpperCase()}-offline.img`;
+  if (desktop && artifact.path) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const output = await save({ defaultPath: name }); if (!output) return null;
+    return invoke('assemble_spec_a', { input: artifact.path, donor: donor?.path ?? null, component, output });
+  }
+  if (!artifact.file) throw new Error('Select a local FFU');
+  if (!window.showSaveFilePicker) throw new Error('Saving offline images requires Chrome/Edge’s file picker or the desktop app.');
+  const handle = await window.showSaveFilePicker({ suggestedName: name });
+  if ((await handle.getFile()).size !== 0) throw new Error('Output already contains data. Choose a new empty output file; original files are preserved.');
+  return request({ action: 'spec_a_assemble', file: artifact.file, donor: donor?.file, component, handle });
+}
 export async function prepareRecovery(artifact: ImportedArtifact, device: DeviceIdentity | null, progress: (done: number, total: number) => void): Promise<RecoveryPreparation> {
   if (desktop && artifact.path) {
     const { listen } = await import('@tauri-apps/api/event');

@@ -78,7 +78,10 @@ suitable disk; it has not been validated on phone storage. See
 images and imported V1 programmers, checks HEX records and fingerprints, and
 previews unique SBL2/SBL3 patch locations. It also checks SBL1 prerequisites,
 compressed UEFI targets, and stock/optional-donor EFIESP patch applicability.
-It does not enable unlocking or export modified boot images.
+Separate [offline image assembly](docs/spec-a-assembly.md) can now export new
+unsigned UEFI and donor-patched EFIESP copies, with narrow BCD editing and
+verification of unchanged files. These are intermediate images, not a complete
+unlock package; phone writes remain blocked.
 
 ## Quick start
 

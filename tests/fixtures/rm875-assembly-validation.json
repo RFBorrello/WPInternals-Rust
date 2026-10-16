@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-15",
+  "host": "Windows ARM64",
+  "browser": {
+    "comparison": "native/browser/reference match",
+    "uefi": {
+      "report": {
+        "original_sha256": "9497815e89f9359e8a7f4f181564cb7a62dcf949e6e41588547ec1e491fb7e4d",
+        "resulting_sha256": "1803d3350ca37c24d6a1e249322f6e47c6cc132dddee566ef993ee4e604224e5",
+        "size": 2560000,
+        "compressed_size": 693278,
+        "decompressed_sha256": "df884fe2d963ed16dd5247c1f465bdeaed4bb9b3d29f26907dd407e0b9a9f60f",
+        "patched_executables": 2,
+        "preserved_other_files": true,
+        "signature_removed": true,
+        "phone_writes_enabled": false
+      },
+      "audit": {
+        "max_sync_slice": 65536,
+        "max_async_slice": 917504
+      },
+      "elapsed_ms": 3781,
+      "published_size": 2560000
+    },
+    "efiesp": {
+      "report": {
+        "original_sha256": "c1a8300aad5b8c5e96c66ffa99c3e9390aae5dcfa485e461bc5735f7b39320bd",
+        "resulting_sha256": "3345b43585fe98939e0b229ade8d19730673570d063e0d0a669db64ca65ad8c1",
+        "size": 67108864,
+        "boot_sha256": "6e175479c2484d7c88800540d8b62d3031e2b1ce77d6c1de61f68d10bce0bff5",
+        "bcd": {
+          "original_sha256": "0fe13ace095f451212ce737ecf6c91ee765389cde12f135e807bfbb27b1e59bb",
+          "resulting_sha256": "618d30f3f2d28300287420f2c0409a364231f291a47421996b6ba5a832290318",
+          "size": 28672,
+          "created_elements": 2,
+          "changed_values": 2,
+          "preserved_other_entries": true
+        },
+        "preserved_other_files": true,
+        "phone_writes_enabled": false
+      },
+      "audit": {
+        "max_sync_slice": 65536,
+        "max_async_slice": 1310720
+      },
+      "elapsed_ms": 16502,
+      "published_size": 67108864
+    },
+    "scratch_residue": false,
+    "phone_commands": 0
+  },
+  "scope": "Offline intermediate image assembly only; no phone commands, uploads or writes",
+  "source_firmware": "RM-875 3051.50009.1424.0002",
+  "donor_firmware": "RM-1085 local FFU; boot-file catalog match only",
+  "comparison": "native/browser/independent Python agree",
+  "native_reference": {
+    "comparison": "matches",
+    "uefi": {
+      "resulting_sha256": "1803d3350ca37c24d6a1e249322f6e47c6cc132dddee566ef993ee4e604224e5",
+      "decompressed_sha256": "df884fe2d963ed16dd5247c1f465bdeaed4bb9b3d29f26907dd407e0b9a9f60f",
+      "patched_executables": 2,
+      "other_files_preserved": true
+    },
+    "efiesp": {
+      "resulting_sha256": "3345b43585fe98939e0b229ade8d19730673570d063e0d0a669db64ca65ad8c1",
+      "boot_sha256": "6e175479c2484d7c88800540d8b62d3031e2b1ce77d6c1de61f68d10bce0bff5",
+      "bcd_sha256": "618d30f3f2d28300287420f2c0409a364231f291a47421996b6ba5a832290318",
+      "other_files_preserved": true,
+      "other_bcd_entries_preserved": true
+    }
+  },
+  "independent_checks": [
+    "Python LZMA decompression equals exactly the independently patched original stream",
+    "Other outer EFI files and order preserved",
+    "Direct FAT16 traversal validates allocation chains and matching FAT copies",
+    "All other FAT directory names and file contents preserved",
+    "Direct REGF traversal permits exactly two NoCodeIntegrity boolean entries"
+  ],
+  "remaining_limits": [
+    "Unsigned intermediate files; no complete unlock package or executor",
+    "Donor cross-version/device acceptance unvalidated",
+    "SBL1 payload generation and GPT transforms unimplemented",
+    "Installed firmware is newer than stock FFU; downgrade acceptance unvalidated",
+    "Fresh device RRKH, security state, live GPT, preserved originals and recovery validation outstanding"
+  ],
+  "phone_writes_enabled": false,
+  "proprietary_binaries_redistributed": false
+}

@@ -105,7 +105,7 @@ fn missing_and_unknown_efiesp_targets_remain_unsupported() {
     let missing = efiesp::assess(None, Some(b"synthetic hive bytes")).unwrap();
     assert_eq!(missing.status, "missing");
     assert!(missing.bcd_present);
-    assert!(!missing.bcd_editing_implemented);
+    assert!(missing.bcd_editing_implemented); // Implemented separately; missing data still cannot be edited.
     let unsupported = efiesp::assess(Some(b"unsupported boot file"), None).unwrap();
     assert_eq!(unsupported.status, "unsupported_donor_required");
     assert!(unsupported.prepared_copy_sha256.is_none());

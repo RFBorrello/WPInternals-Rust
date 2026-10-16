@@ -21,6 +21,7 @@ rsa = { version = "0.9", default-features = false, features = ["std", "sha2"] }
 fatfs = { version = "0.3", default-features = false, features = ["std", "alloc"] }
 ntfs = "0.4"
 lzma-rs = "0.3"
+lzma-rust2 = { version = "0.21", default-features = false, features = ["std", "encoder"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # RSA public verification does not request randomness; rand's linked backend still

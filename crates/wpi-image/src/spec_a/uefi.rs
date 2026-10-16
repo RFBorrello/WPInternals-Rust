@@ -1,5 +1,5 @@
-//! Bounded read-only FV/FFS/LZMA inspection and patch previews from upstream
-//! UEFI.cs (2.9.2), copyright (c) 2018 Rene Lergner, MIT. No rebuild/export.
+//! Bounded offline FV/FFS/LZMA inspection and rebuilding from upstream
+//! UEFI.cs (2.9.2), copyright (c) 2018 Rene Lergner, MIT. No device I/O.
 use crate::{invalid, slice, u32le, u64le, ImageError, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -132,6 +132,7 @@ fn volume(bytes: &[u8]) -> Result<Volume<'_>> {
     })
 }
 struct File<'a> {
+    offset: usize,
     bytes: &'a [u8],
     kind: u8,
     guid: uuid::Uuid,
@@ -192,6 +193,7 @@ fn files<'a>(fv: &Volume<'a>) -> Result<Vec<File<'a>>> {
             return Err(invalid("duplicate FFS file GUID"));
         }
         result.push(File {
+            offset: at,
             bytes: data,
             kind: header[18],
             guid,
@@ -209,6 +211,7 @@ fn files<'a>(fv: &Volume<'a>) -> Result<Vec<File<'a>>> {
     Ok(result)
 }
 struct Section<'a> {
+    offset: usize,
     bytes: &'a [u8],
     kind: u8,
 }
@@ -225,6 +228,7 @@ fn sections(bytes: &[u8]) -> Result<Vec<Section<'_>>> {
             return Err(invalid("section count limit exceeded"));
         }
         result.push(Section {
+            offset: at,
             bytes: slice(bytes, at, size)?,
             kind: header[3],
         });
@@ -479,11 +483,295 @@ pub fn inspect(bytes: &[u8]) -> Result<Report> {
         rebuilt_image: false,
     })
 }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RebuildReport {
+    pub original_sha256: String,
+    pub resulting_sha256: String,
+    pub size: usize,
+    pub compressed_size: usize,
+    pub decompressed_sha256: String,
+    pub patched_executables: usize,
+    pub preserved_other_files: bool,
+    pub signature_removed: bool,
+    pub phone_writes_enabled: bool,
+}
+fn put24(bytes: &mut [u8], at: usize, size: usize) -> Result<()> {
+    if size >= 0xffffff {
+        return Err(invalid("rebuilt EFI object exceeds 24-bit size"));
+    }
+    slice(bytes, at, 3)?;
+    bytes[at..at + 3].copy_from_slice(&(size as u32).to_le_bytes()[..3]);
+    Ok(())
+}
+fn fix_file(bytes: &mut [u8]) -> Result<()> {
+    let size = bytes.len();
+    put24(bytes, 20, size)?;
+    if bytes[19] & 0x40 != 0 {
+        bytes[17] = 0u8.wrapping_sub(bytes[24..].iter().fold(0u8, |a, b| a.wrapping_add(*b)));
+    }
+    bytes[16] = 0;
+    bytes[16] = 0u8.wrapping_sub(
+        bytes[..23]
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != 17)
+            .fold(0u8, |a, (_, b)| a.wrapping_add(*b)),
+    );
+    Ok(())
+}
+fn compression_section(file: &[u8]) -> Result<Section<'_>> {
+    let mut list = sections(&file[24..])?.into_iter().filter(|s| s.kind == 2);
+    let section = list
+        .next()
+        .ok_or_else(|| invalid("missing compression section"))?;
+    if list.next().is_some()
+        || slice(section.bytes, 4, 16)? != LZMA_GUID
+        || word(section.bytes, 20)? < 24
+        || word(section.bytes, 22)? != 1
+    {
+        return Err(invalid("unsupported compression section"));
+    }
+    Ok(section)
+}
+fn inner_section(bytes: &[u8]) -> Result<Section<'_>> {
+    let mut list = sections(bytes)?.into_iter().filter(|s| s.kind == 0x17);
+    let section = list
+        .next()
+        .ok_or_else(|| invalid("missing inner FV section"))?;
+    if list.next().is_some() {
+        return Err(invalid("ambiguous inner FV"));
+    }
+    Ok(section)
+}
+/// Rebuilds an unsigned local partition copy. This is an intermediate artifact,
+/// not a flashable FFU, signature verification, or permission to write a phone.
+pub fn rebuild(bytes: &[u8]) -> Result<(Vec<u8>, RebuildReport)> {
+    let preview = inspect(bytes)?;
+    let image = super::parse(bytes, 0)?;
+    // Only the upstream short v3 MBN layout is implemented for output.
+    if image.image_offset != 40 || u32le(bytes, 4)? != 3 {
+        return Err(invalid("UEFI rebuild requires the short v3 MBN layout"));
+    }
+    let fv = volume(slice(bytes, image.image_offset, image.code_size)?)?;
+    let outer = files(&fv)?;
+    let container = outer.iter().find(|f| f.kind == 11).unwrap(); // inspect proved unique
+    let compressed_section = compression_section(container.bytes)?;
+    let data_at = word(compressed_section.bytes, 20)? as usize;
+    let decoded = decompress(&compressed_section.bytes[data_at..])?;
+    let inner_sec = inner_section(&decoded)?;
+    let inner = volume(&inner_sec.bytes[4..])?;
+    let originals = files(&inner)?;
+    let mut patched = decoded.clone();
+    for target in &preview.targets {
+        let file = originals
+            .iter()
+            .find(|f| f.guid.to_string() == target.guid)
+            .ok_or_else(|| invalid("target GUID disappeared"))?;
+        let parts = sections(&file.bytes[24..])?;
+        let pe = parts
+            .iter()
+            .find(|s| s.kind == 0x10)
+            .ok_or_else(|| invalid("missing PE"))?;
+        let file_at = inner_sec.offset + 4 + file.offset;
+        let pe_at = file_at + 24 + pe.offset + 4;
+        for patch in &target.patches {
+            let expected = hex::decode(&patch.expected).map_err(|e| invalid(e.to_string()))?;
+            let replacement =
+                hex::decode(&patch.replacement).map_err(|e| invalid(e.to_string()))?;
+            let at = pe_at + patch.offset;
+            if expected.len() != replacement.len()
+                || slice(&patched, at, expected.len())? != expected
+            {
+                return Err(invalid("UEFI expected bytes changed"));
+            }
+            patched[at..at + replacement.len()].copy_from_slice(&replacement);
+        }
+        fix_file(&mut patched[file_at..file_at + file.bytes.len()])?;
+    }
+    // Reparse checksums and prove that every other file is unchanged.
+    let check_sec = inner_section(&patched)?;
+    let check_fv = volume(&check_sec.bytes[4..])?;
+    let checked = files(&check_fv)?;
+    if checked.len() != originals.len()
+        || originals.iter().zip(&checked).any(|(a, b)| {
+            a.guid != b.guid
+                || (!preview.targets.iter().any(|t| t.guid == a.guid.to_string())
+                    && a.bytes != b.bytes)
+        })
+    {
+        return Err(invalid("UEFI rebuild changed unrelated inner files"));
+    }
+    let options = lzma_rust2::LzmaOptions {
+        dict_size: 4 * 1024 * 1024,
+        ..lzma_rust2::LzmaOptions::with_preset(6)
+    };
+    let output = LimitedOutput {
+        bytes: Vec::new(),
+        size: fv.bytes.len(),
+    };
+    let mut encoder =
+        lzma_rust2::LzmaWriter::new_use_header(output, &options, Some(patched.len() as u64))?;
+    encoder.write_all(&patched)?;
+    let encoded = encoder.finish()?.bytes;
+    if decompress(&encoded)? != patched {
+        return Err(invalid("UEFI recompression round trip failed"));
+    }
+    let mut new_section = compressed_section.bytes[..data_at].to_vec();
+    new_section.extend_from_slice(&encoded);
+    let length = new_section.len();
+    put24(&mut new_section, 0, length)?;
+    let mut new_file = container.bytes[..24].to_vec();
+    let parts = sections(&container.bytes[24..])?;
+    for (i, part) in parts.iter().enumerate() {
+        new_file.extend_from_slice(if part.offset == compressed_section.offset {
+            &new_section
+        } else {
+            part.bytes
+        });
+        if i + 1 < parts.len() {
+            new_file.resize(align(new_file.len(), 4)?, 0);
+        }
+    }
+    fix_file(&mut new_file)?;
+    let mut rebuilt = fv.bytes[..fv.header].to_vec();
+    for file in &outer {
+        if rebuilt.len() != file.offset && file.bytes[19] & 0x38 != 0 {
+            return Err(invalid("moving aligned outer FFS files is unsupported"));
+        }
+        rebuilt.extend_from_slice(if file.guid == container.guid {
+            &new_file
+        } else {
+            file.bytes
+        });
+        let next = align(rebuilt.len() - fv.header, 8)? + fv.header;
+        if next > fv.bytes.len() {
+            return Err(invalid("rebuilt UEFI exceeds fixed volume capacity"));
+        }
+        rebuilt.resize(next, fv.padding);
+    }
+    rebuilt.resize(fv.bytes.len(), fv.padding);
+    let verified = volume(&rebuilt)?;
+    let verified_files = files(&verified)?;
+    if verified_files.len() != outer.len()
+        || outer
+            .iter()
+            .zip(&verified_files)
+            .any(|(a, b)| a.guid != b.guid || (a.guid != container.guid && a.bytes != b.bytes))
+    {
+        return Err(invalid("UEFI rebuild changed unrelated outer files"));
+    }
+    let actual = compression_section(
+        verified_files
+            .iter()
+            .find(|f| f.guid == container.guid)
+            .unwrap()
+            .bytes,
+    )?;
+    if decompress(&actual.bytes[data_at..])? != patched {
+        return Err(invalid("rebuilt UEFI verification failed"));
+    }
+    let mut result = bytes.to_vec();
+    result[image.image_offset..image.image_offset + rebuilt.len()].copy_from_slice(&rebuilt);
+    result[image.image_offset + image.code_size..].fill(0);
+    result[16..20].copy_from_slice(&(image.code_size as u32).to_le_bytes());
+    result[24..40].fill(0); // Remove invalidated signature/certificate references.
+    let report = RebuildReport {
+        original_sha256: hex::encode(Sha256::digest(bytes)),
+        resulting_sha256: hex::encode(Sha256::digest(&result)),
+        size: result.len(),
+        compressed_size: encoded.len(),
+        decompressed_sha256: hex::encode(Sha256::digest(&patched)),
+        patched_executables: preview.targets.len(),
+        preserved_other_files: true,
+        signature_removed: true,
+        phone_writes_enabled: false,
+    };
+    Ok((result, report))
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rebuild_preserves_source_clears_signature_and_changes_only_reviewed_bytes() {
+        let original = include_bytes!("../../../../tests/fixtures/spec-a/uefi.synthetic.bin");
+        let before = inspect(original).unwrap();
+        let (bytes, report) = rebuild(original).unwrap();
+        assert_eq!(bytes.len(), original.len());
+        assert_eq!(report.patched_executables, 2);
+        assert!(report.signature_removed && report.preserved_other_files);
+        assert!(!report.phone_writes_enabled);
+        assert_eq!(&bytes[24..40], &[0; 16]);
+        assert_eq!(u32le(&bytes, 16).unwrap(), u32le(&bytes, 20).unwrap());
+        let fv = volume(&bytes[40..]).unwrap();
+        let outer = files(&fv).unwrap();
+        let compression = compression_section(outer[0].bytes).unwrap();
+        let decoded =
+            decompress(&compression.bytes[word(compression.bytes, 20).unwrap() as usize..])
+                .unwrap();
+        let section = inner_section(&decoded).unwrap();
+        let fv = volume(&section.bytes[4..]).unwrap();
+        let after = files(&fv).unwrap();
+        let original_decoded =
+            include_bytes!("../../../../tests/fixtures/spec-a/uefi.decompressed.bin");
+        let old_fv = volume(&original_decoded[4..]).unwrap();
+        let old = files(&old_fv).unwrap();
+        for target in &before.targets {
+            let guid = uuid::Uuid::parse_str(&target.guid).unwrap();
+            let old = old.iter().find(|f| f.guid == guid).unwrap();
+            let new = after.iter().find(|f| f.guid == guid).unwrap();
+            let mut expected = old.bytes.to_vec();
+            let pe = sections(&old.bytes[24..])
+                .unwrap()
+                .into_iter()
+                .find(|s| s.kind == 0x10)
+                .unwrap();
+            for patch in &target.patches {
+                let at = 24 + pe.offset + 4 + patch.offset;
+                let replacement = hex::decode(&patch.replacement).unwrap();
+                expected[at..at + replacement.len()].copy_from_slice(&replacement);
+            }
+            fix_file(&mut expected).unwrap();
+            assert_eq!(new.bytes, expected);
+        }
+        assert_eq!(
+            inspect(original).unwrap().partition_sha256,
+            before.partition_sha256
+        );
+        assert!(rebuild(&bytes).is_err()); // Unsigned results are never accepted as signed inputs.
+    }
+    #[test]
+    fn invalid_inputs_never_produce_a_rebuilt_image() {
+        let original = include_bytes!("../../../../tests/fixtures/spec-a/uefi.synthetic.bin");
+        for n in [0, 39, 128, original.len() / 2] {
+            assert!(rebuild(&original[..n]).is_err());
+        }
+        let mut bad = original.to_vec();
+        bad[40 + 50] ^= 1;
+        assert!(rebuild(&bad).is_err());
+    }
     const DXE: &[u8] =
         include_bytes!("../../../../tests/fixtures/spec-a/SecurityDxe.synthetic.efi");
+    #[test]
+    fn repacking_preserves_unrelated_outer_file_bytes_and_order() {
+        let mut original =
+            include_bytes!("../../../../tests/fixtures/spec-a/uefi.synthetic.bin").to_vec();
+        let fv = volume(&original[40..]).unwrap();
+        let container = files(&fv).unwrap();
+        let at = align(container[0].offset + container[0].bytes.len(), 8).unwrap();
+        let mut opaque = vec![0u8; 28];
+        opaque[..16].copy_from_slice(uuid::Uuid::from_u128(999).as_bytes());
+        opaque[17] = 0xaa;
+        opaque[18] = 1;
+        opaque[23] = 0xf8;
+        opaque[24..].copy_from_slice(b"KEEP");
+        fix_file(&mut opaque).unwrap();
+        original[40 + at..40 + at + opaque.len()].copy_from_slice(&opaque);
+        let (rebuilt, _) = rebuild(&original).unwrap();
+        let fv = volume(&rebuilt[40..]).unwrap();
+        let files = files(&fv).unwrap();
+        assert_eq!(files.len(), 2);
+        assert_eq!(files[1].bytes, opaque);
+    }
     #[test]
     fn ffs_duplicate_guids_invalid_states_and_payload_checksums_are_rejected() {
         let original = include_bytes!("../../../../tests/fixtures/spec-a/uefi.decompressed.bin");

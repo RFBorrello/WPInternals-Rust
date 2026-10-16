@@ -34,6 +34,7 @@ and apps/ui/package-lock.json pin the resolved dependency graph. Key libraries:
 | simd-adler32 | MIT |
 | windows-sys | MIT OR Apache-2.0 |
 | lzma-rs | MIT |
+| lzma-rust2 | Apache-2.0 |
 | crc, crc-catalog | MIT OR Apache-2.0 |
 
 Review the complete transitive license inventory before publishing release bundles.
@@ -54,3 +55,12 @@ The read-only Windows storage adapter uses windows-sys bindings; its license
 texts are retained as `resources/licenses/windows-sys-MIT` and `windows-sys-APACHE`.
 Storage candidate recognition follows the pinned upstream `Models/MassStorage.cs`;
 the OS access and validation policy is an independent, more conservative implementation.
+
+The narrow REGF/BCD editor follows DiscUtils.Registry and DiscUtils.BootConfig,
+commit `59d7cadab839c6d8dfcf52f8be5efe6d2ced190f` from
+[DiscUtils/DiscUtils](https://github.com/DiscUtils/DiscUtils).
+Copyright (c) 2008–2011 Kenneth Bell and (c) 2014 Quamotion, MIT; the license is
+retained in `resources/licenses/DiscUtils-MIT`. This is a limited Rust format
+implementation, not a port of the full DiscUtils library. UEFI rebuilding and
+the two selected BCD options follow the pinned WPInternals 2.9.2 workflow.
+The portable LZMA encoder license is retained in `resources/licenses/lzma-rust2-APACHE`.

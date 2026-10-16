@@ -96,6 +96,11 @@ test('desktop boot preparation uses native IPC and selected paths', async ({ pag
       if (command === 'capabilities') return capabilities;
       if (command === 'plugin:dialog|open') return ['C:/local/stock.ffu', 'C:/local/engineering.bin', ['C:/local/programmer.hex'], 'C:/local/donor.ffu'][dialogs++];
       if (command === 'inspect_file') return { format: 'FFU', size: 512, ffu: { platform_id: 'SYNTHETIC', chunk_size: 4096 }, gpt: null, filesystem: null, notes: [] };
+      if (command === 'plugin:dialog|save') return 'C:/local/new-output.img';
+      if (command === 'assemble_spec_a') {
+        if (args.input !== 'C:/local/stock.ffu' || args.donor !== 'C:/local/donor.ffu' || args.output !== 'C:/local/new-output.img' || !['uefi','efiesp'].includes(String(args.component))) throw new Error('Wrong native assembly paths');
+        return { original_sha256: 'original', resulting_sha256: `native-${args.component}`, size: 1024, preserved_other_files: true, phone_writes_enabled: false };
+      }
       if (command === 'prepare_spec_a') {
         if (JSON.stringify(args) !== JSON.stringify({ input: 'C:/local/stock.ffu', sbl3: 'C:/local/engineering.bin', loaders: ['C:/local/programmer.hex'], donor: 'C:/local/donor.ffu' })) throw new Error('Wrong native import paths');
         return { upstream_revision: 'synthetic', platform_id: 'SYNTHETIC', stock: [], external_sbl3: null, external_sbl3_fits: null, loaders: [], phone_writes_enabled: false, blockers: ['Native IPC preparation received selected imports.'] };
@@ -113,4 +118,8 @@ test('desktop boot preparation uses native IPC and selected paths', async ({ pag
   await expect(card).toContainText('donor.ffu');
   await card.getByRole('button', { name: 'Check boot files' }).click();
   await expect(card).toContainText('Native IPC preparation received selected imports.');
+  await card.getByRole('button', { name: 'Save rebuilt UEFI copy' }).click();
+  await expect(card.getByRole('status')).toContainText('native-uefi');
+  await card.getByRole('button', { name: 'Save assembled EFIESP copy' }).click();
+  await expect(card.getByRole('status')).toContainText('native-efiesp');
 });

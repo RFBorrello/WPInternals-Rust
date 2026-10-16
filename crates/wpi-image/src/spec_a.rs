@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Seek};
 use x509_cert::Certificate;
+pub mod bcd;
 pub mod efiesp;
 pub mod sbl1;
 pub mod uefi;
@@ -434,7 +435,7 @@ pub fn prepare<R: Read + Seek>(
         "FFU chunk integrity, OEM authenticity and firmware applicability require the separate Recovery preparation checks.".into(),
         "Phone RRKH and Flash security/application state have not been read in this offline check.".into(),
         "Live GPT, recoverable installed originals, and interruption recovery are not validated.".into(),
-        "SBL1 payload generation, UEFI rebuild, EFIESP donor replacement and BCD editing are not implemented by this check.".into(),
+        "This check exports no images. Offline UEFI/EFIESP assembly is separate; SBL1 payload generation and a complete unlock package remain unimplemented.".into(),
         "Certificate fingerprints and code patterns do not establish signature trust, engineering status, hardware compatibility or mass-storage support.".into(),
         "Spec A unlock executor and hardware validation are incomplete; this report never authorizes phone writes.".into(),
     ];
@@ -518,7 +519,7 @@ pub fn assess_donor<R: Read + Seek>(
         .is_some_and(|v| v.prepared_copy_sha256.is_some())
     {
         report.blockers.retain(|v|v!="EFIESP boot target is missing, unsupported, or unreadable; a separately validated donor may be required.");
-        report.blockers.push("Imported donor boot bytes match the pinned patch catalog, but replacement, BCD edits and cross-version/device compatibility remain unvalidated.".into());
+        report.blockers.push("Imported donor boot bytes match the pinned patch catalog. This inspection does not assemble EFIESP, and cross-version/device compatibility remains unvalidated.".into());
     } else {
         if report
             .efiesp

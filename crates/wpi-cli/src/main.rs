@@ -15,6 +15,15 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Build a NEW offline UEFI or EFIESP intermediate image from local FFUs. No phone access.
+    AssembleSpecA {
+        input: PathBuf,
+        #[arg(value_parser = ["uefi", "efiesp"])]
+        component: String,
+        output: PathBuf,
+        #[arg(long)]
+        donor: Option<PathBuf>,
+    },
     /// Research-only read-only mass storage; never changes phone modes.
     Storage {
         #[command(subcommand)]
@@ -481,6 +490,22 @@ fn run() -> Result<(), Box<dyn Error>> {
             }
         }
         Command::Inspect { input } => print(artifacts::inspect_file(&input)?)?,
+        Command::AssembleSpecA {
+            input,
+            component,
+            output,
+            donor,
+        } => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&artifacts::assemble_spec_a(
+                    &input,
+                    donor.as_deref(),
+                    &component,
+                    &output
+                )?)?
+            );
+        }
         Command::PrepareSpecA {
             input,
             sbl3,
