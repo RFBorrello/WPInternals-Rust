@@ -83,7 +83,10 @@ unsigned UEFI and donor-patched EFIESP copies, with narrow BCD editing and
 verification of unchanged files. The [offline package builder](docs/spec-a-package.md)
 adds the SBL1 extra sector, SBL2/SBL3 patches, GPT changes, source originals and
 a hashed restore manifest in one ZIP. It is a source-based reference package;
-phone preflight, recovery validation and an unlock executor remain outstanding.
+the [read-only preflight](docs/spec-a-preflight.md) CLI can now compare FlashApp
+RRKH/security evidence and conditionally inspect its primary GPT without changing
+contexts. This preflight has replay coverage only; hardware preflight, recovery
+validation and an unlock executor remain outstanding.
 
 ## Quick start
 

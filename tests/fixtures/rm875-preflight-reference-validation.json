@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "date": "2026-10-16",
+  "source_kind": "local_reference_only",
+  "source_ffu_size": 1716256768,
+  "previously_recorded_source_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+  "reference_platform": "Nokia.MSM8960.P5217",
+  "reference_primary_gpt_sha256": "242d9d0b8c3a863b9704b423c3aa8d1b5b3c24f0bc8611ebfa74010d357ff5f1",
+  "reference_sbl1_sha256": "2851560a792503bc6259e08d9643a4815fc69ee400f28a904132e7aef6e4ff39",
+  "reference_hashes_match_existing_package_originals": true,
+  "full_ffu_integrity_rechecked_this_step": false,
+  "oem_signer_trusted": false,
+  "protocol_replays": {
+    "data_kind": "synthetic_only",
+    "locked_flashapp": "context_switch_required; no NOKT or switch request",
+    "insecure_flashapp": "primary GPT read and reference comparison passed"
+  },
+  "fresh_phone_queries_sent": false,
+  "live_rrkh_observed": false,
+  "live_security_observed": false,
+  "live_primary_gpt_observed": false,
+  "installed_originals_preserved": false,
+  "backup_gpt_captured": false,
+  "mode_changes_sent": false,
+  "programmer_uploaded": false,
+  "recovery_authorized": false,
+  "phone_writes_enabled": false
+}

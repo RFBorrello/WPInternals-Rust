@@ -5,6 +5,7 @@ pub mod flash;
 pub mod identity;
 pub mod mode;
 pub mod normal;
+pub mod preflight;
 pub mod qualcomm;
 pub mod replay;
 use thiserror::Error;

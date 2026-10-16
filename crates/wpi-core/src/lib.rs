@@ -11,5 +11,6 @@ pub mod profiles;
 pub mod reconnect;
 pub mod recovery_prepare;
 pub mod recovery_replay;
+pub mod spec_a_preflight;
 pub use profiles::{capabilities, classify_usb, known_models};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

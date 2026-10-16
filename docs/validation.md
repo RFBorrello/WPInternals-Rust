@@ -416,7 +416,7 @@ no verified exact-version FFU was located or downloaded.
 See [native backup limits](native-backup.md) and
 [firmware search findings](rm875-firmware-search.md).
 
-## Offline image assembly — October 15
+## Offline image assembly â€” October 15
 
 UEFI rebuilding applies the three reviewed code patches across two EFI targets,
 clears PE checksums, recomputes FFS checksums and recompresses to the original
@@ -443,7 +443,7 @@ cleanup and native fallback; desktop IPC tests also cover both assembly paths.
 The two real images are intermediate artifacts only: no complete unlock package,
 SBL1 payload, GPT modification, phone executor or hardware write validation.
 
-## Offline Spec A reference package — October 15
+## Offline Spec A reference package â€” October 15
 
 The real RM-875 source and previously imported SBL3, two V1 programmers and donor
 produced a 151,966,175-byte ZIP with 27 hashed members plus its manifest. Native
@@ -479,3 +479,28 @@ observation or compatibility grant. Source FFU originals remain distinct from
 installed backups; backup GPT is not captured. Hardware preflight, recovery
 validation and a reviewed executor remain outstanding. These private firmware
 packages are excluded from public source and application development bundles.
+
+## Read-only Spec A preflight â€” October 16
+
+The new shared query engine and advisory assessment pass nine additional Rust
+tests. Synthetic coverage includes exact RRKH/SS request bytes, strict security
+encodings, duplicate/truncated/oversized messages, blank/mismatched roots,
+contradictory security reports, changed applications/public IDs, conditional GPT
+access, and disconnect/timeout/partial-transfer/cancellation at every query.
+CRC-valid but different GPT identities/attributes fail the reference comparison;
+malformed tables and layouts beyond reported eMMC capacity are rejected.
+Passing comparisons never authorize writes or claim installed backups.
+
+Both published synthetic CLI scenarios run successfully without USB: locked
+FlashApp skips NOKT and reports a required context transition; the insecure
+scenario reads and compares only synthetic primary sectors. The full Rust suite
+passes 189 tests. Native and WASM strict Clippy checks pass.
+
+The reference-only command also parsed the real local RM-875 source FFU. Its
+primary GPT and SBL1 SHA-256 digests match the originals in the previously verified
+offline package. This step did not recheck complete FFU integrity or establish
+OEM trust. See the metadata-only
+[reference record](../tests/fixtures/rm875-preflight-reference-validation.json).
+No fresh phone queries, mode transitions, programmer uploads or writes were sent.
+Device preflight remains unvalidated on hardware; the command does not switch
+contexts, preserve installed originals, capture backup GPT or enable recovery.

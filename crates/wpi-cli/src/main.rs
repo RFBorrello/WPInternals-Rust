@@ -15,6 +15,18 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Preview or run read-only Spec A checks in an ALREADY exposed FlashApp. Never switches modes.
+    PreflightSpecA {
+        input: PathBuf,
+        #[arg(long, conflicts_with = "replay")]
+        device_id: Option<String>,
+        /// Local synthetic/replay exchanges; never contacts USB.
+        #[arg(long, conflicts_with = "device_id")]
+        replay: Option<PathBuf>,
+        /// Request NOKT only when both security reports permit the current context.
+        #[arg(long)]
+        read_primary_gpt: bool,
+    },
     /// Build a NEW offline Spec A reference ZIP with originals, hashes and recovery metadata. No phone access.
     PackageSpecA {
         input: PathBuf,
@@ -313,6 +325,67 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::PreflightSpecA {
+            input,
+            device_id,
+            replay,
+            read_primary_gpt,
+        } => {
+            let mut source = artifacts::open_artifact(&input)?;
+            let reference = wpi_core::spec_a_preflight::Reference::read(&mut source)?;
+            if device_id.is_none() && replay.is_none() {
+                print(serde_json::json!({
+                    "source_kind":"reference_preview_only", "reference":reference.summary(),
+                    "phone_contacted":false, "phone_writes_enabled":false,
+                    "next":"An explicitly selected, already exposed FlashApp or a local replay is required. This command never changes modes."
+                }))?;
+            } else {
+                use std::sync::{
+                    atomic::{AtomicBool, Ordering},
+                    Arc,
+                };
+                let cancelled = Arc::new(AtomicBool::new(false));
+                let signal = cancelled.clone();
+                ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+                let progress = |stage: &str| {
+                    eprintln!("Read-only preflight: {stage}");
+                    !cancelled.load(Ordering::Acquire)
+                };
+                if let Some(path) = replay {
+                    #[derive(serde::Deserialize)]
+                    #[serde(deny_unknown_fields)]
+                    struct Scenario {
+                        exchanges: Vec<wpi_protocol::replay::Exchange>,
+                    }
+                    let scenario: Scenario = serde_json::from_value(read_json(&path)?)?;
+                    if scenario.exchanges.len() > 8 {
+                        return Err("Preflight replay exceeds eight exchanges".into());
+                    }
+                    let mut transport =
+                        wpi_protocol::replay::ReplayTransport::new(scenario.exchanges);
+                    let capture = wpi_protocol::preflight::capture(
+                        &mut transport,
+                        reference.root(),
+                        reference.platform(),
+                        read_primary_gpt,
+                        progress,
+                    )?;
+                    if !transport.finished() {
+                        return Err("Preflight replay contains unused exchanges".into());
+                    }
+                    print(wpi_core::spec_a_preflight::assess(
+                        &reference, capture, true,
+                    )?)?;
+                } else {
+                    print(wpi_transport::spec_a_preflight::run(
+                        &device_id.unwrap(),
+                        &reference,
+                        read_primary_gpt,
+                        progress,
+                    )?)?;
+                }
+            }
+        }
         Command::Storage { action } => {
             let coordinator = wpi_core::operations::OperationCoordinator::default();
             let session = coordinator.reserve_storage_read()?;

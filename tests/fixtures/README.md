@@ -39,6 +39,13 @@ reader fixtures, never flashable firmware. `rm875-mainos-validation.json` record
 only local validation metadata; no proprietary package contents are included.
 
 FFU/GPT images are generated with `python scripts/generate-fixtures.py`.
+
+`python scripts/make-spec-a-preflight-fixtures.py` generates
+`spec-a-preflight-locked.json` and `spec-a-preflight-primary.json` from the
+synthetic package FFU. Both contain invented Flash security responses and an
+invented public ID. The locked replay contains no NOKT/context change; the other
+contains only synthetic primary GPT sectors. These files are protocol tests,
+not device observations or authorization to flash.
 The minimal NTFS reader image is generated with `python scripts/generate-ntfs-fixture.py`.
 These images contain recognizable test bytes, not a phone operating system. Never flash or mount them.
 

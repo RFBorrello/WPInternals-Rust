@@ -9,6 +9,7 @@ use wpi_protocol::{MessageTransport, ProtocolError};
 use wpi_types::*;
 pub mod identity_probe;
 pub mod mode_test;
+pub mod spec_a_preflight;
 static PHONE_ACCESS: Mutex<()> = Mutex::new(());
 
 pub fn enumerate() -> Result<Vec<DeviceIdentity>, String> {
