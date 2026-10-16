@@ -43,7 +43,7 @@ const fixture = resolve(import.meta.dirname, '../../../tests/fixtures/synthetic-
 test('cancelling a partial hash clears old results and allows a fresh verification', async ({ page }) => {
   await fileHook(page, 'delay');
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles(fixture);
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(fixture);
   await page.getByRole('button', { name: 'Check preparation' }).click();
   await expect(page.getByRole('button', { name: 'Export preparation' })).toBeVisible();
   await page.getByRole('button', { name: 'Check preparation' }).click();
@@ -59,7 +59,7 @@ for (const mode of ['short', 'error'] as const) {
   test(`a ${mode} file read publishes no complete fingerprint or preparation`, async ({ page }) => {
     await fileHook(page, mode);
     await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-    await page.locator('input[type=file]').setInputFiles(fixture);
+    await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(fixture);
     await page.getByRole('button', { name: 'Check preparation' }).click();
     await expect(page.getByRole('alert')).toContainText(mode === 'short' ? 'truncated' : 'unreadable');
     await expect(page.getByRole('button', { name: 'Export preparation' })).toHaveCount(0);

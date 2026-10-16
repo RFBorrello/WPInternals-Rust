@@ -1,0 +1,7 @@
+{
+  "root_certificate_sha256": "2396f52b1155447ea575c2456ef23f1db535341d86844c0cb80bd79ad1e1ef53",
+  "sbl2_patch_offset": 64,
+  "sbl3_patch_offset": 60,
+  "loader_decoded_sha256": "1815677526524fc066a26c6928a990ade179f71904ba3d57e12255ceb113f72d",
+  "phone_writes_enabled": false
+}

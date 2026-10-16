@@ -191,6 +191,69 @@ enum MetadataTask {
     Firmware,
     Targeting,
     Catalog(Option<u64>),
+    SpecA(SpecAInputs),
+}
+#[derive(Default)]
+struct SpecAInputs {
+    sbl3: Option<(String, Vec<u8>)>,
+    loaders: Vec<(String, Vec<u8>)>,
+}
+/// Small boot images are owned by this worker-side preparation session. The FFU
+/// stays in its File and is read through bounded callbacks, not UI messages.
+#[wasm_bindgen]
+pub struct BrowserSpecAPreparation {
+    inputs: Option<SpecAInputs>,
+}
+impl Default for BrowserSpecAPreparation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+#[wasm_bindgen]
+impl BrowserSpecAPreparation {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            inputs: Some(SpecAInputs::default()),
+        }
+    }
+    pub fn set_sbl3(&mut self, name: &str, bytes: &[u8]) -> Result<(), JsValue> {
+        if name.len() > 256 || bytes.len() > wpi_image::spec_a::MAX_BOOT_IMAGE {
+            return Err(js_error("SBL3 name or size exceeds import limit"));
+        }
+        self.inputs
+            .as_mut()
+            .ok_or_else(|| js_error("preparation already finished"))?
+            .sbl3 = Some((name.into(), bytes.to_vec()));
+        Ok(())
+    }
+    pub fn add_loader(&mut self, name: &str, bytes: &[u8]) -> Result<(), JsValue> {
+        let inputs = self
+            .inputs
+            .as_mut()
+            .ok_or_else(|| js_error("preparation already finished"))?;
+        if name.len() > 256
+            || bytes.len() > wpi_image::spec_a::MAX_LOADER_FILE
+            || inputs.loaders.len() >= wpi_image::spec_a::MAX_LOADERS
+        {
+            return Err(js_error("loader name, size or count exceeds import limit"));
+        }
+        inputs.loaders.push((name.into(), bytes.to_vec()));
+        Ok(())
+    }
+    pub fn finish_json(
+        &mut self,
+        metadata: &str,
+        gpt: &str,
+        total_size: u64,
+        read: &js_sys::Function,
+    ) -> Result<String, JsValue> {
+        let inputs = self
+            .inputs
+            .take()
+            .ok_or_else(|| js_error("preparation already finished"))?;
+        metadata_json(metadata, gpt, total_size, read, MetadataTask::SpecA(inputs))
+    }
 }
 fn metadata_json(
     metadata: &str,
@@ -260,6 +323,27 @@ fn metadata_json(
         position: 0,
     };
     match task {
+        MetadataTask::SpecA(inputs) => {
+            use wpi_image::spec_a::{self, Import};
+            let loaders: Vec<_> = inputs
+                .loaders
+                .iter()
+                .map(|(name, bytes)| Import { name, bytes })
+                .collect();
+            json(
+                &spec_a::prepare(
+                    &mut reader,
+                    &ffu,
+                    &gpt,
+                    inputs
+                        .sbl3
+                        .as_ref()
+                        .map(|(name, bytes)| Import { name, bytes }),
+                    &loaders,
+                )
+                .map_err(js_error)?,
+            )
+        }
         MetadataTask::Targeting => json(
             &wpi_image::firmware::mainos::read_targeting(&mut reader, &ffu, &gpt, |_, _| true)
                 .map_err(js_error)?,

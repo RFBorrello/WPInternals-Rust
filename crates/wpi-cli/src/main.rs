@@ -67,6 +67,16 @@ enum Command {
     },
     /// Inspect a legacy FFU, GPT/raw disk image, or FAT/NTFS boot sector.
     Inspect { input: PathBuf },
+    /// Inspect Spec A boot images and optional local loaders; never unlocks or contacts USB.
+    PrepareSpecA {
+        input: PathBuf,
+        /// Extracted raw SBL3 partition image; filenames do not prove engineering status.
+        #[arg(long)]
+        sbl3: Option<PathBuf>,
+        /// Raw MBN or strict contiguous Intel HEX; may be repeated (maximum 32).
+        #[arg(long)]
+        loader: Vec<PathBuf>,
+    },
     /// Verify a local FFU and generate an advisory recovery checklist. Never starts recovery.
     PrepareRecovery {
         input: PathBuf,
@@ -468,6 +478,11 @@ fn run() -> Result<(), Box<dyn Error>> {
             }
         }
         Command::Inspect { input } => print(artifacts::inspect_file(&input)?)?,
+        Command::PrepareSpecA {
+            input,
+            sbl3,
+            loader,
+        } => print(artifacts::prepare_spec_a(&input, sbl3.as_deref(), &loader)?)?,
         Command::PrepareRecovery { input, device_id } => {
             let device = device_id
                 .map(|id| wpi_transport::probe(&id).map(|p| p.device))

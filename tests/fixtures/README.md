@@ -1,5 +1,12 @@
 # Synthetic fixtures
 
+`python scripts/make-spec-a-fixtures.py` generates the non-flashable
+`synthetic-spec-a.ffu` and `spec-a/` raw/HEX fixtures, using the existing synthetic
+image-issuer certificate. The code regions are invented test bytes, signatures
+are zero-filled, and no executable programmer or exploit payload is included.
+`spec-a/reference.json` records expected hashes/offsets. Metadata from separately
+supplied real RM-875 files is recorded in `rm875-spec-a-validation.json`.
+
 `python scripts/make-image-issuer-fixture.py` creates disposable production/wrong-key
 provisioning files under `image-issuer` and two FAT-backed synthetic FFUs. Complete
 authority-name/serial identifiers exercise the narrow issuer profile. The auth

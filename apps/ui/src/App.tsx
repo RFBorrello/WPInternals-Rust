@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, ArrowRight, Check, ChevronRight, CircleHelp, Cpu, FileCode2, FileUp, FolderOpen, HardDrive, Info, Layers3, LoaderCircle, LockKeyhole, Monitor, Radio, RefreshCw, ShieldCheck, Smartphone, Terminal, Unplug, Usb, X } from 'lucide-react';
 import * as backend from './backend';
+import { SpecAPreparation } from './SpecAPreparation';
 import { bytes, hexId, label, partitionRange } from './format';
 import type { CapabilityReport, DeviceIdentity, DeviceMode, ImportedArtifact, ModelProfile, ModeTransitionPreparation, ReconnectReport, RecoveryPreparation } from './types';
 
@@ -153,7 +154,7 @@ export default function App() {
   const title = navigation.find(n => n.page === page)!.label;
   const partitions = artifact?.inspection.gpt?.partitions ?? [];
 
-  const imagePicker = <input ref={picker} type="file" accept=".ffu,.bin,.img" hidden onChange={e => { const file = e.target.files?.[0]; if (file) void load(file); e.target.value = ''; }} />;
+  const imagePicker = <input ref={picker} aria-label="Select local firmware image" type="file" accept=".ffu,.bin,.img" hidden onChange={e => { const file = e.target.files?.[0]; if (file) void load(file); e.target.value = ''; }} />;
   function chooseFile() { if (backend.desktop) void load(); else picker.current?.click(); }
 
   return <div className="app">
@@ -233,6 +234,7 @@ export default function App() {
                 <button className="secondary-button compact" onClick={() => backend.download(new Blob([JSON.stringify(preparation, null, 2)], { type: 'application/json' }), 'recovery-preparation.json')}><ArrowDownToLine size={15} /> Export preparation</button>
               </>}
             </section>}
+            {artifact.inspection.ffu && <SpecAPreparation artifact={artifact} disabled={disabled} task={task} />}
             {artifact.inspection.filesystem && <section className="card"><h3>Filesystem geometry</h3><dl className="details-list"><dt>Filesystem</dt><dd>{artifact.inspection.filesystem.kind}</dd><dt>Sector size</dt><dd>{bytes(artifact.inspection.filesystem.bytes_per_sector)}</dd><dt>Sectors per cluster</dt><dd>{artifact.inspection.filesystem.sectors_per_cluster}</dd><dt>Volume serial</dt><dd>{artifact.inspection.filesystem.volume_serial}</dd></dl></section>}
             {partitions.length > 0 && <section className="card partition-card"><div className="section-heading"><h3><Layers3 size={18} /> Partition map</h3><button className="secondary-button compact" disabled={disabled} onClick={() => void task('Exporting partition table', async () => { await backend.exportGpt(artifact); log('Exported Partitions.xml.', 'success'); })}><ArrowDownToLine size={15} /> Export XML</button></div><div className="table-scroll"><table><thead><tr><th>Partition</th><th>Start sector</th><th>Size</th><th>Action</th></tr></thead><tbody>{partitions.map(p => <tr key={p.guid}><td><span className="partition-symbol"><Layers3 size={15} /></span><strong>{p.name}</strong></td><td className="mono">{p.first_sector.toLocaleString()}</td><td>{bytes(partitionRange(p.first_sector, p.last_sector).length)}</td><td><button className="table-action" disabled={disabled} onClick={() => void task(`Extracting ${p.name}`, async () => { await backend.extract(artifact, p.name, (done, total) => setProgress({ done, total })); log(`Finished export workflow for ${p.name}.`, 'success'); })}><ArrowDownToLine size={14} /> Extract</button></td></tr>)}</tbody></table></div><div className="table-footer">Extraction writes a local file. It does not flash your phone.</div></section>}
           </>}

@@ -21,6 +21,61 @@ pub fn open_artifact(path: &Path) -> Result<File> {
 pub fn inspect_file(path: &Path) -> Result<crate::inspection::Inspection> {
     crate::inspection::inspect_at(&mut open_artifact(path)?, reference_time())
 }
+/// Bounded offline imports. No USB discovery or device-mode changes.
+pub fn prepare_spec_a(
+    path: &Path,
+    sbl3: Option<&Path>,
+    loaders: &[std::path::PathBuf],
+) -> Result<wpi_image::spec_a::Preparation> {
+    use wpi_image::{
+        ffu::FfuMetadata,
+        spec_a::{self, Import},
+    };
+    if loaders.len() > spec_a::MAX_LOADERS {
+        return Err(ImageError::Invalid(
+            "at most 32 loader imports are allowed".into(),
+        ));
+    }
+    fn imported(path: &Path, limit: usize) -> Result<(String, Vec<u8>)> {
+        let mut bytes = Vec::new();
+        open_artifact(path)?
+            .take(limit as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > limit {
+            return Err(ImageError::Invalid(format!("import exceeds {limit} bytes")));
+        }
+        Ok((
+            path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
+            bytes,
+        ))
+    }
+    let external = sbl3
+        .map(|p| imported(p, spec_a::MAX_BOOT_IMAGE))
+        .transpose()?;
+    let loader_data: Vec<_> = loaders
+        .iter()
+        .map(|p| imported(p, spec_a::MAX_LOADER_FILE))
+        .collect::<Result<_>>()?;
+    let loader_refs: Vec<_> = loader_data
+        .iter()
+        .map(|(name, bytes)| Import { name, bytes })
+        .collect();
+    let mut source = open_artifact(path)?;
+    let ffu = FfuMetadata::open(&mut source)?;
+    let gpt = ffu.gpt(&mut source)?;
+    spec_a::prepare(
+        &mut source,
+        &ffu,
+        &gpt,
+        external
+            .as_ref()
+            .map(|(name, bytes)| Import { name, bytes }),
+        &loader_refs,
+    )
+}
 fn reference_time() -> Option<u64> {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

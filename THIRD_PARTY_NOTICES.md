@@ -1,6 +1,7 @@
 # Upstream attribution
 
-The FFU layout, Lumia wire protocols, Qualcomm HDLC framing, and patch catalog
+The FFU layout, Lumia wire protocols, Qualcomm HDLC framing, Spec A MBN/header
+and loader preparation, SBL2/SBL3 patch previews, and patch catalog
 are derived from [ReneLergner/WPinternals](https://github.com/ReneLergner/WPinternals),
 tag **2.9.2**, commit `d8fd0aa516b16dc094df0422a3adc525af005c29`.
 

@@ -6,7 +6,7 @@ const fixtures = resolve(import.meta.dirname, '../../../tests/fixtures');
 
 test('browser reads compressed MainOS registry and DSM metadata through bounded WASM NTFS', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles({ name: 'firmware_9.9.9.9.ffu', mimeType: 'application/octet-stream', buffer: await readFile(resolve(fixtures, 'synthetic-mainos.ffu')) });
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles({ name: 'firmware_9.9.9.9.ffu', mimeType: 'application/octet-stream', buffer: await readFile(resolve(fixtures, 'synthetic-mainos.ffu')) });
   await page.getByRole('button', { name: 'Check preparation' }).click();
   const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Firmware version in image', exact: true }) });
   await expect(row).toContainText('Passed'); await expect(row).toContainText('1.2.3.0004');
@@ -30,7 +30,7 @@ test('browser reports corrupt MainOS package metadata and keeps recovery blocked
   const gzip = data.indexOf(Buffer.from([0x1f, 0x8b]), record);
   expect(gzip).toBeLessThan(record + 1024); data[gzip + 10] ^= 0xff;
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles({ name: 'corrupt-mainos.ffu', mimeType: 'application/octet-stream', buffer: data });
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles({ name: 'corrupt-mainos.ffu', mimeType: 'application/octet-stream', buffer: data });
   await page.getByRole('button', { name: 'Check preparation' }).click();
   await expect(page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Firmware version in image', exact: true }) })).toContainText('Failed');
   await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
@@ -38,7 +38,7 @@ test('browser reports corrupt MainOS package metadata and keeps recovery blocked
 
 test('browser reads PLAT firmware metadata instead of a version in the filename', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles({ name: 'firmware_9.9.9.9.ffu', mimeType: 'application/octet-stream', buffer: await readFile(resolve(fixtures, 'synthetic-plat.ffu')) });
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles({ name: 'firmware_9.9.9.9.ffu', mimeType: 'application/octet-stream', buffer: await readFile(resolve(fixtures, 'synthetic-plat.ffu')) });
   await page.getByRole('button', { name: 'Check preparation' }).click();
   const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Firmware version in image', exact: true }) });
   await expect(row).toContainText('Passed'); await expect(row).toContainText('1.2.3.4');
@@ -48,7 +48,7 @@ test('browser reads PLAT firmware metadata instead of a version in the filename'
 
 test('signed FFU checks signature and table binding while leaving OEM trust unverified', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'synthetic-signed.ffu'));
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(resolve(fixtures, 'synthetic-signed.ffu'));
   await page.getByRole('button', { name: 'Check preparation' }).click();
   for (const label of ['Catalog signature', 'Signed hash-table binding']) {
     await expect(page.getByRole('row').filter({ has: page.getByRole('cell', { name: label, exact: true }) })).toContainText('Passed');
@@ -63,7 +63,7 @@ test('a tampered catalog reports a failed signature without enabling recovery', 
   const catalogStart = data.readUInt32LE(0); const catalogSize = data.readUInt32LE(24);
   data[catalogStart + catalogSize - 1] ^= 1;
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles({ name: 'bad-catalog.ffu', mimeType: 'application/octet-stream', buffer: data });
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles({ name: 'bad-catalog.ffu', mimeType: 'application/octet-stream', buffer: data });
   await page.getByRole('button', { name: 'Check preparation' }).click();
   await expect(page.getByRole('row').filter({ has: page.getByRole('cell', { name: 'Catalog signature', exact: true }) })).toContainText('Failed');
   await expect(page.getByText('Recovery is unavailable.', { exact: false })).toBeVisible();
@@ -74,7 +74,7 @@ test('opens the real WASM engine, inspects FFU, and exports partition bytes', as
   await page.addInitScript(() => { Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true }); });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles(resolve(fixtures,'synthetic.ffu'));
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(resolve(fixtures,'synthetic.ffu'));
   await expect(page.getByRole('heading', { name: 'synthetic.ffu' })).toBeVisible();
   await expect(page.getByText('SYNTHETIC.LUMIA.TEST')).toBeVisible();
   const row = page.getByRole('row').filter({ hasText: 'EFIESP' });
@@ -90,10 +90,10 @@ test('opens the real WASM engine, inspects FFU, and exports partition bytes', as
 
 test('corrupt image reports an error and leaves the original selection intact', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles(resolve(fixtures,'synthetic.ffu'));
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(resolve(fixtures,'synthetic.ffu'));
   await expect(page.getByRole('heading', { name: 'synthetic.ffu' })).toBeVisible();
   const data = await readFile(resolve(fixtures,'synthetic.ffu')); data[12288+512+40] ^= 1;
-  await page.locator('input[type=file]').setInputFiles({ name:'corrupt.ffu',mimeType:'application/octet-stream',buffer:data });
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles({ name:'corrupt.ffu',mimeType:'application/octet-stream',buffer:data });
   await expect(page.getByRole('alert')).toContainText('CRC mismatch');
   await expect(page.getByRole('heading', { name: 'synthetic.ffu' })).toBeVisible();
 });
@@ -109,7 +109,7 @@ test('capabilities do not advertise phone writes or verified hardware', async ({
 
 test('exports upstream-compatible GPT XML', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles(resolve(fixtures,'gpt.bin'));
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(resolve(fixtures,'gpt.bin'));
   await expect(page.getByRole('heading', { name: 'gpt.bin' })).toBeVisible();
   const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: 'Export XML' }).click();
   const download = await downloadPromise; const xml = await readFile((await download.path())!,'utf8');
@@ -129,7 +129,7 @@ test('unsupported WebUSB still permits local firmware inspection', async ({ page
   await page.addInitScript(() => { Object.defineProperty(Navigator.prototype,'usb',{value:undefined,configurable:true}); });
   await page.goto('/'); await expect(page.getByRole('button',{name:'Browse files'})).toBeEnabled();
   await expect(page.getByRole('button',{name:'Connect a device',exact:true})).toBeDisabled();
-  await page.locator('input[type=file]').setInputFiles(resolve(fixtures,'synthetic.ffu'));
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(resolve(fixtures,'synthetic.ffu'));
   await expect(page.getByRole('heading',{name:'synthetic.ffu'})).toBeVisible();
 });
 
@@ -147,7 +147,7 @@ test('permission rejection does not create a connected device', async ({ page })
 
 test('recovery preparation is advisory, exports missing checks, and clears on a new image', async ({ page }) => {
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'synthetic.ffu'));
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(resolve(fixtures, 'synthetic.ffu'));
   await page.getByRole('button', { name: 'Check preparation' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('Passed');
   await expect(page.getByRole('row').filter({ hasText: 'Phone identity' })).toContainText('Missing');
@@ -159,7 +159,7 @@ test('recovery preparation is advisory, exports missing checks, and clears on a 
   const input = await readFile(resolve(fixtures, 'synthetic.ffu'));
   expect(result.plan.artifacts[0].sha256).toBe(createHash('sha256').update(input).digest('hex'));
   await expect(page.getByRole('row').filter({ hasText: 'Image fingerprint' })).toContainText('Passed');
-  await page.locator('input[type=file]').setInputFiles(resolve(fixtures, 'gpt.bin'));
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles(resolve(fixtures, 'gpt.bin'));
   await expect(page.getByRole('button', { name: 'Export preparation' })).toHaveCount(0);
 });
 
@@ -167,7 +167,7 @@ test('browser detects payload corruption despite valid catalog and records its a
   const data = await readFile(resolve(fixtures, 'synthetic-signed.ffu'));
   data[data.length - 1] ^= 1;
   await page.goto('/'); await expect(page.getByRole('button', { name: 'Browse files' })).toBeEnabled();
-  await page.locator('input[type=file]').setInputFiles({ name: 'bad-payload.ffu', mimeType: 'application/octet-stream', buffer: data });
+  await page.getByLabel('Select local firmware image', { exact: true }).setInputFiles({ name: 'bad-payload.ffu', mimeType: 'application/octet-stream', buffer: data });
   await page.getByRole('button', { name: 'Check preparation' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('Failed');
   await expect(page.getByRole('row').filter({ hasText: 'Chunk integrity' })).toContainText('hash mismatch at chunk');

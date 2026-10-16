@@ -1,21 +1,22 @@
-# Local validation — October 13–14, 2026
+# Local validation — October 13–15, 2026
 
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
-headless Microsoft Edge. Image-local issuer milestone `c99cbc6` passed GitHub CI on all
-four native host targets and Chromium ([run `38673075453`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38673075453)).
+headless Microsoft Edge. Native storage milestone `ed3e008` passed GitHub CI on all
+four native host targets and Chromium ([run `38675937109`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38675937109)).
 Those remote build results do not establish device support.
-The latest local milestone adds experimental Windows read-only storage discovery/backup
-and explicit browser fallback. Phone/USB evidence below remains historical; no phone
-commands were sent during this change. Remote CI for this new source is pending.
+The latest local milestone adds offline Spec A boot-file preparation through the
+CLI, browser worker and desktop IPC. Native read-only identification was repeated
+on October 15; no mode changes, uploads, firmware or partition writes were sent.
+Remote CI for this new source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 135 passed on Windows: 93 integration tests, 37 native transport/harness unit tests, three image-parser unit tests and two Windows metadata-decoder unit tests |
+| Rust tests | 141 passed on Windows: 99 integration tests, 37 native transport/harness unit tests, three image-parser unit tests and two Windows metadata-decoder unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser integration tests | 39 passed |
+| Real-WASM browser / mocked desktop IPC integration tests | 44 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -30,6 +31,7 @@ commands were sent during this change. Remote CI for this new source is pending.
 | Real NTFS access | System32: 1,969 entries; extracted 5,289,976-byte kernel matches upstream catalog original SHA-1 |
 | Native recovery preparation | Real FFU digest/chunk checks passed; advisory report kept recovery blocked |
 | Backup engine | Replay-only ranges, hashing, atomic publication and interruption/cancellation tests; no physical storage access |
+| Offline Spec A preparation | Real stock SBL1/SBL2/SBL3 and two local V1 programmers match native Rust, browser WASM and independent upstream-algorithm results; unlock remains blocked |
 
 Tests cover malformed/truncated image metadata, FFU hash corruption, GPT CRCs,
 lossless 64-bit GPT attribute serialization, sparse map precedence, output
@@ -62,6 +64,15 @@ The first real NTFS read exposed incorrect index VCN units in the `ntfs` depende
 when index records are smaller than clusters. A documented vendored patch fixes
 addressing and bounds traversal; original dependency licenses are preserved.
 All device writing workflows remain blocked.
+
+Spec A preparation tests cover short/long MBN bounds, size/address overflow,
+malformed DER and chain padding, unsupported ELF, HEX checksums/addresses/EOF,
+code-only unique patch matching, wrong certificate fingerprints, missing markers,
+oversized imports, and reports that never enable writes. Browser tests cover real
+worker/WASM imports, stale-report clearing, missing boot partitions, oversized
+inputs and desktop IPC routing. Real-image browser auditing observed 64 KiB maximum
+synchronous reads and a 917,504-byte maximum asynchronous header slice; the entire
+1.7 GB FFU was not copied through UI messages. See [Spec A preparation](spec-a-preparation.md).
 
 Mode-transition coverage includes fresh source contradictions, Spec A protocol-1
 removal requirements, Spec B protocol-2 in-place observation, Flash-to-Normal
@@ -376,7 +387,7 @@ OEM anchor, revocation and exact applicability remain unverified. The unvalidate
 downgrade check still fails. No fresh phone query or command was sent. See
 [the metadata-only record](../tests/fixtures/rm875-image-issuer-validation.json).
 
-## Read-only native storage research � October 14
+## Read-only native storage research — October 14
 
 The shared copy engine now serves both replay and a private Windows read-only
 adapter. Sixteen new Rust tests cover candidate admission/redaction, native query

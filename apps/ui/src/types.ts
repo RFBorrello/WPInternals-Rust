@@ -32,8 +32,11 @@ export interface RecoveryPreparation {
   plan: { operation: 'stock_flash'; executable: boolean; blockers: string[]; steps: string[]; artifacts: { name: string; sha256: string }[]; device: DeviceIdentity | null };
   checks: { key: string; label: string; status: 'passed' | 'failed' | 'missing' | 'unverified'; message: string }[];
 }
-export interface WorkerRequest { id: number; action: 'inspect' | 'extract' | 'gpt_xml' | 'cancel' | 'recovery_prepare'; file?: File; device?: DeviceIdentity | null; partition?: string; handle?: FileSystemFileHandle; gpt?: Gpt }
-export interface WorkerReply { id: number; kind: 'result' | 'error' | 'progress'; result?: Inspection | RecoveryPreparation | string | Blob; error?: string; completed?: number; total?: number }
+export interface WorkerRequest { id: number; action: 'inspect' | 'extract' | 'gpt_xml' | 'cancel' | 'recovery_prepare' | 'spec_a_prepare'; file?: File; device?: DeviceIdentity | null; partition?: string; handle?: FileSystemFileHandle; gpt?: Gpt; sbl3?: File; loaders?: File[] }
+export interface WorkerReply { id: number; kind: 'result' | 'error' | 'progress'; result?: Inspection | RecoveryPreparation | SpecAPreparation | string | Blob; error?: string; completed?: number; total?: number }
+export interface BootReport { name: string; size: number; sha256: string; image: { header_kind: string; image_offset: number; code_size: number; root_certificate_sha256: string; certificate_sha256: string[] } | null; patch: { status: string; match_count: number; offset: number | null; expected: string; replacement: string } | null; error: string | null }
+export interface SpecAPreparation { upstream_revision: string; platform_id: string; stock: BootReport[]; external_sbl3: BootReport | null; external_sbl3_fits: boolean | null; loaders: { name: string; input_sha256: string; decoded: BootReport | null; v1_marker_present: boolean; matches_stock_sbl1_root: boolean; error: string | null }[]; phone_writes_enabled: false; blockers: string[] }
+export interface SpecAImport { name: string; file?: File; path?: string }
 declare global {
   // Frontend globals only; reconnection identifiers remain in React memory.
   interface Window { __TAURI_INTERNALS__?: unknown; showSaveFilePicker?: (options: { suggestedName: string }) => Promise<FileSystemFileHandle>; }

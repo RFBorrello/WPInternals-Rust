@@ -69,8 +69,14 @@ NTFS image writes, modern/multi-store FFUs, WP7 protocols, and complete device
 workflows are not implemented. Hash verification does not authenticate an FFU’s
 signing catalog. The browser also uses Rust NTFS lookup for the narrow MainOS
 firmware-version fallback; general filesystem browsing and patching are CLI features.
-Compressed/encrypted NTFS streams are rejected. The backup engine currently
-accepts replay block data only; native phone storage access is not implemented.
+Compressed/encrypted NTFS streams are rejected. The backup engine also has an
+experimental Windows read-only storage adapter for phones already exposing a
+suitable disk; it has not been validated on phone storage. See
+[native backup](docs/native-backup.md) for its guarded CLI workflow.
+
+[Spec A offline preparation](docs/spec-a-preparation.md) now parses stock boot
+images and imported V1 programmers, checks HEX records and fingerprints, and
+previews unique SBL2/SBL3 patch locations. It does not enable unlocking.
 
 ## Quick start
 
@@ -123,6 +129,7 @@ cargo run -p wpi-cli -- mode-public-id-test '<device-id-from-devices>'
 cargo run -p wpi-cli -- replay-mode tests/fixtures/mode-normal-to-flash.json
 cargo run -p wpi-cli -- inspect path/to/firmware.ffu
 cargo run -p wpi-cli -- prepare-recovery path/to/firmware.ffu
+cargo run -p wpi-cli -- prepare-spec-a path/to/firmware.ffu --loader path/to/programmer.hex
 cargo run -p wpi-cli -- verify path/to/firmware.ffu
 cargo run -p wpi-cli -- extract path/to/firmware.ffu EFIESP efiesp.img
 cargo run -p wpi-cli -- convert-gpt path/to/firmware.ffu Partitions.xml

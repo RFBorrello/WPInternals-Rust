@@ -142,6 +142,31 @@ async function prepare(file: File, report: Inspection, headers: Uint8Array | und
     return JSON.parse(verifier.finish_preparation_json(JSON.stringify(request.device ?? null), JSON.stringify(report), file.name));
   } finally { verifier.free(); }
 }
+async function prepareSpecA(file: File, report: Inspection, request: WorkerRequest) {
+  if (!report.ffu || !report.gpt) throw new Error('Spec A preparation requires a supported local FFU');
+  if (typeof FileReaderSync === 'undefined') throw new Error('Offline boot-image checks require worker FileReaderSync; use the desktop app');
+  if ((request.loaders?.length ?? 0) > 32) throw new Error('Select at most 32 loader files');
+  const session = new wasm.BrowserSpecAPreparation();
+  try {
+    if (request.sbl3) session.set_sbl3(request.sbl3.name, await read(request.sbl3, 0, Math.min(request.sbl3.size, 4 * CHUNK + 1)));
+    for (const loader of request.loaders ?? []) {
+      if (loader.size > 512 * 1024) throw new Error('Loader import exceeds 512 KiB');
+      session.add_loader(loader.name, await read(loader, 0, loader.size));
+      await new Promise(resolve => setTimeout(resolve, 0));
+      if (cancelled) throw new Error('Operation cancelled');
+    }
+    const reader = new FileReaderSync();
+    const slice = (offset: number, length: number) => {
+      safeNumber(offset); safeNumber(length); safeNumber(offset + length);
+      if (length > 64 * 1024 || offset + length > file.size) throw new Error('Boot-image read exceeds bounded file slice');
+      return new Uint8Array(reader.readAsArrayBuffer(file.slice(offset, offset + length)));
+    };
+    const result = JSON.parse(session.finish_json(JSON.stringify(report.ffu), JSON.stringify(report.gpt), BigInt(file.size), slice));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (cancelled) throw new Error('Operation cancelled');
+    return result;
+  } finally { session.free(); }
+}
 async function platVersion(file: File, ffu: FfuMetadata, gpt: Gpt): Promise<string | null> {
   const matches = gpt.partitions.filter(p => p.name === 'PLAT');
   if (!matches.length) return null;
@@ -180,6 +205,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       const report = await inspect(request.file, value => { headers = value; });
       if (request.action === 'inspect') reply({ id: request.id, kind: 'result', result: report });
       else if (request.action === 'recovery_prepare') reply({ id: request.id, kind: 'result', result: await prepare(request.file, report, headers, request) });
+      else if (request.action === 'spec_a_prepare') reply({ id: request.id, kind: 'result', result: await prepareSpecA(request.file, report, request) });
       else {
         const matches = report.gpt?.partitions.filter(p => p.name === request.partition) ?? [];
         if (matches.length !== 1) throw new Error('Partition not found or ambiguous');

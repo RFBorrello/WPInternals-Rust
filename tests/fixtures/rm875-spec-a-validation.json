@@ -1,0 +1,200 @@
+{
+  "date": "2026-10-15",
+  "host": "Windows ARM64",
+  "scope": "Offline metadata and fingerprint comparison only; no phone unlock/write/loader upload",
+  "upstream_revision": "d8fd0aa516b16dc094df0422a3adc525af005c29",
+  "ffu_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+  "image_firmware": "3051.50009.1424.0002",
+  "connected_phone": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "firmware": "3051.50009.1451.1003",
+    "mode": "normal",
+    "product_code": "059T909",
+    "probe": "Native read-only vendor interface 3"
+  },
+  "native_browser_comparison": "matches",
+  "independent_upstream_algorithm_comparison": "matches",
+  "browser_io": {
+    "async_calls": 104,
+    "async_bytes": 7640212,
+    "max_async_slice": 917504,
+    "sync_calls": 149,
+    "sync_bytes": 9523714,
+    "max_sync_slice": 65536
+  },
+  "browser_elapsed_ms": 1784,
+  "preparation": {
+    "upstream_revision": "d8fd0aa516b16dc094df0422a3adc525af005c29",
+    "platform_id": "Nokia.MSM8960.P5217",
+    "stock": [
+      {
+        "name": "SBL1",
+        "size": 1536000,
+        "sha256": "2851560a792503bc6259e08d9643a4815fc69ee400f28a904132e7aef6e4ff39",
+        "image": {
+          "header_kind": "long",
+          "header_offset": 10260,
+          "image_offset": 10320,
+          "image_address": 704643072,
+          "image_size": 77288,
+          "code_size": 70888,
+          "signature_offset": 81208,
+          "signature_size": 256,
+          "certificates_offset": 81464,
+          "certificates_size": 6144,
+          "certificate_sha256": [
+            "a24167dd4296a71368d645423645bb2be17811d7a0664e9f30b80868dc6c4079",
+            "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          ],
+          "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+        },
+        "patch": null,
+        "error": null
+      },
+      {
+        "name": "SBL2",
+        "size": 1536000,
+        "sha256": "78d7cef78b94668898f07bd428ec8e632cd60ec35a1c6894642749723b7a8a52",
+        "image": {
+          "header_kind": "short_v3",
+          "header_offset": 8,
+          "image_offset": 40,
+          "image_address": 771751936,
+          "image_size": 114560,
+          "code_size": 108160,
+          "signature_offset": 108200,
+          "signature_size": 256,
+          "certificates_offset": 108456,
+          "certificates_size": 6144,
+          "certificate_sha256": [
+            "8a5d22e02ce2477d5453d2d7998d4491fa739e95d380c34f48d42f9539fe910c",
+            "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          ],
+          "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+        },
+        "patch": {
+          "status": "unique",
+          "match_count": 1,
+          "offset": 36792,
+          "expected": "2800d0e5",
+          "replacement": "0000a0e3"
+        },
+        "error": null
+      },
+      {
+        "name": "SBL3",
+        "size": 2097152,
+        "sha256": "a9e72102767eeab65d19b5338ae71af243d175f5f4ed0e6f5c5b7c132e6d29de",
+        "image": {
+          "header_kind": "short_v3",
+          "header_offset": 8,
+          "image_offset": 40,
+          "image_address": 2414870528,
+          "image_size": 329248,
+          "code_size": 322848,
+          "signature_offset": 322888,
+          "signature_size": 256,
+          "certificates_offset": 323144,
+          "certificates_size": 6144,
+          "certificate_sha256": [
+            "3494c9e986097cc660d0f8be502e382f93b2d14f48bdc170887cd33c7c1ed7b9",
+            "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          ],
+          "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+        },
+        "patch": {
+          "status": "unique",
+          "match_count": 1,
+          "offset": 141216,
+          "expected": "2800d0e5",
+          "replacement": "0000a0e3"
+        },
+        "error": null
+      }
+    ],
+    "external_sbl3": null,
+    "external_sbl3_fits": null,
+    "loaders": [
+      {
+        "name": "FAST8960_RM875.hex",
+        "input_sha256": "8eea1d5d5edace177d7dee502c9b3bb70f85e623f5b38bbcc0a6b64e0b97aa41",
+        "decoded": {
+          "name": "FAST8960_RM875.hex",
+          "size": 72960,
+          "sha256": "d30979f362a740e9e8ea79e02583abbba2a8bbb33b9efc512c2bfefca5714f37",
+          "image": {
+            "header_kind": "long",
+            "header_offset": 20,
+            "image_offset": 80,
+            "image_address": 704643152,
+            "image_size": 72880,
+            "code_size": 66480,
+            "signature_offset": 66560,
+            "signature_size": 256,
+            "certificates_offset": 66816,
+            "certificates_size": 6144,
+            "certificate_sha256": [
+              "f0fa3c3fdbde9c4431bb637d3ac5e2ea969c0a81ee92e6d881e605b8ff03528b",
+              "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+            ],
+            "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          },
+          "patch": null,
+          "error": null
+        },
+        "v1_marker_present": true,
+        "matches_stock_sbl1_root": true,
+        "error": null
+      },
+      {
+        "name": "RM875_prg_v1.0.hex",
+        "input_sha256": "4ea2f29917f29b57dcd80d50adb13a29a96d3b2d85a62a484cd771d0a3e80830",
+        "decoded": {
+          "name": "RM875_prg_v1.0.hex",
+          "size": 74036,
+          "sha256": "c24582baa992294f1a28e313882dda385a7ebf222d3b1857330770b51f13c4ab",
+          "image": {
+            "header_kind": "long",
+            "header_offset": 20,
+            "image_offset": 80,
+            "image_address": 704643152,
+            "image_size": 73956,
+            "code_size": 67556,
+            "signature_offset": 67636,
+            "signature_size": 256,
+            "certificates_offset": 67892,
+            "certificates_size": 6144,
+            "certificate_sha256": [
+              "caa7f5e0dd5bdb7b91945cab6bb33cc4bda79656ff0c6f19e5e3fc3e961c1019",
+              "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+            ],
+            "root_certificate_sha256": "0cbd2eed6f62230571cbab55b7dbc15f8a7dc7bb3f37c1e7e4e5adc77152fbc2"
+          },
+          "patch": null,
+          "error": null
+        },
+        "v1_marker_present": true,
+        "matches_stock_sbl1_root": true,
+        "error": null
+      }
+    ],
+    "phone_writes_enabled": false,
+    "blockers": [
+      "FFU chunk integrity, OEM authenticity and firmware applicability require the separate Recovery preparation checks.",
+      "Phone RRKH and Flash security/application state have not been read in this offline check.",
+      "Live GPT, recoverable installed originals, and interruption recovery are not validated.",
+      "SBL1 exploit prerequisites, UEFI and EFIESP patch applicability are not implemented by this check.",
+      "Certificate fingerprints and code patterns do not establish signature trust, engineering status, hardware compatibility or mass-storage support.",
+      "Spec A unlock executor and hardware validation are incomplete; this report never authorizes phone writes.",
+      "No external engineering SBL3 was imported; stock SBL3 is not evidence of engineering mass-storage support."
+    ]
+  },
+  "limitations": [
+    "Fingerprints are not signature verification or phone RRKH evidence.",
+    "Engineering SBL3 has not been identified.",
+    "Programmer candidates were not uploaded or tested on the phone.",
+    "Older image applicability, live RRKH/security/GPT and recovery remain unverified.",
+    "No proprietary binaries, certificate bytes or unique phone identifiers are included."
+  ]
+}

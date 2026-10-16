@@ -98,6 +98,30 @@ async fn inspect_file(path: String, state: State<'_, DesktopState>) -> Result<In
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn prepare_spec_a(
+    input: String,
+    sbl3: Option<String>,
+    loaders: Vec<String>,
+    state: State<'_, DesktopState>,
+) -> Result<wpi_image::spec_a::Preparation, String> {
+    let session = state
+        .coordinator
+        .reserve_local(Operation::InspectFirmware)
+        .map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let _session = session;
+        let loaders: Vec<_> = loaders.into_iter().map(PathBuf::from).collect();
+        artifacts::prepare_spec_a(
+            &PathBuf::from(input),
+            sbl3.as_deref().map(std::path::Path::new),
+            &loaders,
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn prepare_recovery(
     input: String,
     device: Option<DeviceIdentity>,
@@ -344,6 +368,7 @@ fn main() {
             probe,
             inspect_file,
             prepare_recovery,
+            prepare_spec_a,
             convert_gpt,
             extract_partition,
             cancel_operation,
