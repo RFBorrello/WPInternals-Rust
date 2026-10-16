@@ -146,7 +146,9 @@ impl Hive {
                 return Err(invalid("invalid registry Unicode name"));
             }
             String::from_utf16(
-                &b.chunks_exact(2)
+                &b.as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|v| u16::from_le_bytes([v[0], v[1]]))
                     .collect::<Vec<_>>(),
             )

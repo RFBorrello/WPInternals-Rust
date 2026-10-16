@@ -75,7 +75,7 @@ fn volume(bytes: &[u8]) -> Result<Volume<'_>> {
         return Err(invalid("invalid firmware volume header length"));
     }
     let header_bytes = slice(bytes, 0, header)?;
-    if header_bytes.chunks_exact(2).fold(0u16, |a, v| {
+    if header_bytes.as_chunks::<2>().0.iter().fold(0u16, |a, v| {
         a.wrapping_add(u16::from_le_bytes([v[0], v[1]]))
     }) != 0
     {
@@ -104,7 +104,7 @@ fn volume(bytes: &[u8]) -> Result<Volume<'_>> {
     }
     let mut blocks = 0u64;
     let mut terminated = false;
-    for entry in header_bytes[56..].chunks_exact(8) {
+    for entry in header_bytes[56..].as_chunks::<8>().0 {
         let count = u32le(entry, 0)?;
         let length = u32le(entry, 4)?;
         if count == 0 && length == 0 {
@@ -313,7 +313,7 @@ fn preview(name: &str, guid: uuid::Uuid, bytes: &[u8]) -> Result<EfiReport> {
     }
     let section_table = slice(bytes, pe + 24 + optional, section_count * 40)?;
     let mut executable = Vec::new();
-    for section in section_table.chunks_exact(40) {
+    for section in section_table.as_chunks::<40>().0 {
         let size = u32le(section, 16)? as usize;
         let at = u32le(section, 20)? as usize;
         if size > 0 {
@@ -450,7 +450,9 @@ pub fn inspect(bytes: &[u8]) -> Result<Report> {
                 return Err(invalid("invalid EFI name length"));
             }
             let units: Vec<_> = text
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|v| u16::from_le_bytes([v[0], v[1]]))
                 .collect();
             let text =

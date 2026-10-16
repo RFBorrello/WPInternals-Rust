@@ -54,7 +54,7 @@ impl Reference {
         let mut root = [0; 32];
         for (target, pair) in root
             .iter_mut()
-            .zip(image.root_certificate_sha256.as_bytes().chunks_exact(2))
+            .zip(image.root_certificate_sha256.as_bytes().as_chunks::<2>().0)
         {
             *target = u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap();
         }
