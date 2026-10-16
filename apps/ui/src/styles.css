@@ -7,6 +7,10 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;scroll-behavior:auto!important}}
 .recovery-card{margin-top:20px}.recovery-card>p,.recovery-card>.info-note{margin:12px 24px}.recovery-card>.secondary-button{margin:16px 24px}.recovery-card .section-heading h3{display:flex;align-items:center;gap:8px}
 /* Reconnection checks follow the device cards. */
+.package-result,.package-progress{margin:16px 24px;padding:16px;border:1px solid var(--border);border-radius:8px;background:#f8fbf9}
+.package-result p,.package-progress p{margin-bottom:12px}
+.package-result code{font-size:11px;overflow-wrap:anywhere}
+.package-result ul{margin:10px 0 16px;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.7}
 .reconnect-card { margin-top: 20px; padding: 24px; }
 .reconnect-card .section-heading { padding: 0; }
 .reconnect-card .button-row { flex-wrap: wrap; margin: 16px 0; }

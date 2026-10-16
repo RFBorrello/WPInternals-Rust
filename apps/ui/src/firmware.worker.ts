@@ -213,6 +213,7 @@ async function assembleSpecA(request: WorkerRequest) {
     if ((await request.handle!.getFile()).size !== 0) throw new Error('Output already contains data; choose a new empty file.');
   };
   await ensureEmpty();
+  if (request.component === 'package') return buildSpecAPackage(request);
   const report = await inspect(file);
   if (!report.ffu || !report.gpt) throw new Error('Offline assembly requires a supported FFU');
   const sync = new FileReaderSync();
@@ -293,6 +294,83 @@ async function assembleSpecA(request: WorkerRequest) {
     } catch (error) { await writer.abort().catch(() => undefined); throw error; }
     return result;
   } finally { scratch?.close(); await directory.removeEntry(name).catch(() => undefined); }
+}
+async function buildSpecAPackage(request: WorkerRequest) {
+  const file = request.file, donorFile = request.donor, output = request.handle;
+  if (!file || !donorFile || !output) throw new Error('Select stock and donor firmware and a new ZIP destination');
+  if (!navigator.storage?.getDirectory) throw new Error('Browser scratch storage is unavailable; use the desktop app.');
+  if (typeof FileReaderSync === 'undefined') throw new Error('Browser file access is unavailable; use the desktop app.');
+  const donor = await inspect(donorFile);
+  if (!donor.ffu || !donor.gpt) throw new Error('Donor must be a supported FFU');
+  const sync = new FileReaderSync();
+  const slice = (source: File, at: number, n: number) => {
+    safeNumber(at); safeNumber(n); safeNumber(at + n);
+    if (at < 0 || n > 65536 || at + n > source.size) throw new Error('Package source read exceeds bounded file slice');
+    return new Uint8Array(sync.readAsArrayBuffer(source.slice(at, at + n)));
+  };
+  const boot = wasm.spec_a_donor_boot(JSON.stringify(donor.ffu), JSON.stringify(donor.gpt), BigInt(donorFile.size), (at: number, n: number) => slice(donorFile, at, n));
+  const directory = await navigator.storage.getDirectory();
+  const builder = new wasm.BrowserSpecAPackage();
+  const names = [`wpi-package-esp-${crypto.randomUUID()}`, `wpi-package-zip-${crypto.randomUUID()}`];
+  const scratch: SyncFile[] = [];
+  try {
+    if (request.sbl3) {
+      if (request.sbl3.size > 4 * CHUNK) throw new Error('SBL3 exceeds 4 MiB');
+      builder.set_sbl3(await read(request.sbl3, 0, request.sbl3.size));
+    }
+    for (const loader of request.loaders ?? []) {
+      if (loader.size > 512 * 1024) throw new Error('Loader exceeds 512 KiB');
+      builder.add_loader(await read(loader, 0, loader.size));
+    }
+    const handles: FileSystemFileHandle[] = [];
+    for (const name of names) {
+      const handle = await directory.getFileHandle(name, { create: true }); handles.push(handle);
+      const create = (handle as FileSystemFileHandle & { createSyncAccessHandle?: () => Promise<SyncFile> }).createSyncAccessHandle;
+      if (!create) throw new Error('Browser scratch access is unavailable; use the desktop app.');
+      scratch.push(await create.call(handle));
+    }
+    const reader = (which: number) => (at: number, n: number) => {
+      if (n > 65536) throw new Error('Scratch read exceeds 64 KiB');
+      const bytes = new Uint8Array(n);
+      if (scratch[which].read(bytes, { at }) !== n) throw new Error('Scratch read truncated');
+      return bytes;
+    };
+    const writer = (which: number) => (at: number, bytes: Uint8Array) => {
+      if (bytes.length > 65536) throw new Error('Scratch write exceeds 64 KiB');
+      return scratch[which].write(bytes, { at });
+    };
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (cancelled) throw new Error('Operation cancelled');
+    let lastStage = '', lastProgress = 0;
+    const report = JSON.parse(builder.finish_json(BigInt(file.size), [(at: number, n: number) => slice(file, at, n), reader(0), writer(0), reader(1), writer(1)], boot,
+      (stage: string, done: number, total: number) => {
+        if (stage !== lastStage || done === total || performance.now() - lastProgress >= 100) {
+          reply({ id: request.id, kind: 'progress', stage, completed: done, total }); lastStage = stage; lastProgress = performance.now();
+        }
+        return !cancelled;
+      }));
+    for (const handle of scratch) { handle.flush(); handle.close(); }
+    scratch.length = 0;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (cancelled) throw new Error('Operation cancelled');
+    if ((await output.getFile()).size !== 0) throw new Error('Output already contains data; choose a new empty file.');
+    const zip = await handles[1].getFile(), destination = await output.createWritable();
+    try {
+      for (let at = 0; at < zip.size; at += CHUNK) {
+        if (cancelled) throw new Error('Operation cancelled');
+        await destination.write(await zip.slice(at, at + CHUNK).arrayBuffer());
+        reply({ id: request.id, kind: 'progress', stage: 'Save verified package', completed: Math.min(at + CHUNK, zip.size), total: zip.size });
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      if (cancelled) throw new Error('Operation cancelled');
+      await destination.close();
+    } catch (error) { await destination.abort().catch(() => undefined); throw error; }
+    return report;
+  } finally {
+    builder.free();
+    for (const handle of scratch) { try { handle.close(); } catch { /* Continue cleanup after failed storage I/O. */ } }
+    for (const name of names) await directory.removeEntry(name).catch(() => undefined);
+  }
 }
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;

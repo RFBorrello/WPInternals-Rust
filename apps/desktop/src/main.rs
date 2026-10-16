@@ -98,6 +98,98 @@ async fn inspect_file(path: String, state: State<'_, DesktopState>) -> Result<In
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn build_spec_a_package(
+    input: String,
+    donor: String,
+    sbl3: Option<String>,
+    loaders: Vec<String>,
+    output: String,
+    app: tauri::AppHandle,
+    state: State<'_, DesktopState>,
+) -> Result<wpi_image::spec_a::package::Report, String> {
+    let mut session = state
+        .coordinator
+        .reserve_local(Operation::InspectFirmware)
+        .map_err(|e| e.to_string())?;
+    *state
+        .cancellation
+        .lock()
+        .map_err(|_| "Operation state lock failed")? = Some(session.cancellation());
+    let registry = state.cancellation.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let paths: Vec<_> = loaders.into_iter().map(PathBuf::from).collect();
+        let mut last_stage = String::new();
+        let mut last_progress = std::time::Instant::now();
+        let result = artifacts::build_spec_a_package(
+            std::path::Path::new(&input),
+            std::path::Path::new(&donor),
+            sbl3.as_deref().map(std::path::Path::new),
+            &paths,
+            std::path::Path::new(&output),
+            |stage, done, total| {
+                if stage != last_stage
+                    || done == total
+                    || last_progress.elapsed().as_millis() >= 100
+                {
+                    emit(
+                        &app,
+                        &mut session,
+                        OperationState::Running,
+                        done,
+                        total,
+                        stage,
+                    );
+                    last_stage = stage.to_string();
+                    last_progress = std::time::Instant::now();
+                }
+                session.safe_boundary()
+            },
+        );
+        match &result {
+            Ok(report) => emit(
+                &app,
+                &mut session,
+                OperationState::Completed,
+                report.size,
+                report.size,
+                "Offline package saved; device writes remain blocked",
+            ),
+            Err(wpi_image::ImageError::Cancelled) => {
+                emit(
+                    &app,
+                    &mut session,
+                    OperationState::Cancelling,
+                    0,
+                    0,
+                    "Cancelling offline package",
+                );
+                emit(
+                    &app,
+                    &mut session,
+                    OperationState::Cancelled,
+                    0,
+                    0,
+                    "Package discarded",
+                );
+            }
+            Err(error) => emit(
+                &app,
+                &mut session,
+                OperationState::Failed,
+                0,
+                0,
+                &error.to_string(),
+            ),
+        }
+        if let Ok(mut current) = registry.lock() {
+            *current = None;
+        }
+        result.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn assemble_spec_a(
     input: String,
     donor: Option<String>,
@@ -405,6 +497,7 @@ fn main() {
             prepare_recovery,
             prepare_spec_a,
             assemble_spec_a,
+            build_spec_a_package,
             convert_gpt,
             extract_partition,
             cancel_operation,

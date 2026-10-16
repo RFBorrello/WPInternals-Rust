@@ -15,6 +15,17 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Build a NEW offline Spec A reference ZIP with originals, hashes and recovery metadata. No phone access.
+    PackageSpecA {
+        input: PathBuf,
+        output: PathBuf,
+        #[arg(long)]
+        donor: PathBuf,
+        #[arg(long)]
+        sbl3: Option<PathBuf>,
+        #[arg(long)]
+        loader: Vec<PathBuf>,
+    },
     /// Build a NEW offline UEFI or EFIESP intermediate image from local FFUs. No phone access.
     AssembleSpecA {
         input: PathBuf,
@@ -490,6 +501,23 @@ fn run() -> Result<(), Box<dyn Error>> {
             }
         }
         Command::Inspect { input } => print(artifacts::inspect_file(&input)?)?,
+        Command::PackageSpecA {
+            input,
+            output,
+            donor,
+            sbl3,
+            loader,
+        } => {
+            let report = artifacts::build_spec_a_package(
+                &input,
+                &donor,
+                sbl3.as_deref(),
+                &loader,
+                &output,
+                |_, _, _| true,
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        }
         Command::AssembleSpecA {
             input,
             component,

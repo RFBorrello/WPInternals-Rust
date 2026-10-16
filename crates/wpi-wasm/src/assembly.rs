@@ -9,6 +9,7 @@ struct FileIo<'a> {
     size: u64,
     position: u64,
     cache: VecDeque<(u64, Vec<u8>)>,
+    limit: u64,
 }
 impl Read for FileIo<'_> {
     fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
@@ -88,8 +89,8 @@ impl Write for FileIo<'_> {
             .write
             .ok_or_else(|| std::io::Error::other("source is read only"))?;
         let n = bytes.len().min(65536);
-        if self.position + n as u64 > 128 * 1024 * 1024 {
-            return Err(std::io::Error::other("output exceeds 128 MiB"));
+        if self.position + n as u64 > self.limit {
+            return Err(std::io::Error::other("output exceeds its bounded size"));
         }
         let data = js_sys::Uint8Array::from(&bytes[..n]);
         let written = callback
@@ -151,6 +152,7 @@ pub fn spec_a_donor_boot(
         size: total,
         position: 0,
         cache: VecDeque::new(),
+        limit: 128 * 1024 * 1024,
     };
     wpi_image::spec_a::efiesp::boot_from_ffu(&mut reader, &ffu, &gpt).map_err(js_error)
 }
@@ -171,6 +173,7 @@ pub fn assemble_efiesp_json(
         size,
         position: 0,
         cache: VecDeque::new(),
+        limit: 128 * 1024 * 1024,
     };
     let mut output = FileIo {
         read: output_read,
@@ -178,9 +181,129 @@ pub fn assemble_efiesp_json(
         size: 0,
         position: 0,
         cache: VecDeque::new(),
+        limit: 128 * 1024 * 1024,
     };
     json(
         &wpi_image::spec_a::efiesp::assemble(&mut source, &mut output, donor_boot, |_, _| true)
             .map_err(js_error)?,
     )
+}
+#[wasm_bindgen]
+pub struct BrowserSpecAPackage {
+    third: Option<Vec<u8>>,
+    loaders: Vec<Vec<u8>>,
+    consumed: bool,
+}
+#[wasm_bindgen]
+impl BrowserSpecAPackage {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            third: None,
+            loaders: Vec::new(),
+            consumed: false,
+        }
+    }
+    pub fn set_sbl3(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        if self.consumed || bytes.len() > wpi_image::spec_a::MAX_BOOT_IMAGE {
+            return Err(js_error("SBL3 import exceeds 4 MiB or session is finished"));
+        }
+        self.third = Some(bytes.to_vec());
+        Ok(())
+    }
+    pub fn add_loader(&mut self, bytes: &[u8]) -> Result<(), JsValue> {
+        if self.consumed
+            || bytes.len() > wpi_image::spec_a::MAX_LOADER_FILE
+            || self.loaders.len() >= 32
+        {
+            return Err(js_error("loader size/count/session limit exceeded"));
+        }
+        self.loaders.push(bytes.to_vec());
+        Ok(())
+    }
+    pub fn finish_json(
+        &mut self,
+        total: u64,
+        io: &js_sys::Array,
+        donor_boot: &[u8],
+        progress: &js_sys::Function,
+    ) -> Result<String, JsValue> {
+        if self.consumed || total > 16 * 1024 * 1024 * 1024 || io.length() != 5 {
+            return Err(js_error(
+                "invalid package source, callbacks or completed session",
+            ));
+        }
+        self.consumed = true;
+        let functions: Vec<js_sys::Function> = io
+            .iter()
+            .map(|v| {
+                v.dyn_into()
+                    .map_err(|_| js_error("package I/O requires five functions"))
+            })
+            .collect::<Result<_, _>>()?;
+        let mut source = FileIo {
+            read: &functions[0],
+            write: None,
+            size: total,
+            position: 0,
+            cache: VecDeque::new(),
+            limit: 0,
+        };
+        let mut scratch = FileIo {
+            read: &functions[1],
+            write: Some(&functions[2]),
+            size: 0,
+            position: 0,
+            cache: VecDeque::new(),
+            limit: 128 * 1024 * 1024,
+        };
+        let mut output = FileIo {
+            read: &functions[3],
+            write: Some(&functions[4]),
+            size: 0,
+            position: 0,
+            cache: VecDeque::new(),
+            limit: 512 * 1024 * 1024,
+        };
+        let third = self.third.as_ref().map(|bytes| wpi_image::spec_a::Import {
+            name: "SBL3",
+            bytes,
+        });
+        let loaders: Vec<_> = self
+            .loaders
+            .iter()
+            .map(|bytes| wpi_image::spec_a::Import {
+                name: "loader",
+                bytes,
+            })
+            .collect();
+        json(
+            &wpi_image::spec_a::package::build(
+                &mut source,
+                third,
+                &loaders,
+                donor_boot,
+                &mut scratch,
+                &mut output,
+                |stage, done, total| {
+                    progress
+                        .call3(
+                            &JsValue::NULL,
+                            &JsValue::from_str(stage),
+                            &JsValue::from_f64(done as f64),
+                            &JsValue::from_f64(total as f64),
+                        )
+                        .ok()
+                        .and_then(|v| v.as_bool())
+                        == Some(true)
+                },
+            )
+            .map_err(js_error)?,
+        )
+    }
+}
+impl Default for BrowserSpecAPackage {
+    fn default() -> Self {
+        Self::new()
+    }
 }

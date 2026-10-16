@@ -66,9 +66,11 @@ jobs:
             docs/native-backup.md
             docs/spec-a-preparation.md
             docs/spec-a-assembly.md
+            docs/spec-a-package.md
             tests/fixtures/rm875-spec-a-validation.json
             tests/fixtures/rm875-offline-checks-validation.json
             tests/fixtures/rm875-assembly-validation.json
+            tests/fixtures/rm875-package-validation.json
             docs/rm875-firmware-search.md
             tests/hardware/windows-arm64-storage-discovery.json
             resources/licenses/*

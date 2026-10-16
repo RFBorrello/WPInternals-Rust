@@ -14,6 +14,10 @@ and retains its original copyright and license text. Derived Rust modules name
 the upstream reference in their module documentation.
 
 This project is an independent implementation and is not an official upstream release.
+Offline package generation additionally ports `SBL1.GenerateExtraSector`,
+`SBL2.Patch`, `SBL3.Patch`, `GPT.InsertHack`/`RestoreBackupPartitions` and the
+Spec A preparation sequence from the same pinned release. Marker GUIDs are
+deterministic for reproducibility; their generation is an independent choice.
 
 # Dependency licenses
 

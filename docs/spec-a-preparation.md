@@ -108,7 +108,8 @@ are compared in `tests/fixtures/rm875-offline-checks-validation.json`.
 
 ## Remaining work before a live unlock
 
-SBL1 payload generation, GPT changes and an unlock executor remain unimplemented.
+SBL1 payload generation and GPT changes are implemented in the separate
+[offline package builder](spec-a-package.md). An unlock executor remains unimplemented.
 UEFI reconstruction, EFIESP donor replacement and BCD editing now have a separate
 offline assembly path with image-level validation. These results do not validate
 phone workflows. FFU integrity, OEM trust and firmware applicability require the

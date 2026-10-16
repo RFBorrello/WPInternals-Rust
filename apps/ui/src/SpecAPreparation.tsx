@@ -10,10 +10,19 @@ export function SpecAPreparation({ artifact, disabled, task }: { artifact: Impor
   const [donor, setDonor] = useState<SpecAImport | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [assembly, setAssembly] = useState<{ component: string; report: import('./types').AssemblyReport } | null>(null);
+  const [packageReport, setPackageReport] = useState<import('./types').PackageReport | null>(null);
+  const [packageProgress, setPackageProgress] = useState<string | null>(null);
+  const [packageCancelling, setPackageCancelling] = useState(false);
   const sblPicker = useRef<HTMLInputElement>(null);
   const loaderPicker = useRef<HTMLInputElement>(null);
   const donorPicker = useRef<HTMLInputElement>(null);
-  useEffect(() => { setReport(null); setAssembly(null); }, [artifact, sbl3, loaders, donor]);
+  useEffect(() => { setReport(null); setAssembly(null); setPackageReport(null); }, [artifact, sbl3, loaders, donor]);
+  async function buildPackage() {
+    if (!donor) return;
+    setPackageReport(null); setPackageCancelling(false); setPackageProgress('Preparing offline package');
+    try { setPackageReport(await backend.buildSpecAPackage(artifact, donor, sbl3, loaders, (done, total, stage) => setPackageProgress(`${stage ?? 'Build package'}${total ? ` · ${bytes(done)} / ${bytes(total)}` : ''}`))); }
+    finally { setPackageProgress(null); setPackageCancelling(false); }
+  }
   async function assemble(component: 'uefi' | 'efiesp') {
     setAssembly(null);
     const result = await backend.assembleSpecA(artifact, donor, component);
@@ -45,7 +54,16 @@ export function SpecAPreparation({ artifact, disabled, task }: { artifact: Impor
     <div className="mode-actions">
       <button className="secondary-button compact" disabled={disabled} onClick={() => void task('Rebuilding local UEFI copy', () => assemble('uefi'))}>Save rebuilt UEFI copy</button>
       <button className="secondary-button compact" disabled={disabled || !donor} onClick={() => void task('Assembling local EFIESP copy', () => assemble('efiesp'))}>Save assembled EFIESP copy</button>
+      <button className="primary-button compact" disabled={disabled || !donor} onClick={() => void task('Building offline Spec A package', buildPackage)}>Build offline package</button>
     </div>
+    <p>The package includes SBL1 payload generation, SBL2/SBL3 patches, GPT changes, rebuilt UEFI and assembled EFIESP. Originals and restore coordinates come from the stock FFU; they are not a backup of the installed phone. The package cannot authorize device writes.</p>
+    {packageProgress && <div className="package-progress" role="status"><p>{packageCancelling ? 'Cancellation requested; waiting for the current processing batch.' : `${packageProgress}. Cancellation is checked before the ZIP is saved.`}</p><button className="secondary-button compact" disabled={packageCancelling} onClick={() => { setPackageCancelling(true); backend.cancel(); }}>Cancel package</button></div>}
+    {packageReport && <div className="package-result" role="status">
+      <p>Offline package saved and integrity checked. {bytes(packageReport.size)} · {packageReport.manifest.files.length} hashed files plus manifest.</p>
+      <p>Package SHA-256: <code>{packageReport.resulting_sha256}</code></p>
+      <p>Phone writes remain blocked:</p><ul>{packageReport.manifest.execution_blockers.map(value => <li key={value}>{value}</li>)}</ul>
+      <button className="secondary-button compact" onClick={() => backend.download(new Blob([JSON.stringify(packageReport, null, 2)], { type: 'application/json' }), 'spec-a-package-report.json')}>Export package report</button>
+    </div>}
     {assembly && <div className="info-note" role="status">
       <p>{assembly.component} offline copy saved and verified. Source files preserved; no phone commands sent.</p>
       <p>{bytes(assembly.report.size)} · SHA-256: <code>{assembly.report.resulting_sha256}</code></p>

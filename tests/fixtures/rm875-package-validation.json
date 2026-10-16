@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-15",
+  "host": "Windows ARM64",
+  "browser": "Microsoft Edge, headless local validation",
+  "scope": "Offline source-derived reference package only; no phone discovery, commands, mode changes or writes",
+  "observed_phone_context": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "previously_probed_firmware": "3051.50009.1451.1003",
+    "user_reported_os": "8.10.14226.359",
+    "extras_info_label": "Cyan",
+    "interpretation": "Version pair is consistent with Denim-era Windows Phone 8.1 Update 1; display label alone is not used for compatibility",
+    "fresh_probe_performed": false
+  },
+  "source_ffu_firmware": "3051.50009.1424.0002",
+  "source_ffu_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+  "source_chunk_integrity": "passed",
+  "package_size": 151966175,
+  "package_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+  "manifest_sha256": "76edc2692a157e76ecfc976c782ba0fb3ce3d58dad77bc7893ec20d35f980d5b",
+  "source_fingerprint_is_oem_trust": false,
+  "originals_are_installed_backup": false,
+  "backup_gpt_captured": false,
+  "native_browser_reference_comparison": "matches",
+  "independent_reference": {
+    "comparison": "matches",
+    "size": 151966175,
+    "sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+    "manifest_sha256": "76edc2692a157e76ecfc976c782ba0fb3ce3d58dad77bc7893ec20d35f980d5b",
+    "files": 28,
+    "sbl1_payload_sha256": "d40afa393993430e357ca8c510aa01107ca915612331a4180571277acf973b2a",
+    "prepared_gpt_sha256": "e12a3dd77b17618305dd964ec051829e2c7b3cf2c9f4e6ec2adad9aaa09ced44",
+    "uefi": {
+      "resulting_sha256": "1803d3350ca37c24d6a1e249322f6e47c6cc132dddee566ef993ee4e604224e5",
+      "decompressed_sha256": "df884fe2d963ed16dd5247c1f465bdeaed4bb9b3d29f26907dd407e0b9a9f60f",
+      "patched_executables": 2,
+      "other_files_preserved": true
+    },
+    "efiesp": {
+      "resulting_sha256": "3345b43585fe98939e0b229ade8d19730673570d063e0d0a669db64ca65ad8c1",
+      "boot_sha256": "6e175479c2484d7c88800540d8b62d3031e2b1ce77d6c1de61f68d10bce0bff5",
+      "bcd_sha256": "618d30f3f2d28300287420f2c0409a364231f291a47421996b6ba5a832290318",
+      "other_files_preserved": true,
+      "other_bcd_entries_preserved": true
+    },
+    "phone_writes_enabled": false,
+    "originals_are_installed_backup": false,
+    "backup_gpt_captured": false
+  },
+  "browser_io": {
+    "max_sync_slice": 65536,
+    "max_async_slice": 1310720,
+    "sync_calls": 53204,
+    "sync_bytes": 3486513447
+  },
+  "browser_elapsed_ms": 94403,
+  "browser_published_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+  "browser_scratch_residue": false,
+  "prepared_files": [
+    {
+      "path": "prepared/GPT-primary.bin",
+      "size": 17408,
+      "sha256": "e12a3dd77b17618305dd964ec051829e2c7b3cf2c9f4e6ec2adad9aaa09ced44"
+    },
+    {
+      "path": "prepared/SBL1.img",
+      "size": 1535488,
+      "sha256": "b2bcf28048d394e7def84ed8cc0066b11404a8f56cfa5c82ea776a4c2997dc8b"
+    },
+    {
+      "path": "prepared/HACK.img",
+      "size": 512,
+      "sha256": "d40afa393993430e357ca8c510aa01107ca915612331a4180571277acf973b2a"
+    },
+    {
+      "path": "prepared/SBL2.img",
+      "size": 1536000,
+      "sha256": "e8e14b9b41bb24f04f0135df1e3776895fd30c22d4b42a3b939e0adf7dadb511"
+    },
+    {
+      "path": "prepared/SBL3.img",
+      "size": 332700,
+      "sha256": "ed15871b6a6cd8038930a50e8a3210ea562a346697a7de3cf504b52642461ff3"
+    },
+    {
+      "path": "prepared/UEFI.img",
+      "size": 2560000,
+      "sha256": "1803d3350ca37c24d6a1e249322f6e47c6cc132dddee566ef993ee4e604224e5"
+    },
+    {
+      "path": "prepared/TZ.img",
+      "size": 512000,
+      "sha256": "c0a840ce117134e13a54ecd54d062266be3091c690d93cdf250e292a5a0bcad7"
+    },
+    {
+      "path": "prepared/RPM.img",
+      "size": 512000,
+      "sha256": "db96eaf5e39f03061bee44f4e5714c4629a9e1306628d086a7333cced6108c5d"
+    },
+    {
+      "path": "prepared/WINSECAPP.img",
+      "size": 524288,
+      "sha256": "a9ae755df45fa5a8144ab6d82fbd26c444a5f2643892975b3ec1136b9b361fb7"
+    },
+    {
+      "path": "prepared/EFIESP.img",
+      "size": 67108864,
+      "sha256": "3345b43585fe98939e0b229ade8d19730673570d063e0d0a669db64ca65ad8c1"
+    }
+  ],
+  "execution_blockers": [
+    "Reference coordinates come from the FFU, not a fresh live GPT; backup GPT is not captured.",
+    "Installed originals, device RRKH/security state, applicability and recovery are unvalidated.",
+    "Boot signatures are invalidated by patches; imported loader/SBL3 engineering status and donor suitability are unverified.",
+    "No native or browser unlock executor is implemented; this manifest is not a flash plan."
+  ],
+  "phone_writes_enabled": false,
+  "proprietary_binaries_redistributed": false,
+  "browser_cancellation": {
+    "cancel_requested_during": "Verify stock FFU chunks",
+    "observed_boundary": "After synchronous construction, before destination publication",
+    "output_size": 0,
+    "scratch_residue": false,
+    "phone_commands": 0,
+    "elapsed_ms": 166829
+  },
+  "optimized_native_release_matches": true
+}

@@ -91,12 +91,18 @@ test('desktop boot preparation uses native IPC and selected paths', async ({ pag
   await page.addInitScript(() => {
     const capabilities = { device_id: null, host: 'windows', transport: 'usb', capabilities: [] };
     let dialogs = 0;
-    Object.defineProperty(window, '__TAURI_INTERNALS__', { value: { invoke: async (command: string, args: Record<string, unknown>) => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', { value: { transformCallback: () => 1, unregisterCallback: () => {}, invoke: async (command: string, args: Record<string, unknown>) => {
       if (command === 'startup') return { models: [], capabilities };
       if (command === 'capabilities') return capabilities;
       if (command === 'plugin:dialog|open') return ['C:/local/stock.ffu', 'C:/local/engineering.bin', ['C:/local/programmer.hex'], 'C:/local/donor.ffu'][dialogs++];
       if (command === 'inspect_file') return { format: 'FFU', size: 512, ffu: { platform_id: 'SYNTHETIC', chunk_size: 4096 }, gpt: null, filesystem: null, notes: [] };
       if (command === 'plugin:dialog|save') return 'C:/local/new-output.img';
+      if (command === 'plugin:event|listen') return 1;
+      if (command === 'plugin:event|unlisten') return;
+      if (command === 'build_spec_a_package') {
+        if (JSON.stringify(args) !== JSON.stringify({ input: 'C:/local/stock.ffu', donor: 'C:/local/donor.ffu', sbl3: 'C:/local/engineering.bin', loaders: ['C:/local/programmer.hex'], output: 'C:/local/new-output.img' })) throw new Error('Wrong native package imports');
+        return { size: 1000, resulting_sha256: 'native-package', manifest_sha256: 'manifest', integrity_verified: true, phone_writes_enabled: false, manifest: { kind: 'wpi-spec-a-offline-reference', files: [], originals_are_installed_backup: false, backup_gpt_captured: false, phone_writes_enabled: false, execution_blockers: ['Native package IPC received selected imports.'] } };
+      }
       if (command === 'assemble_spec_a') {
         if (args.input !== 'C:/local/stock.ffu' || args.donor !== 'C:/local/donor.ffu' || args.output !== 'C:/local/new-output.img' || !['uefi','efiesp'].includes(String(args.component))) throw new Error('Wrong native assembly paths');
         return { original_sha256: 'original', resulting_sha256: `native-${args.component}`, size: 1024, preserved_other_files: true, phone_writes_enabled: false };
@@ -122,4 +128,6 @@ test('desktop boot preparation uses native IPC and selected paths', async ({ pag
   await expect(card.getByRole('status')).toContainText('native-uefi');
   await card.getByRole('button', { name: 'Save assembled EFIESP copy' }).click();
   await expect(card.getByRole('status')).toContainText('native-efiesp');
+  await card.getByRole('button', { name: 'Build offline package' }).click();
+  await expect(card.getByRole('status').filter({ hasText: 'Offline package saved' })).toContainText('native-package');
 });

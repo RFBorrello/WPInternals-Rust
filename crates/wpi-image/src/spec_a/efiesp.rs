@@ -294,7 +294,11 @@ pub fn assemble<R: Read + Seek, W: Read + Write + Seek, F: FnMut(u64, u64) -> bo
         &PatchCatalog::bundled()?,
     )
 }
-fn assemble_with_catalog<R: Read + Seek, W: Read + Write + Seek, F: FnMut(u64, u64) -> bool>(
+pub(super) fn assemble_with_catalog<
+    R: Read + Seek,
+    W: Read + Write + Seek,
+    F: FnMut(u64, u64) -> bool,
+>(
     source: &mut R,
     destination: &mut W,
     donor_boot: &[u8],

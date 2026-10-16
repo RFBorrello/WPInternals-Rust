@@ -4,20 +4,21 @@ Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
 headless Microsoft Edge. Native storage milestone `ed3e008` passed GitHub CI on all
 four native host targets and Chromium ([run `38675937109`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38675937109)).
 Those remote build results do not establish device support.
-The latest local milestone adds offline UEFI rebuilding and EFIESP donor/BCD
-assembly into new local image copies, with independent output comparisons.
+The latest local milestone adds complete source-derived Spec A reference ZIPs,
+including the SBL1 extra sector, boot patches, primary GPT changes and restore
+metadata. Native/browser outputs agree with independent reference calculations.
 Native identification was previously repeated on October 15. No phone commands
 were sent during this extension; SBL3 and donor candidates were inspected offline.
 Remote CI for this new source is pending.
 
 | Check | Result |
 | --- | --- |
-| Rust tests | 165 passed on Windows: 108 integration tests, 37 native transport/harness unit tests, 18 image/parser/cache unit tests and two Windows metadata-decoder unit tests |
+| Rust tests | 180 passed on Windows: 110 integration tests, 37 native transport/harness unit tests, 31 image/parser/cache/archive unit tests and two Windows metadata-decoder unit tests |
 | Rust Clippy, all workspace targets and WASM adapter, warnings denied | Passed |
 | WebAssembly target check and release build | Passed |
 | React/TypeScript production build | Passed |
 | Frontend range/format unit tests | 3 passed |
-| Real-WASM browser / mocked desktop IPC integration tests | 50 passed |
+| Real-WASM browser / mocked desktop IPC integration tests | 54 passed |
 | Tauri native Windows ARM64 release build with embedded UI | Passed |
 | npm dependency audit after lockfile update | No reported vulnerabilities |
 | USB discovery | Lumia 1020 RM-875 detected in normal mode, USB 0421:0661 |
@@ -441,3 +442,40 @@ tests cover real UEFI export, refusal of nonempty destinations, failed EFIESP
 cleanup and native fallback; desktop IPC tests also cover both assembly paths.
 The two real images are intermediate artifacts only: no complete unlock package,
 SBL1 payload, GPT modification, phone executor or hardware write validation.
+
+## Offline Spec A reference package — October 15
+
+The real RM-875 source and previously imported SBL3, two V1 programmers and donor
+produced a 151,966,175-byte ZIP with 27 hashed members plus its manifest. Native
+Rust, actual browser-published bytes and independent Python agree on SHA-256
+`2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58`.
+The checker independently reconstructs primary GPT normalization/hack/marker
+bytes, the 512-byte SBL1 sector, SBL2/SBL3 instruction patches, original FFU
+partition bytes and restore coordinates, then runs the prior UEFI/FAT/REGF checks.
+ZIP CRCs and every member hash are independently checked.
+
+The actual browser run used 53,204 bounded synchronous reads (maximum 64 KiB)
+and took about 94 seconds, including full stock integrity/fingerprint checks and
+publication. Queued browser cancellation was separately tested during stock
+verification: construction finished its synchronous batch, then the destination
+remained empty, both scratch files were removed and no report was published.
+No phone discovery, query, mode change, programmer upload or partition write
+was sent. Metadata is in
+[the package record](../tests/fixtures/rm875-package-validation.json).
+
+Fifteen additional Rust tests cover the complete package, deterministic GUIDs/ZIPs,
+exact GPT restoration and backup-bound swaps, capacity/overlap/duplicate/range
+failures, model-specific payload fields, expected boot instructions, repeated
+patch refusal, invalid chunks/donors, all construction interruption stages, final
+chunk cancellation, partial writes, corrupt/truncated ZIP metadata and member
+data, and atomic cleanup/no-overwrite. Four additional real-WASM/browser tests
+cover failures/cleanup, empty-output protection, fallback and single-use session
+cancellation. Desktop IPC tests also carry all package imports.
+
+The user's OS reading `8.10.14226.359`, with previously probed firmware
+`3051.50009.1451.1003`, is consistent with the 1020 Denim release despite the
+Extras + Info Cyan label. It is user-reported context, not a fresh hardware
+observation or compatibility grant. Source FFU originals remain distinct from
+installed backups; backup GPT is not captured. Hardware preflight, recovery
+validation and a reviewed executor remain outstanding. These private firmware
+packages are excluded from public source and application development bundles.

@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 crc32fast.workspace = true
@@ -30,4 +31,3 @@ getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 tempfile = "3"
-serde_json.workspace = true

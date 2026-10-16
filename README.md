@@ -80,8 +80,10 @@ previews unique SBL2/SBL3 patch locations. It also checks SBL1 prerequisites,
 compressed UEFI targets, and stock/optional-donor EFIESP patch applicability.
 Separate [offline image assembly](docs/spec-a-assembly.md) can now export new
 unsigned UEFI and donor-patched EFIESP copies, with narrow BCD editing and
-verification of unchanged files. These are intermediate images, not a complete
-unlock package; phone writes remain blocked.
+verification of unchanged files. The [offline package builder](docs/spec-a-package.md)
+adds the SBL1 extra sector, SBL2/SBL3 patches, GPT changes, source originals and
+a hashed restore manifest in one ZIP. It is a source-based reference package;
+phone preflight, recovery validation and an unlock executor remain outstanding.
 
 ## Quick start
 

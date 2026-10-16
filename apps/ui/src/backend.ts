@@ -8,13 +8,13 @@ export async function storageDiscovery(): Promise<import('./types').StorageDisco
 }
 let sequence = 0;
 let worker: Worker | undefined;
-const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; progress?: (done: number, total: number) => void }>();
+const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; progress?: (done: number, total: number, stage?: string) => void }>();
 function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(new URL('./firmware.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (event: MessageEvent<WorkerReply>) => {
       const response = event.data; const task = pending.get(response.id); if (!task) return;
-      if (response.kind === 'progress') { task.progress?.(response.completed ?? 0, response.total ?? 0); return; }
+      if (response.kind === 'progress') { task.progress?.(response.completed ?? 0, response.total ?? 0, response.stage); return; }
       pending.delete(response.id);
       if (response.kind === 'error') task.reject(new Error(response.error)); else task.resolve(response.result);
     };
@@ -22,7 +22,7 @@ function getWorker(): Worker {
   }
   return worker;
 }
-function request<T>(task: Omit<WorkerRequest, 'id'>, progress?: (done: number, total: number) => void): Promise<T> {
+function request<T>(task: Omit<WorkerRequest, 'id'>, progress?: (done: number, total: number, stage?: string) => void): Promise<T> {
   return new Promise((resolve, reject) => { const id = ++sequence; pending.set(id, { resolve: value => resolve(value as T), reject, progress }); getWorker().postMessage({ ...task, id }); });
 }
 async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> { const api = await import('@tauri-apps/api/core'); return api.invoke<T>(command, args); }
@@ -63,6 +63,22 @@ export async function assembleSpecA(artifact: ImportedArtifact, donor: import('.
   const handle = await window.showSaveFilePicker({ suggestedName: name });
   if ((await handle.getFile()).size !== 0) throw new Error('Output already contains data. Choose a new empty output file; original files are preserved.');
   return request({ action: 'spec_a_assemble', file: artifact.file, donor: donor?.file, component, handle });
+}
+export async function buildSpecAPackage(artifact: ImportedArtifact, donor: import('./types').SpecAImport, third: import('./types').SpecAImport | null,
+  loaders: import('./types').SpecAImport[], progress: (done: number, total: number, stage?: string) => void): Promise<import('./types').PackageReport | null> {
+  if (desktop && artifact.path && donor.path) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const output = await save({ defaultPath: 'Spec-A-offline-package.zip' }); if (!output) return null;
+    const { listen } = await import('@tauri-apps/api/event');
+    const unlisten = await listen<{ completed_bytes: number; total_bytes: number; message: string }>('operation-progress', event => progress(event.payload.completed_bytes, event.payload.total_bytes, event.payload.message));
+    try { return await invoke('build_spec_a_package', { input: artifact.path, donor: donor.path, sbl3: third?.path ?? null, loaders: loaders.map(v => v.path), output }); }
+    finally { unlisten(); }
+  }
+  if (!artifact.file || !donor.file) throw new Error('Select local stock and donor FFUs');
+  if (!window.showSaveFilePicker) throw new Error('Offline packages require Chrome/Edge’s file picker and scratch storage, or the desktop app.');
+  const handle = await window.showSaveFilePicker({ suggestedName: 'Spec-A-offline-package.zip' });
+  if ((await handle.getFile()).size !== 0) throw new Error('Choose a new empty package file; originals are preserved.');
+  return request({ action: 'spec_a_assemble', component: 'package', file: artifact.file, donor: donor.file, sbl3: third?.file, loaders: loaders.flatMap(v => v.file ? [v.file] : []), handle }, progress);
 }
 export async function prepareRecovery(artifact: ImportedArtifact, device: DeviceIdentity | null, progress: (done: number, total: number) => void): Promise<RecoveryPreparation> {
   if (desktop && artifact.path) {

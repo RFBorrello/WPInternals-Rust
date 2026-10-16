@@ -1,15 +1,18 @@
-//! Read-only Spec A preparation, derived from WPInternals 2.9.2
+//! Offline Spec A preparation and reference packaging, derived from WPInternals 2.9.2
 //! (d8fd0aa516b16dc094df0422a3adc525af005c29), QualcommPartition, SBL2,
 //! SBL3 and QualcommLoader. Copyright (c) 2018 Rene Lergner, MIT;
-//! see resources/upstream/LICENSE. No payload generation or device commands.
+//! see resources/upstream/LICENSE. No device commands or unlock executor.
 use crate::{ffu::FfuMetadata, gpt::Gpt, invalid, slice, u32le, ImageError, Result};
 use der::Decode;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Seek};
 use x509_cert::Certificate;
+mod archive;
 pub mod bcd;
 pub mod efiesp;
+pub mod layout;
+pub mod package;
 pub mod sbl1;
 pub mod uefi;
 
@@ -17,6 +20,22 @@ pub const MAX_BOOT_IMAGE: usize = 4 * 1024 * 1024;
 pub const MAX_LOADER_FILE: usize = 512 * 1024;
 pub const MAX_LOADERS: usize = 32;
 pub const UPSTREAM: &str = "d8fd0aa516b16dc094df0422a3adc525af005c29";
+/// Apply exactly the unique previewed SBL2/SBL3 instruction on a local copy.
+pub fn patch_boot(bytes: &[u8], sbl2: bool) -> Result<Vec<u8>> {
+    let image = parse(bytes, 0)?;
+    let preview = patch_preview(bytes, &image, sbl2)?;
+    let at = preview
+        .offset
+        .filter(|_| preview.match_count == 1)
+        .ok_or_else(|| invalid("boot patch requires a unique original instruction"))?;
+    if !at.is_multiple_of(4) || slice(bytes, at, 4)? != [0x28, 0, 0xd0, 0xe5] {
+        return Err(invalid("boot patch expected bytes/alignment mismatch"));
+    }
+    let mut patched = bytes.to_vec();
+    patched[at..at + 4].copy_from_slice(&[0, 0, 0xa0, 0xe3]);
+    // Signatures are intentionally unchanged per upstream; report them invalidated.
+    Ok(patched)
+}
 fn hash(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
@@ -435,7 +454,7 @@ pub fn prepare<R: Read + Seek>(
         "FFU chunk integrity, OEM authenticity and firmware applicability require the separate Recovery preparation checks.".into(),
         "Phone RRKH and Flash security/application state have not been read in this offline check.".into(),
         "Live GPT, recoverable installed originals, and interruption recovery are not validated.".into(),
-        "This check exports no images. Offline UEFI/EFIESP assembly is separate; SBL1 payload generation and a complete unlock package remain unimplemented.".into(),
+        "This check exports no images. Offline reference packaging is separate; live preflight, a validated recovery path and an unlock executor remain outstanding.".into(),
         "Certificate fingerprints and code patterns do not establish signature trust, engineering status, hardware compatibility or mass-storage support.".into(),
         "Spec A unlock executor and hardware validation are incomplete; this report never authorizes phone writes.".into(),
     ];

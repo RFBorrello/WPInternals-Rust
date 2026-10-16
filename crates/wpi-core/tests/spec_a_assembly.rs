@@ -51,3 +51,37 @@ fn cancellation_before_publication_removes_the_new_temporary_image() {
     assert!(!output.exists());
     assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
 }
+#[test]
+fn package_cancellation_and_bad_donor_leave_no_published_zip_or_temporary_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("stock.ffu");
+    fs::write(
+        &source,
+        include_bytes!("../../../tests/fixtures/synthetic-spec-a-package.ffu"),
+    )
+    .unwrap();
+    let output = dir.path().join("package.zip");
+    let result =
+        artifacts::build_spec_a_package(&source, &source, None, &[], &output, |stage, done, _| {
+            stage != "Fingerprint stock FFU" || done == 0
+        });
+    assert!(matches!(result, Err(wpi_image::ImageError::Cancelled)));
+    assert!(!output.exists());
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    let result =
+        artifacts::build_spec_a_package(&source, &source, None, &[], &output, |_, _, _| true);
+    assert!(result.is_err());
+    assert!(!output.exists());
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+}
+#[test]
+fn package_refuses_existing_destination_and_preserves_source() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("stock.ffu");
+    let bytes = include_bytes!("../../../tests/fixtures/synthetic-spec-a-package.ffu");
+    fs::write(&source, bytes).unwrap();
+    let result =
+        artifacts::build_spec_a_package(&source, &source, None, &[], &source, |_, _, _| true);
+    assert!(result.is_err());
+    assert_eq!(fs::read(&source).unwrap(), bytes);
+}

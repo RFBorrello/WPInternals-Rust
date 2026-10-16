@@ -62,9 +62,10 @@ compression or filesystem validation finishes its bounded batch first.
 These transforms do not reverify the complete FFU or establish OEM trust,
 firmware applicability, engineering-loader provenance or cross-version donor
 compatibility. The current stock RM-875 image is older than installed firmware.
-SBL1 payload generation, GPT changes, a complete unlock package and an executor
-remain outstanding, along with preservation of installed originals and hardware
-validation. No live capability is enabled by successful local assembly.
+The separate [offline package builder](spec-a-package.md) now adds SBL1 payload
+generation, SBL2/SBL3 patches and GPT changes, preserving source originals in a
+reference ZIP. An executor, installed originals, recovery and hardware validation
+remain outstanding. No live capability is enabled by successful local assembly.
 
 Synthetic tests cover reconstruction, unchanged files, malformed cells, cycles,
 allocation exhaustion, idempotence, cancellation and atomic output preservation.

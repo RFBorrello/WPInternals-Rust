@@ -182,6 +182,77 @@ pub fn assemble_spec_a(
 ) -> Result<serde_json::Value> {
     assemble_spec_a_with_progress(input, donor, component, output, |_, _| true)
 }
+pub fn build_spec_a_package<F: FnMut(&str, u64, u64) -> bool>(
+    input: &Path,
+    donor: &Path,
+    sbl3: Option<&Path>,
+    loaders: &[std::path::PathBuf],
+    output: &Path,
+    progress: F,
+) -> Result<wpi_image::spec_a::package::Report> {
+    use wpi_image::{ffu::FfuMetadata, spec_a};
+    if loaders.len() > spec_a::MAX_LOADERS {
+        return Err(ImageError::Invalid("at most 32 loaders".into()));
+    }
+    fn import(path: &Path, limit: usize) -> Result<(String, Vec<u8>)> {
+        let mut bytes = Vec::new();
+        open_artifact(path)?
+            .take(limit as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > limit {
+            return Err(ImageError::Invalid(
+                "local import exceeds its bounded size".into(),
+            ));
+        }
+        Ok((
+            path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
+            bytes,
+        ))
+    }
+    let third = sbl3
+        .map(|p| import(p, spec_a::MAX_BOOT_IMAGE))
+        .transpose()?;
+    let programmers: Vec<_> = loaders
+        .iter()
+        .map(|p| import(p, spec_a::MAX_LOADER_FILE))
+        .collect::<Result<_>>()?;
+    let programmers: Vec<_> = programmers
+        .iter()
+        .map(|(name, bytes)| spec_a::Import { name, bytes })
+        .collect();
+    let mut donor = open_artifact(donor)?;
+    let df = FfuMetadata::open(&mut donor)?;
+    let dg = df.gpt(&mut donor)?;
+    let boot = spec_a::efiesp::boot_from_ffu(&mut donor, &df, &dg)?;
+    let mut source = open_artifact(input)?;
+    let before = source.metadata()?;
+    let mut scratch = tempfile::tempfile()?;
+    let mut report = None;
+    write_new(output, |destination| {
+        report = Some(spec_a::package::build(
+            &mut source,
+            third
+                .as_ref()
+                .map(|(name, bytes)| spec_a::Import { name, bytes }),
+            &programmers,
+            &boot,
+            &mut scratch,
+            destination,
+            progress,
+        )?);
+        let after = source.metadata()?;
+        if before.len() != after.len() || before.modified()? != after.modified()? {
+            return Err(ImageError::Invalid(
+                "source FFU changed during package construction".into(),
+            ));
+        }
+        Ok(())
+    })?;
+    Ok(report.unwrap())
+}
 pub fn assemble_spec_a_with_progress<F: FnMut(u64, u64) -> bool>(
     input: &Path,
     donor: Option<&Path>,
