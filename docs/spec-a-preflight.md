@@ -7,6 +7,9 @@ and consistent checked security fields on one RM-875 / firmware
 stopped on a parser rejection and did not complete automatically. See the
 [hardware record](../tests/hardware/lumia-1020-rm875-flash-preflight.json).
 Browser/desktop UI controls and live write capabilities are not enabled.
+A subsequent [GPT-read cycle](boot-gpt-capture.md) completed its fresh preflight
+and automatic Normal return on this same profile. This does not validate unlock
+or recovery execution.
 
 Preview the bounded source reference without accessing USB:
 

@@ -87,8 +87,9 @@ the [read-only preflight](docs/spec-a-preflight.md) CLI can now compare FlashApp
 RRKH/security evidence and conditionally inspect its primary GPT without changing
 contexts. One native RM-875 Flash session matched the source root fingerprint
 and checked security fields. The first integrated mode cycle stopped on a parser
-assumption and required a manual restart; the complete hardware workflow,
-recovery validation and an unlock executor remain outstanding.
+assumption and required a manual restart; a subsequent GPT-read cycle completed
+automatically with unchanged firmware. Recovery validation, installed partition
+backups and an unlock executor remain outstanding.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.

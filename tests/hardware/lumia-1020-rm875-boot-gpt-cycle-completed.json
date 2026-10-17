@@ -1,0 +1,314 @@
+{
+  "schema": 1,
+  "record_kind": "native_primary_gpt_cycle_completed",
+  "date": "2026-10-16",
+  "host": "windows_arm64",
+  "source_commit": "e2beca780cca6fb6755bfe4bf223ca8c5893d19a",
+  "binary_sha256": "2d8c49d1e935ea9ef0653ea837c73424281b3bf9eb8f1a7c24517bdc80555060",
+  "journal_sha256": "85f748e887add357043996847cf42c5e30f5beba56de016b2181d13e7c57c8ad",
+  "variant": "RM-875",
+  "firmware_before_after": "3051.50009.1451.1003",
+  "approval_scope": "One new primary-GPT read cycle",
+  "mode_commands_attempted": 2,
+  "mode_commands_retried": false,
+  "context_switch_sent": false,
+  "boot_timer_hold_sent": false,
+  "programmer_uploaded": false,
+  "firmware_or_partition_writes_sent": false,
+  "manual_restart_required": false,
+  "normal_before_flash_after_public_ids_matched": true,
+  "physical_port_correlated": true,
+  "identity_authenticated": false,
+  "preflight_completed": true,
+  "root_fingerprint_matched": true,
+  "checked_security_fields_agreed": true,
+  "primary_gpt": {
+    "backup_gpt_captured": false,
+    "bytes": 17408,
+    "flash_capacity_sectors": 61071360,
+    "installed_partitions_preserved": false,
+    "partition_count": 28,
+    "phone_writes_enabled": false,
+    "primary_gpt_preserved": true,
+    "reference_primary_identical": false,
+    "sha256": "cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec"
+  },
+  "independent_validation": {
+    "kind": "independent_local_primary_gpt_check",
+    "size": 17408,
+    "sha256": "cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec",
+    "header_crc_valid": true,
+    "table_crc_valid": true,
+    "partition_count": 28,
+    "ranges_valid": true,
+    "overlaps": false,
+    "geometry": {
+      "current": 1,
+      "backup": 61071359,
+      "first": 34,
+      "last": 61071326
+    },
+    "reference_geometry_matches": false,
+    "reference_disk_guid_matches": true,
+    "reference_mbr_matches": true,
+    "reference_header_matches": false,
+    "reference_partition_array_matches": false,
+    "partition_field_differences": [
+      {
+        "partition": "BACKUP_RPM",
+        "field": "start"
+      },
+      {
+        "partition": "BACKUP_RPM",
+        "field": "end"
+      },
+      {
+        "partition": "BACKUP_RPM",
+        "field": "guid"
+      },
+      {
+        "partition": "BACKUP_SBL1",
+        "field": "guid"
+      },
+      {
+        "partition": "BACKUP_SBL2",
+        "field": "guid"
+      },
+      {
+        "partition": "BACKUP_SBL3",
+        "field": "guid"
+      },
+      {
+        "partition": "BACKUP_TZ",
+        "field": "start"
+      },
+      {
+        "partition": "BACKUP_TZ",
+        "field": "end"
+      },
+      {
+        "partition": "BACKUP_TZ",
+        "field": "guid"
+      },
+      {
+        "partition": "BACKUP_UEFI",
+        "field": "guid"
+      },
+      {
+        "partition": "BACKUP_WINSECAPP",
+        "field": "start"
+      },
+      {
+        "partition": "BACKUP_WINSECAPP",
+        "field": "end"
+      },
+      {
+        "partition": "BACKUP_WINSECAPP",
+        "field": "guid"
+      },
+      {
+        "partition": "DPP",
+        "field": "guid"
+      },
+      {
+        "partition": "Data",
+        "field": "start"
+      },
+      {
+        "partition": "Data",
+        "field": "end"
+      },
+      {
+        "partition": "Data",
+        "field": "guid"
+      },
+      {
+        "partition": "MMOS",
+        "field": "end"
+      },
+      {
+        "partition": "MODEM_FS1",
+        "field": "guid"
+      },
+      {
+        "partition": "MODEM_FS2",
+        "field": "guid"
+      },
+      {
+        "partition": "MODEM_FSG",
+        "field": "guid"
+      },
+      {
+        "partition": "MainOS",
+        "field": "start"
+      },
+      {
+        "partition": "MainOS",
+        "field": "end"
+      },
+      {
+        "partition": "PLAT",
+        "field": "guid"
+      },
+      {
+        "partition": "RPM",
+        "field": "start"
+      },
+      {
+        "partition": "RPM",
+        "field": "end"
+      },
+      {
+        "partition": "RPM",
+        "field": "guid"
+      },
+      {
+        "partition": "SBL1",
+        "field": "guid"
+      },
+      {
+        "partition": "SBL2",
+        "field": "guid"
+      },
+      {
+        "partition": "SBL3",
+        "field": "guid"
+      },
+      {
+        "partition": "SSD",
+        "field": "guid"
+      },
+      {
+        "partition": "TZ",
+        "field": "start"
+      },
+      {
+        "partition": "TZ",
+        "field": "end"
+      },
+      {
+        "partition": "TZ",
+        "field": "guid"
+      },
+      {
+        "partition": "UEFI",
+        "field": "guid"
+      },
+      {
+        "partition": "UEFI_BS_NV",
+        "field": "guid"
+      },
+      {
+        "partition": "UEFI_NV",
+        "field": "guid"
+      },
+      {
+        "partition": "UEFI_RT_NV",
+        "field": "guid"
+      },
+      {
+        "partition": "UEFI_RT_NV_RPMB",
+        "field": "guid"
+      },
+      {
+        "partition": "WINSECAPP",
+        "field": "start"
+      },
+      {
+        "partition": "WINSECAPP",
+        "field": "end"
+      },
+      {
+        "partition": "WINSECAPP",
+        "field": "guid"
+      }
+    ],
+    "raw_gpt_identifiers_exported": false,
+    "phone_writes_enabled": false,
+    "reference_geometry": {
+      "current": 1,
+      "backup": 20971519,
+      "first": 34,
+      "last": 20971486
+    },
+    "partition_range_differences": [
+      {
+        "partition": "BACKUP_RPM",
+        "reference_first": 86016,
+        "reference_last": 87015,
+        "live_first": 53248,
+        "live_last": 54247
+      },
+      {
+        "partition": "BACKUP_TZ",
+        "reference_first": 90112,
+        "reference_last": 91111,
+        "live_first": 57344,
+        "live_last": 58343
+      },
+      {
+        "partition": "BACKUP_WINSECAPP",
+        "reference_first": 94208,
+        "reference_last": 95231,
+        "live_first": 61440,
+        "live_last": 62463
+      },
+      {
+        "partition": "Data",
+        "reference_first": 5144576,
+        "reference_last": 20967423,
+        "live_first": 4505600,
+        "live_last": 61071326
+      },
+      {
+        "partition": "MMOS",
+        "reference_first": 286720,
+        "reference_last": 452447,
+        "live_first": 286720,
+        "live_last": 470665
+      },
+      {
+        "partition": "MainOS",
+        "reference_first": 458752,
+        "reference_last": 5133887,
+        "live_first": 475136,
+        "live_last": 4491501
+      },
+      {
+        "partition": "RPM",
+        "reference_first": 53248,
+        "reference_last": 54247,
+        "live_first": 86016,
+        "live_last": 87015
+      },
+      {
+        "partition": "TZ",
+        "reference_first": 57344,
+        "reference_last": 58343,
+        "live_first": 90112,
+        "live_last": 91111
+      },
+      {
+        "partition": "WINSECAPP",
+        "reference_first": 61440,
+        "reference_last": 62463,
+        "live_first": 94208,
+        "live_last": 95231
+      }
+    ]
+  },
+  "timings_ms": {
+    "enter_flash_request": 65,
+    "flash_identity": 18475,
+    "return_normal_request": 20212,
+    "primary_candidate": 25522,
+    "returning_normal_identity": 58355,
+    "primary_saved": 58365,
+    "completed": 58369
+  },
+  "backup_gpt_captured": false,
+  "installed_partition_backups_completed": false,
+  "recovery_authorized": false,
+  "phone_writes_enabled": false,
+  "public_id_or_raw_gpt_identifiers_exported": false
+}

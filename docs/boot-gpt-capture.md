@@ -1,8 +1,12 @@
 # Capturing the live primary GPT during return boot
 
 This CLI-only experiment extends the RM-875 / 3051.50009.1451.1003 / native
-Windows ARM64 preflight cycle. It is initially covered by synthetic/replay tests;
-physical validation is recorded separately. It does not unlock or flash a phone.
+Windows ARM64 preflight cycle. One physical cycle completed with matching
+Normal/Flash/returning-Normal identities and unchanged firmware; its primary
+was independently checked and preserved. See
+[the metadata-only hardware record](../tests/hardware/lumia-1020-rm875-boot-gpt-cycle-completed.json).
+Other devices/hosts and repeatability remain unvalidated. This does not unlock
+or flash a phone.
 
 ```text
 wpi boot-gpt-test stock.ffu SELECTED_ID new-primary-gpt.bin
@@ -53,3 +57,23 @@ validate downgrade/donor/loader acceptance, or enable recovery/unlock writes.
 Normal boot may outpace USB discovery; waiting for its verified interface does
 not mean the phone is still visibly booting. A failed USB check may require a
 manual restart after inspecting phone state.
+
+## Observed RM-875 layout
+
+The captured 17,408-byte primary contains 28 partitions. Independent Python
+SHA-256, header/table CRC, geometry and range/overlap checks agree with Rust.
+Its digest is `cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec`.
+The private binary and checksum remain local under `artifacts/`; only metadata
+is committed publicly.
+
+The installed GPT differs from the older source reference. The reference GPT
+declares 20,971,520 sectors (10 GiB), while live Flash reports 61,071,360 sectors
+(about 29.1 GiB). The live primary's backup header pointer and usable range agree
+with that capacity. MainOS/Data/MMOS bounds differ; RPM/TZ/WINSECAPP active and
+backup locations are exchanged. Many partition GUIDs also differ; their values
+are not exported. These are observed layout differences, not proof that a stock
+FFU cannot recover the phone: FFU templates can require application-specific
+layout handling, which has not been validated here. The existing offline unlock
+reference ZIP cannot be treated as installed originals or flashed using its
+reference GPT/restore coordinates. Any later write plan needs the actual layout,
+installed originals and independently validated recovery/applicability checks.

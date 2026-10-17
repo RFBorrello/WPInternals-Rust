@@ -576,3 +576,36 @@ boot windows, changed returning identity and journal/cancellation ordering.
 All 201 local Rust tests and native/WASM Clippy checks pass; Windows ARM64 CLI
 release build passes. Read-only Normal readiness passed. This preparation entry
 does not establish physical GPT capture or a completed cycle.
+
+## Completed primary GPT hardware cycle — October 16
+
+The user approved one new cycle with the reviewed release CLI at `e2beca7`.
+It sent exactly one Normal-to-Flash request and one identity-revalidated NOKR.
+Fresh Normal/Flash/returning-Normal public IDs and physical port agreed; the
+returned Normal serial, RM-875 identity and firmware 3051.50009.1451.1003 matched
+the baseline. RRKH matched the source SBL1 certificate fingerprint and the
+checked NOKV/SS fields agreed. The cycle completed in 58.369 seconds without a
+manual restart, context switch, timer hold, programmer or firmware/partition write.
+
+During return boot, the reader captured two identical primary GPT responses
+under the observed BootMgr 1.16/protocol 1.1 profile and fresh Flash capacity
+61,071,360 sectors. The 17,408-byte candidate was complete at 25.522 seconds.
+Returning Normal identity was confirmed at 58.355 seconds, then the primary
+was atomically saved at 58.365 seconds. File SHA-256 is
+`cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec`.
+An independent Python read confirms the digest, GPT header/table CRCs, 28 valid
+partition ranges without overlaps and the actual disk geometry.
+
+The source reference is a 10 GiB GPT template, while the live GPT agrees with the
+approximately 29.1 GiB physical disk. MainOS/Data/MMOS ranges differ and active
+RPM/TZ/WINSECAPP locations are exchanged with their backups. Many partition
+GUIDs differ; their values remain private. This does not prove stock recovery
+inapplicability, but the existing offline unlock reference GPT/restore positions
+must not be substituted for the installed layout. Installed boot partitions,
+backup GPT, donor/loader acceptance, recovery and unlocking remain unvalidated.
+
+The local binary/checksum/journal are ignored artifacts. The public
+[hardware record](../tests/hardware/lumia-1020-rm875-boot-gpt-cycle-completed.json)
+contains metadata, digests, timing and comparison results only. It does not
+export raw GPT sectors, GUID values, public IDs or phone serials. This validates
+one experimental native profile/session, not general device/host write support.
