@@ -114,6 +114,42 @@ fn v1_and_v2_stock_replay_complete_with_monotonic_progress() {
     }
 }
 #[test]
+fn uncertain_or_invalid_header_ack_stops_without_retrying_or_sending_payloads() {
+    let faults = [
+        (Vec::new(), Some("timeout after header submission")),
+        (Vec::new(), Some("disconnect after header submission")),
+        (Vec::new(), None),
+        (b"NOKXFS\0".to_vec(), None),
+        (b"NOKXFT\0\0".to_vec(), None),
+        (b"NOKXFS\0\x01".to_vec(), None),
+        (b"NOKU".to_vec(), None),
+        (vec![0; 65537], None),
+    ];
+    for v2 in [false, true] {
+        for (case, (response, error)) in faults.iter().enumerate() {
+            let mut transcript = exchanges(v2);
+            transcript[1].response = response.clone();
+            transcript[1].error = error.map(str::to_owned);
+            let mut transport = ReplayTransport::new(transcript.clone());
+            let mut states = Vec::new();
+            let result = recovery_replay::run(&mut Cursor::new(FFU), &mut transport, |event| {
+                states.push((event.state, event.completed_bytes));
+                event.state != OperationState::RecoveryRequired
+            });
+            assert!(
+                matches!(result, Err(RecoveryError::RecoveryRequired(_))),
+                "v2={v2}, case={case}"
+            );
+            assert_eq!(states.last(), Some(&(OperationState::RecoveryRequired, 0)));
+            assert!(!states
+                .iter()
+                .any(|(state, _)| *state == OperationState::Completed));
+            // All payloads remain queued: no retry, reset, or continued transfer.
+            assert_remaining(&mut transport, &transcript[2..]);
+        }
+    }
+}
+#[test]
 fn failed_payload_ack_requires_inspection_and_never_retries() {
     let mut transcript = exchanges(false);
     transcript[2].error = Some("disconnect after payload submission".into());

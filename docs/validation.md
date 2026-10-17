@@ -697,3 +697,16 @@ Each test verifies the complete unconsumed transcript, rather than merely checki
 the returned error. All five recovery-replay tests and focused Clippy pass.
 Production code, phone-write gates and the data-preservation requirement are
 unchanged; no physical phone is contacted. The full suite was not rerun.
+
+## Bounded iteration: uncertain recovery-header acknowledgement — October 16
+
+A new replay regression covers timeout, disconnect, empty/truncated replies,
+wrong signatures, nonzero status, unsupported commands and oversized replies
+after header submission, for both synchronous FFU protocols (16 fault cases).
+Every case requires `RecoveryRequired`, reports no payload progress and leaves
+the entire payload transcript unconsumed. A declined terminal event does not
+trigger a retry, reset or continued transfer. The six focused recovery-replay
+tests and targeted Clippy pass; the full suite was not rerun. Only synthetic
+images are used, and production code and phone-write policy remain unchanged.
+Local checks disable incremental compilation and debug symbols to reduce cache
+growth after the storage cleanup.
