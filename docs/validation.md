@@ -609,3 +609,33 @@ The local binary/checksum/journal are ignored artifacts. The public
 contains metadata, digests, timing and comparison results only. It does not
 export raw GPT sectors, GUID values, public IDs or phone serials. This validates
 one experimental native profile/session, not general device/host write support.
+
+## Offline live-layout advisory — October 16
+
+The new CLI planner compares the pinned reference ZIP with the saved 34-sector
+primary and recorded 61,071,360-sector capacity. It verifies the bounded ZIP,
+member hashes/CRCs, manifest, source/prepared GPTs and placement lists before
+calculating an in-memory candidate from the saved live layout. It retains the
+live disk geometry and unrelated entries, normalizes TZ/RPM/WINSECAPP ranges,
+and checks all nine prepared payloads against the resulting partition bounds.
+All nine fit. Python's independent ZIP/CRC/hash and upstream GPT translation
+matches the candidate digest, partition/payload comparisons and capture list.
+No candidate GPT binary or replacement ZIP is published, and no phone command
+is sent. See [the guide](spec-a-live-layout.md) and
+[metadata-only evidence](../tests/fixtures/rm875-live-layout-validation.json).
+
+Six additional tests cover bounded ZIP import, unsupported formats/paths,
+corrupt/truncated/oversized metadata, cancellation, live/reference geometry and
+identity differences, swapped boot slots, oversized payloads, misleading
+manifest/placement claims and prior GPT modification. All 207 Rust tests pass;
+native all-target and WASM Clippy pass, and the Windows ARM64 release CLI builds.
+CLI smoke checks preserve an existing report and publish no output on a wrong
+package digest. The first restricted suite run encountered an existing atomic
+temporary-file publication permission error; the full offline rerun outside
+that filesystem restriction passed. No production checks were weakened.
+
+This milestone adds no UI operation or phone-write capability. Captured primary
+metadata and payload fit cannot replace installed boot/EFIESP originals, backup
+GPT, firmware/donor/loader applicability or recovery validation. The locked
+retail phone's mass-storage backup limitation remains explicit; a feasible
+capture or independently validated alternative recovery path needs research.

@@ -77,3 +77,5 @@ layout handling, which has not been validated here. The existing offline unlock
 reference ZIP cannot be treated as installed originals or flashed using its
 reference GPT/restore coordinates. Any later write plan needs the actual layout,
 installed originals and independently validated recovery/applicability checks.
+The saved capture can now feed the [offline layout planner](spec-a-live-layout.md)
+without another phone cycle. Its payload-fit result is advisory only.

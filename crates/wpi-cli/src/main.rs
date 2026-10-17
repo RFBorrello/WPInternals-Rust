@@ -15,6 +15,18 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Analyze a pinned reference ZIP against a saved live primary GPT. Local files only.
+    PlanSpecALayout {
+        package: PathBuf,
+        primary: PathBuf,
+        output: PathBuf,
+        #[arg(long)]
+        disk_sectors: u64,
+        #[arg(long)]
+        expect_primary_sha256: String,
+        #[arg(long)]
+        expect_package_sha256: String,
+    },
     /// Preview one preflight/return-boot GPT capture cycle. No context/timer/firmware writes.
     BootGptTest {
         input: PathBuf,
@@ -350,6 +362,43 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::PlanSpecALayout {
+            package,
+            primary,
+            output,
+            disk_sectors,
+            expect_primary_sha256,
+            expect_package_sha256,
+        } => {
+            use std::io::{Read, Write};
+            let mut source = artifacts::open_artifact(&package)?;
+            let mut bytes = Vec::new();
+            artifacts::open_artifact(&primary)?
+                .take(17409)
+                .read_to_end(&mut bytes)?;
+            let mut last = std::time::Instant::now();
+            let report = wpi_image::spec_a::live_plan::analyze(
+                &mut source,
+                &bytes,
+                disk_sectors,
+                &expect_primary_sha256,
+                &expect_package_sha256,
+                |d, t| {
+                    if last.elapsed().as_millis() >= 250 || d == t {
+                        eprintln!("Verify offline package: {d}/{t} bytes");
+                        last = std::time::Instant::now();
+                    }
+                    true
+                },
+            )?;
+            artifacts::write_new(&output, |writer| {
+                serde_json::to_writer_pretty(&mut *writer, &report)
+                    .map_err(|e| wpi_image::ImageError::Invalid(e.to_string()))?;
+                writer.write_all(b"\n")?;
+                Ok(())
+            })?;
+            print(report)?;
+        }
         Command::BootGptTest {
             input,
             id,

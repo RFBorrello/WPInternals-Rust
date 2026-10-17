@@ -93,6 +93,10 @@ backups and an unlock executor remain outstanding.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.
+An [offline live-layout planner](docs/spec-a-live-layout.md) now checks a pinned
+reference ZIP against that saved primary and recorded capacity. Its candidate
+uses the installed geometry, reports slot/range/identity differences and payload
+fit, and leaves the source package and all phone-write gates unchanged.
 
 ## Quick start
 

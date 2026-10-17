@@ -1,0 +1,180 @@
+{
+  "schema": 1,
+  "kind": "offline_live_layout_validation",
+  "date": "2026-10-16",
+  "host": "windows_arm64",
+  "scope": "Local saved GPT and reference ZIP only; no device discovery or communication",
+  "variant": "RM-875",
+  "installed_firmware_context": "3051.50009.1451.1003",
+  "source_ffu_firmware_context": "3051.50009.1424.0002",
+  "binary_sha256": "12cd2fcc6bb59295174bc760d2d53fc70c702dc6e5a619865b76a9912e486f05",
+  "source_ffu_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+  "manifest_sha256": "76edc2692a157e76ecfc976c782ba0fb3ce3d58dad77bc7893ec20d35f980d5b",
+  "package_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+  "saved_primary_sha256": "cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec",
+  "candidate_primary_sha256": "8bd4ecb71c8599300dafc897b2647ad9749faeddcc738130d071783d690c0f50",
+  "recorded_capacity_sectors": 61071360,
+  "reference_capacity_sectors": 20971520,
+  "partition_count": 28,
+  "normalized_backup_pairs": [
+    "TZ",
+    "RPM",
+    "WINSECAPP"
+  ],
+  "all_payloads_fit": true,
+  "unaffected_partition_entries_preserved": true,
+  "payload_count": 9,
+  "payloads": [
+    {
+      "path": "prepared/SBL1.img",
+      "sha256": "b2bcf28048d394e7def84ed8cc0066b11404a8f56cfa5c82ea776a4c2997dc8b",
+      "byte_length": 1535488,
+      "source_reference_start_sector": 32768,
+      "candidate_start_sector": 32768,
+      "candidate_capacity_bytes": 1535488,
+      "fits": true,
+      "source_and_live_partition_identity_match": false
+    },
+    {
+      "path": "prepared/HACK.img",
+      "sha256": "d40afa393993430e357ca8c510aa01107ca915612331a4180571277acf973b2a",
+      "byte_length": 512,
+      "source_reference_start_sector": 35767,
+      "candidate_start_sector": 35767,
+      "candidate_capacity_bytes": 512,
+      "fits": true,
+      "source_and_live_partition_identity_match": false
+    },
+    {
+      "path": "prepared/SBL2.img",
+      "sha256": "e8e14b9b41bb24f04f0135df1e3776895fd30c22d4b42a3b939e0adf7dadb511",
+      "byte_length": 1536000,
+      "source_reference_start_sector": 36864,
+      "candidate_start_sector": 36864,
+      "candidate_capacity_bytes": 1536000,
+      "fits": true,
+      "source_and_live_partition_identity_match": true
+    },
+    {
+      "path": "prepared/SBL3.img",
+      "sha256": "ed15871b6a6cd8038930a50e8a3210ea562a346697a7de3cf504b52642461ff3",
+      "byte_length": 332700,
+      "source_reference_start_sector": 40960,
+      "candidate_start_sector": 40960,
+      "candidate_capacity_bytes": 2097152,
+      "fits": true,
+      "source_and_live_partition_identity_match": false
+    },
+    {
+      "path": "prepared/UEFI.img",
+      "sha256": "1803d3350ca37c24d6a1e249322f6e47c6cc132dddee566ef993ee4e604224e5",
+      "byte_length": 2560000,
+      "source_reference_start_sector": 45056,
+      "candidate_start_sector": 45056,
+      "candidate_capacity_bytes": 2560000,
+      "fits": true,
+      "source_and_live_partition_identity_match": false
+    },
+    {
+      "path": "prepared/TZ.img",
+      "sha256": "c0a840ce117134e13a54ecd54d062266be3091c690d93cdf250e292a5a0bcad7",
+      "byte_length": 512000,
+      "source_reference_start_sector": 57344,
+      "candidate_start_sector": 57344,
+      "candidate_capacity_bytes": 512000,
+      "fits": true,
+      "source_and_live_partition_identity_match": false
+    },
+    {
+      "path": "prepared/RPM.img",
+      "sha256": "db96eaf5e39f03061bee44f4e5714c4629a9e1306628d086a7333cced6108c5d",
+      "byte_length": 512000,
+      "source_reference_start_sector": 53248,
+      "candidate_start_sector": 53248,
+      "candidate_capacity_bytes": 512000,
+      "fits": true,
+      "source_and_live_partition_identity_match": false
+    },
+    {
+      "path": "prepared/WINSECAPP.img",
+      "sha256": "a9ae755df45fa5a8144ab6d82fbd26c444a5f2643892975b3ec1136b9b361fb7",
+      "byte_length": 524288,
+      "source_reference_start_sector": 61440,
+      "candidate_start_sector": 61440,
+      "candidate_capacity_bytes": 524288,
+      "fits": true,
+      "source_and_live_partition_identity_match": false
+    },
+    {
+      "path": "prepared/EFIESP.img",
+      "sha256": "3345b43585fe98939e0b229ade8d19730673570d063e0d0a669db64ca65ad8c1",
+      "byte_length": 67108864,
+      "source_reference_start_sector": 131072,
+      "candidate_start_sector": 131072,
+      "candidate_capacity_bytes": 67108864,
+      "fits": true,
+      "source_and_live_partition_identity_match": true
+    }
+  ],
+  "required_installed_partition_captures": [
+    "BACKUP_RPM",
+    "BACKUP_TZ",
+    "BACKUP_WINSECAPP",
+    "EFIESP",
+    "RPM",
+    "SBL1",
+    "SBL2",
+    "SBL3",
+    "TZ",
+    "UEFI",
+    "WINSECAPP"
+  ],
+  "independent_reference": {
+    "comparison": "matches",
+    "report_sha256": "6c92976cbc33fd6a18f42f0c0f65e2b8db415b1422e9912792c8752bf4b49072",
+    "package_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+    "primary_sha256": "cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec",
+    "candidate_primary_sha256": "8bd4ecb71c8599300dafc897b2647ad9749faeddcc738130d071783d690c0f50",
+    "partition_count": 28,
+    "payload_count": 9,
+    "normalized_backup_pairs": [
+      "TZ",
+      "RPM",
+      "WINSECAPP"
+    ],
+    "all_payloads_fit": true,
+    "unaffected_partition_entries_preserved": true,
+    "phone_contacted": false,
+    "phone_writes_enabled": false
+  },
+  "rust_tests_passed": 207,
+  "native_clippy": "passed",
+  "wasm_clippy": "passed",
+  "cli_release_build": "passed",
+  "cli_smoke_checks": {
+    "existing_report_preserved": true,
+    "wrong_package_digest_publishes_nothing": true
+  },
+  "source_and_original_inputs_modified": false,
+  "candidate_gpt_exported": false,
+  "reference_zip_rebuilt": false,
+  "phone_contacted": false,
+  "phone_writes_enabled": false,
+  "backup_gpt_captured": false,
+  "installed_partitions_preserved": false,
+  "recovery_status": "unvalidated",
+  "execution_blockers": [
+    "Advisory historical-file analysis only; no fresh device identity, capacity or security authority.",
+    "Candidate GPT is live-derived; the reference ZIP still contains its source GPT and must not be flashed as-is.",
+    "Installed boot/EFIESP originals and backup GPT have not been acquired; source FFU originals are not substitutes.",
+    "Locked-phone mass-storage backup access is unvalidated; a feasible capture or alternative recovery path requires research.",
+    "Firmware applicability/downgrade, patched boot chain, donor/BCD bindings, programmer and SBL3 acceptance remain unvalidated.",
+    "No reviewed unlock executor or validated recovery path; file integrity and payload fit do not authorize writes."
+  ],
+  "notes": [
+    "Recorded capacity/digests are historical capture bindings, not fresh device authentication.",
+    "Payload fit does not validate signatures, firmware applicability, BCD/donor bindings or programmer acceptance.",
+    "The current locked retail phone has no validated mass-storage or generic sector-read backup path.",
+    "Source FFU originals are older reference data, not installed phone backups."
+  ]
+}

@@ -147,7 +147,7 @@ pub fn build<
     )
 }
 #[allow(clippy::too_many_arguments)]
-fn build_with_catalog<
+pub(super) fn build_with_catalog<
     R: Read + Seek,
     S: Read + Write + Seek,
     W: Read + Write + Seek,

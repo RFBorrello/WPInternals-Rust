@@ -50,6 +50,9 @@ CRC/hash integrity does not authenticate an OEM signer, firmware or a manifest.
 
 The restore list records **source FFU reference coordinates**. It is not an
 installed-phone backup: `originals_are_installed_backup` is always false.
+The separate [live-layout advisory](spec-a-live-layout.md) can now compare a
+pinned ZIP with a saved live GPT and recorded capacity. It calculates a candidate
+in memory, but does not rewrite this ZIP, export a flashable GPT or authorize writes.
 End-relative backup GPT data is not synthesized or represented as a captured
 backup; `backup_gpt_captured` is false. The exact original primary GPT is retained,
 and the local restoration helper accepts only its corresponding transformed

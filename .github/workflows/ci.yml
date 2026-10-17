@@ -69,11 +69,13 @@ jobs:
             docs/spec-a-package.md
             docs/spec-a-preflight.md
             docs/boot-gpt-capture.md
+            docs/spec-a-live-layout.md
             tests/fixtures/rm875-spec-a-validation.json
             tests/fixtures/rm875-offline-checks-validation.json
             tests/fixtures/rm875-assembly-validation.json
             tests/fixtures/rm875-package-validation.json
             tests/fixtures/rm875-preflight-reference-validation.json
+            tests/fixtures/rm875-live-layout-validation.json
             docs/rm875-firmware-search.md
             tests/hardware/windows-arm64-storage-discovery.json
             tests/hardware/lumia-1020-rm875-flash-preflight.json
