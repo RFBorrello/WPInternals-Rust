@@ -121,6 +121,10 @@ struct Fake {
     cancel_after_probe: bool,
     preflight_runs: usize,
     preflight_report: Option<wpi_core::spec_a_preflight::Report>,
+    gpt_enabled: bool,
+    gpt_seen: bool,
+    gpt_published: bool,
+    gpt_fail: bool,
 }
 impl Fake {
     fn new(frames: Vec<Frame>) -> Self {
@@ -139,10 +143,47 @@ impl Fake {
             cancel_after_probe: false,
             preflight_runs: 0,
             preflight_report: None,
+            gpt_enabled: false,
+            gpt_seen: false,
+            gpt_published: false,
+            gpt_fail: false,
         }
     }
 }
 impl IdentityDriver for Fake {
+    fn boot_gpt(
+        &mut self,
+        probe: &ProbeResult,
+        _baseline: &Snapshot,
+        cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::boot_gpt::Report>, String> {
+        if !self.gpt_enabled {
+            return Ok(None);
+        }
+        wpi_core::boot_gpt::validate_info(probe.info.as_ref().unwrap())
+            .map_err(|e| e.to_string())?;
+        if self.gpt_seen || self.gpt_fail || cancelled.load(Ordering::Acquire) {
+            return Err("Synthetic capture failure or repeated boot stage".into());
+        }
+        self.gpt_seen = true;
+        Ok(Some(gpt_report(false)))
+    }
+    fn finish_gpt(
+        &mut self,
+        normal: &Snapshot,
+        baseline: &Snapshot,
+        cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::boot_gpt::Report>, String> {
+        if !self.gpt_enabled {
+            return Ok(None);
+        }
+        validate(normal, baseline, DeviceMode::Normal)?;
+        if !self.gpt_seen || cancelled.load(Ordering::Acquire) {
+            return Err("Missing GPT window or cancelled publication".into());
+        }
+        self.gpt_published = true;
+        Ok(Some(gpt_report(true)))
+    }
     fn preflight(
         &mut self,
         current: &Snapshot,
@@ -296,6 +337,117 @@ fn preflight_report() -> wpi_core::spec_a_preflight::Report {
     let mut report = wpi_core::spec_a_preflight::assess(&reference, capture, true).unwrap();
     report.normal_session_correlated = true;
     report
+}
+fn gpt_report(saved: bool) -> wpi_core::boot_gpt::Report {
+    wpi_core::boot_gpt::Report {
+        bytes: 34 * 512,
+        sha256: "synthetic-hash".into(),
+        flash_capacity_sectors: 61071360,
+        partition_count: 8,
+        reference_primary_identical: false,
+        primary_gpt_preserved: saved,
+        backup_gpt_captured: false,
+        installed_partitions_preserved: false,
+        phone_writes_enabled: false,
+    }
+}
+fn capture_boot_frame() -> Frame {
+    let mut frame = boot_frame(1);
+    frame.observations[0].probe.device.platform_id = None;
+    let info = frame.observations[0].probe.info.as_mut().unwrap();
+    info.platform_id = None;
+    info.protocol_minor = 1;
+    info.version_major = 1;
+    info.version_minor = 16;
+    info.transfer_size = Some(2363392);
+    frame
+}
+#[test]
+fn gpt_capture_is_published_only_after_the_original_normal_identity_returns() {
+    let mut fake = Fake::new(vec![
+        frame(DeviceMode::Flash, "flash"),
+        capture_boot_frame(),
+        frame(DeviceMode::Normal, "normal-after"),
+    ]);
+    fake.gpt_enabled = true;
+    fake.preflight_report = Some(preflight_report());
+    let mut log = Vec::new();
+    let summary = round_trip_inner(&mut fake, baseline(), true, &AtomicBool::new(false), |e| {
+        log.push(serde_json::to_value(e).unwrap());
+        true
+    })
+    .unwrap();
+    assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+    assert!(fake.gpt_seen && fake.gpt_published);
+    assert!(summary.primary_gpt.unwrap().primary_gpt_preserved);
+    let candidate = log
+        .iter()
+        .position(|e| e["kind"] == "boot_gpt_candidate")
+        .unwrap();
+    let normal = log
+        .iter()
+        .rposition(|e| e["kind"] == "identity_observation" && e["device"]["mode"] == "normal")
+        .unwrap();
+    let saved = log
+        .iter()
+        .position(|e| e["kind"] == "boot_gpt_saved")
+        .unwrap();
+    assert!(candidate < normal && normal < saved);
+    assert_eq!(log[candidate]["report"]["primary_gpt_preserved"], false);
+    assert_eq!(log[saved]["identity_authenticated"], false);
+}
+#[test]
+fn missed_window_invalid_boot_profile_or_return_identity_never_publishes_or_reboots_again() {
+    for kind in [
+        "missed",
+        "profile",
+        "capture_error",
+        "identity",
+        "candidate_journal",
+        "cancel",
+    ] {
+        let mut boot = capture_boot_frame();
+        let mut normal = frame(DeviceMode::Normal, "normal-after");
+        if kind == "profile" {
+            boot.observations[0]
+                .probe
+                .info
+                .as_mut()
+                .unwrap()
+                .version_minor = 17;
+        }
+        if kind == "identity" {
+            normal.observations[0].public_id = public_id(43);
+        }
+        let frames = if kind == "missed" {
+            vec![frame(DeviceMode::Flash, "flash"), normal]
+        } else {
+            vec![frame(DeviceMode::Flash, "flash"), boot, normal]
+        };
+        let mut fake = Fake::new(frames);
+        fake.gpt_enabled = true;
+        fake.gpt_fail = kind == "capture_error";
+        fake.preflight_report = Some(preflight_report());
+        let cancelled = AtomicBool::new(false);
+        let result = round_trip_inner(&mut fake, baseline(), true, &cancelled, |e| {
+            if matches!(e, ModeTestEvent::BootGptCandidate { .. }) {
+                if kind == "candidate_journal" {
+                    return false;
+                }
+                if kind == "cancel" {
+                    cancelled.store(true, Ordering::Release);
+                }
+            }
+            true
+        });
+        assert!(result.is_err(), "{kind}");
+        assert!(!fake.gpt_published, "{kind}");
+        assert_eq!(
+            fake.actions,
+            [Action::EnterFlash, Action::ReturnNormal],
+            "{kind}"
+        );
+    }
 }
 
 #[test]

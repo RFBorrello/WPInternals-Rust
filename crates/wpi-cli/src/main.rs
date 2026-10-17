@@ -15,6 +15,18 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Preview one preflight/return-boot GPT capture cycle. No context/timer/firmware writes.
+    BootGptTest {
+        input: PathBuf,
+        id: String,
+        output: PathBuf,
+        #[arg(long, requires_all = ["confirm", "report"])]
+        execute: bool,
+        #[arg(long, requires = "execute")]
+        confirm: Option<String>,
+        #[arg(long, requires = "execute")]
+        report: Option<PathBuf>,
+    },
     /// One read-only NOKV diagnostic for an already exposed reviewed FlashApp. No mode change.
     FlashSecurityDiagnostic { id: String },
     /// Preview one identity-bound Normal/Flash read-only preflight/Normal experiment. No GPT or writes.
@@ -338,6 +350,39 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::BootGptTest {
+            input,
+            id,
+            output,
+            execute,
+            confirm,
+            report,
+        } => {
+            let reference = wpi_core::spec_a_preflight::Reference::read(
+                &mut artifacts::open_artifact(&input)?,
+            )?;
+            use wpi_transport::mode_test::public_id;
+            if !execute {
+                print(public_id::gpt_preview(&id, &reference, &output)?)?;
+            } else {
+                execute_experiment(
+                    confirm,
+                    report,
+                    public_id::GPT_CONFIRMATION,
+                    public_id::GPT_EXPERIMENT,
+                    |confirmation, cancelled, events| {
+                        public_id::run_gpt(
+                            &id,
+                            &reference,
+                            &output,
+                            confirmation,
+                            cancelled,
+                            events,
+                        )
+                    },
+                )?;
+            }
+        }
         Command::FlashSecurityDiagnostic { id } => print(
             wpi_transport::mode_test::public_id::security_diagnostic(&id)?,
         )?,

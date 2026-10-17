@@ -147,6 +147,14 @@ pub enum ModeTestEvent {
     SpecAPreflight {
         report: Box<wpi_core::spec_a_preflight::Report>,
     },
+    BootGptCandidate {
+        report: wpi_core::boot_gpt::Report,
+    },
+    BootGptSaved {
+        report: wpi_core::boot_gpt::Report,
+        normal_before_after_correlated: bool,
+        identity_authenticated: bool,
+    },
 }
 #[derive(Debug, Serialize)]
 pub struct ModeTestSummary {

@@ -557,3 +557,22 @@ All 195 local Rust tests and strict native/WASM Clippy checks pass after the
 extension fix. New coverage retains the opaque byte, refuses other extensions,
 blocks GPT even with insecure-looking understood flags, and bounds diagnostic
 metadata. Browser and non-Windows hardware preflight have not been validated.
+
+## Return-boot primary GPT reader preparation — October 16
+
+The new CLI experiment uses the existing identity-bound preflight cycle and
+captures the primary GPT only during the transient BootManager stage of its
+normal return. The four-query reader accepts the previously observed BootMgr
+1.16/protocol 1.1 profile, requires two identical primary reads and unchanged
+application information, and checks GPT geometry/CRCs/partition bounds against
+the same cycle's fresh Flash capacity. It sends no NOKD timer hold, context
+switch, extra reset, firmware write or BootManager public-ID query.
+
+The primary remains in memory until the original Normal identity returns.
+Atomic publication then verifies the new local file's digest and refuses
+overwrite. Six additional tests cover query faults/cancellation, malformed or
+changing GPT data, capacity/profile contradictions, output protection, missed
+boot windows, changed returning identity and journal/cancellation ordering.
+All 201 local Rust tests and native/WASM Clippy checks pass; Windows ARM64 CLI
+release build passes. Read-only Normal readiness passed. This preparation entry
+does not establish physical GPT capture or a completed cycle.

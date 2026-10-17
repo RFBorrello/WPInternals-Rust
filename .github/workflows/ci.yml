@@ -68,6 +68,7 @@ jobs:
             docs/spec-a-assembly.md
             docs/spec-a-package.md
             docs/spec-a-preflight.md
+            docs/boot-gpt-capture.md
             tests/fixtures/rm875-spec-a-validation.json
             tests/fixtures/rm875-offline-checks-validation.json
             tests/fixtures/rm875-assembly-validation.json

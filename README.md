@@ -89,6 +89,9 @@ contexts. One native RM-875 Flash session matched the source root fingerprint
 and checked security fields. The first integrated mode cycle stopped on a parser
 assumption and required a manual restart; the complete hardware workflow,
 recovery validation and an unlock executor remain outstanding.
+The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
+the live primary GPT after verified return to Normal. It uses a bounded read
+window and retains the same blocked phone-write capabilities.
 
 ## Quick start
 

@@ -11,6 +11,8 @@ const NORMAL_RECONNECT_LIMIT: Duration = Duration::from_secs(90);
 const REDISCOVERY_INTERVAL: Duration = Duration::from_secs(2);
 pub const PREFLIGHT_CONFIRMATION: &str = "RM875-READONLY-PREFLIGHT-ROUNDTRIP";
 pub const PREFLIGHT_EXPERIMENT: &str = "rm875_normal_flash_preflight_normal";
+pub const GPT_CONFIRMATION: &str = "RM875-BOOT-GPT-READ-ROUNDTRIP";
+pub const GPT_EXPERIMENT: &str = "rm875_flash_preflight_boot_primary_gpt_normal";
 
 #[derive(Debug, Serialize)]
 pub struct Preview {
@@ -48,6 +50,7 @@ pub struct Summary {
     pub identity_authenticated: bool,
     pub recovery_authorized: bool,
     pub spec_a_preflight_completed: bool,
+    pub primary_gpt: Option<wpi_core::boot_gpt::Report>,
 }
 #[derive(Debug, Serialize)]
 pub struct PreflightPreview {
@@ -336,6 +339,39 @@ pub fn preflight_preview(
         phone_writes_enabled: false,
     })
 }
+pub fn gpt_preview(
+    id: &str,
+    reference: &wpi_core::spec_a_preflight::Reference,
+    output: &std::path::Path,
+) -> Result<PreflightPreview, String> {
+    wpi_core::boot_gpt::check_destination(output).map_err(|e| e.to_string())?;
+    let mut preview = preflight_preview(id, reference)?;
+    preview.mode_test.experiment = GPT_EXPERIMENT;
+    preview.mode_test.confirmation_phrase = GPT_CONFIRMATION;
+    preview.mode_test.actions.insert(6,"During return boot, require BootMgr 1.16 / protocol 1.1; read primary GPT twice without changing its boot timer");
+    preview.mode_test.actions.push("After the original Normal identity returns, atomically preserve the verified primary GPT to a NEW local file");
+    preview.gpt_query_included = true;
+    Ok(preview)
+}
+pub fn run_gpt<F: FnMut(&ModeTestEvent) -> bool>(
+    id: &str,
+    reference: &wpi_core::spec_a_preflight::Reference,
+    output: &std::path::Path,
+    confirmation: &str,
+    cancelled: &AtomicBool,
+    emit: F,
+) -> Result<Summary, String> {
+    check_reference_platform(reference)?;
+    wpi_core::boot_gpt::check_destination(output).map_err(|e| e.to_string())?;
+    run_session_with_gpt(
+        id,
+        confirmation,
+        Some(reference),
+        Some(output),
+        cancelled,
+        emit,
+    )
+}
 fn check_reference_platform(
     reference: &wpi_core::spec_a_preflight::Reference,
 ) -> Result<(), String> {
@@ -376,8 +412,20 @@ fn run_session<F: FnMut(&ModeTestEvent) -> bool>(
     cancelled: &AtomicBool,
     emit: F,
 ) -> Result<Summary, String> {
+    run_session_with_gpt(id, confirmation, reference, None, cancelled, emit)
+}
+fn run_session_with_gpt<F: FnMut(&ModeTestEvent) -> bool>(
+    id: &str,
+    confirmation: &str,
+    reference: Option<&wpi_core::spec_a_preflight::Reference>,
+    gpt_output: Option<&std::path::Path>,
+    cancelled: &AtomicBool,
+    emit: F,
+) -> Result<Summary, String> {
     if confirmation
-        != if reference.is_some() {
+        != if gpt_output.is_some() {
+            GPT_CONFIRMATION
+        } else if reference.is_some() {
             PREFLIGHT_CONFIRMATION
         } else {
             CONFIRMATION
@@ -425,6 +473,11 @@ fn run_session<F: FnMut(&ModeTestEvent) -> bool>(
         },
         observed_generation: 0,
         reference,
+        gpt: gpt_output.map(|output| GptPlan {
+            output,
+            candidate: None,
+        }),
+        flash_sectors: None,
     };
     let descriptor = identity(selected, DeviceMode::Normal);
     let baseline = match driver
@@ -438,6 +491,22 @@ fn run_session<F: FnMut(&ModeTestEvent) -> bool>(
 }
 
 trait IdentityDriver {
+    fn boot_gpt(
+        &mut self,
+        _probe: &ProbeResult,
+        _baseline: &Snapshot,
+        _cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::boot_gpt::Report>, String> {
+        Ok(None)
+    }
+    fn finish_gpt(
+        &mut self,
+        _normal: &Snapshot,
+        _baseline: &Snapshot,
+        _cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::boot_gpt::Report>, String> {
+        Ok(None)
+    }
     fn preflight(
         &mut self,
         _current: &Snapshot,
@@ -470,6 +539,12 @@ struct PublicDriver<'a> {
     native: NativeDriver,
     observed_generation: u64,
     reference: Option<&'a wpi_core::spec_a_preflight::Reference>,
+    gpt: Option<GptPlan<'a>>,
+    flash_sectors: Option<u32>,
+}
+struct GptPlan<'a> {
+    output: &'a std::path::Path,
+    candidate: Option<wpi_core::boot_gpt::Capture>,
 }
 impl PublicDriver<'_> {
     fn binding(&self, id: &str) -> Result<(), DriverError> {
@@ -535,6 +610,85 @@ impl<T: MessageTransport> MessageTransport for PreflightTransport<'_, T> {
     }
 }
 impl IdentityDriver for PublicDriver<'_> {
+    fn boot_gpt(
+        &mut self,
+        probe: &ProbeResult,
+        _baseline: &Snapshot,
+        cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::boot_gpt::Report>, String> {
+        if self.gpt.is_none() {
+            return Ok(None);
+        }
+        if self.gpt.as_ref().unwrap().candidate.is_some() {
+            return Err(
+                "A second BootManager arrival cannot replace the captured primary GPT".into(),
+            );
+        }
+        wpi_core::boot_gpt::validate_info(
+            probe
+                .info
+                .as_ref()
+                .ok_or("BootManager information missing")?,
+        )
+        .map_err(|e| e.to_string())?;
+        self.binding(&probe.device.id).map_err(|e| e.message())?;
+        let (descriptor, mut transport) = open_selected(&probe.device.id)?;
+        if descriptor.vendor_id != probe.device.vendor_id
+            || descriptor.product_id != probe.device.product_id
+            || descriptor.serial != probe.device.serial
+        {
+            return Err("BootManager descriptor changed before capture".into());
+        }
+        transport.deadline = Some(Instant::now() + Duration::from_secs(8));
+        let candidate = wpi_core::boot_gpt::read(
+            &mut transport,
+            self.flash_sectors
+                .ok_or("Fresh Flash capacity required before GPT capture")?,
+            |_| !cancelled.load(Ordering::Acquire),
+        )
+        .map_err(|e| e.to_string())?;
+        self.binding(&probe.device.id).map_err(|e| e.message())?;
+        let report = candidate.report(
+            &self
+                .reference
+                .ok_or("GPT source reference missing")?
+                .summary()
+                .primary_gpt_sha256,
+        );
+        self.gpt.as_mut().unwrap().candidate = Some(candidate);
+        Ok(Some(report))
+    }
+    fn finish_gpt(
+        &mut self,
+        normal: &Snapshot,
+        baseline: &Snapshot,
+        cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::boot_gpt::Report>, String> {
+        if self.gpt.is_none() {
+            return Ok(None);
+        }
+        validate(normal, baseline, DeviceMode::Normal)?;
+        self.binding(&normal.probe.device.id)
+            .map_err(|e| e.message())?;
+        if cancelled.load(Ordering::Acquire) {
+            return Err("Cancelled before GPT publication".into());
+        }
+        let plan = self.gpt.as_mut().unwrap();
+        let candidate = plan.candidate.take().ok_or(
+            "BootManager GPT window was not captured; phone is back in Normal, no retry or output",
+        )?;
+        let report = candidate
+            .save(
+                plan.output,
+                &self
+                    .reference
+                    .ok_or("GPT reference missing")?
+                    .summary()
+                    .primary_gpt_sha256,
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(Some(report))
+    }
     fn preflight(
         &mut self,
         current: &Snapshot,
@@ -570,6 +724,7 @@ impl IdentityDriver for PublicDriver<'_> {
         let mut report = wpi_core::spec_a_preflight::assess(reference, captured, false)
             .map_err(|e| e.to_string())?;
         report.normal_session_correlated = true;
+        self.flash_sectors = report.flash.emmc_sectors;
         for check in &mut report.checks {
             if check.key == "normal_identity" {
                 check.status = PreparationStatus::Passed;
@@ -881,6 +1036,16 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
                                     .into(),
                             );
                         }
+                        if cancelled.load(Ordering::Acquire) {
+                            return Err("Cancelled before BootManager observation".into());
+                        }
+                        if let Some(report) = driver.boot_gpt(&probe, baseline, cancelled)? {
+                            if !(reporter.emit)(&ModeTestEvent::BootGptCandidate { report }) {
+                                return Err(
+                                    "GPT candidate journal failed; no output published".into()
+                                );
+                            }
+                        }
                         if !(reporter.emit)(&ModeTestEvent::BootObservation {
                             device: Box::new(redact(probe.device)),
                             info: probe.info,
@@ -1002,6 +1167,16 @@ fn round_trip_inner<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
         if cancelled.load(Ordering::Acquire) {
             return Err("Cancelled before completion; state inspection required".into());
         }
+        let primary_gpt = driver.finish_gpt(&normal, &baseline, cancelled)?;
+        if let Some(report) = primary_gpt.as_ref() {
+            if !(reporter.emit)(&ModeTestEvent::BootGptSaved {
+                report: report.clone(),
+                normal_before_after_correlated: true,
+                identity_authenticated: false,
+            }) {
+                return Err("Primary GPT was saved but its journal failed; inspect the existing file before proceeding".into());
+            }
+        }
         if !reporter.progress(
             OperationState::Completed,
             "Normal identity restored; public ID matched across both modes; no firmware writes",
@@ -1009,7 +1184,9 @@ fn round_trip_inner<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
             return Err("Completion journal failed".into());
         }
         Ok(Summary {
-            result: if include_preflight {
+            result: if primary_gpt.is_some() {
+                "primary_gpt_preserved_normal_identity_restored"
+            } else if include_preflight {
                 "read_only_preflight_roundtrip_observed"
             } else {
                 "public_id_normal_flash_normal_observed"
@@ -1024,6 +1201,7 @@ fn round_trip_inner<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
             identity_authenticated: false,
             recovery_authorized: false,
             spec_a_preflight_completed: include_preflight,
+            primary_gpt,
         })
     })();
     result.map_err(|e: String| reporter.stopped(&e))
