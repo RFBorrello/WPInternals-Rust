@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "date": "2026-10-16",
+  "host": "windows_arm64",
+  "variant": "RM-875",
+  "previous_normal_firmware": "3051.50009.1451.1003",
+  "stopped_cycle": {
+    "source_commit": "dbf148f34797e4eac368f93361c20d705ef39906",
+    "cli_sha256": "a19bcd61813283ef47a064ae7b4bd738cc863c0b7ba6965393a060c89cc3fff9",
+    "mode_commands_attempted": 1,
+    "normal_flash_public_id_matched": true,
+    "physical_port_matched": true,
+    "stop_reason": "Eight-byte-only parser rejected the nine-byte version-3 NOKV security block",
+    "rrkh_or_ss_queries_sent": false,
+    "return_command_sent": false,
+    "complete_round_trip": false
+  },
+  "separate_diagnostic": {
+    "request": "NOKV",
+    "response_length": 86,
+    "security_blocks": [
+      {
+        "length": 9,
+        "prefix": [
+          3,
+          1,
+          1,
+          1,
+          0,
+          0,
+          1,
+          1,
+          255
+        ]
+      }
+    ],
+    "mode_changes_sent": false
+  },
+  "separate_read_only_preflight": {
+    "cli_sha256": "aa525e73942d5aa3790ffa66b211f7b1fac9bdae9ff3c6aebce5a0f53573e4b3",
+    "started_in": "already_exposed_flash",
+    "reference": {
+      "platform": "Nokia.MSM8960.P5217",
+      "primary_gpt_sha256": "242d9d0b8c3a863b9704b423c3aa8d1b5b3c24f0bc8611ebfa74010d357ff5f1",
+      "sbl1_sha256": "2851560a792503bc6259e08d9643a4815fc69ee400f28a904132e7aef6e4ff39",
+      "source_ffu_size": 1716256768,
+      "full_ffu_integrity_checked": false,
+      "oem_signer_trusted": false
+    },
+    "flash": {
+      "mode": "flash",
+      "protocol_major": 1,
+      "protocol_minor": 18,
+      "version_major": 2,
+      "version_minor": 2,
+      "platform_id": "Nokia.MSM8960.P5217.3.2.1",
+      "transfer_size": 2363392,
+      "write_buffer_size": 2359296,
+      "emmc_sectors": 61071360,
+      "secure_ffu": true,
+      "secure_boot": true,
+      "protocol_mask": 31
+    },
+    "application_security": {
+      "version": 3,
+      "platform_secure_boot": true,
+      "secure_ffu": true,
+      "jtag_disabled": true,
+      "rdc": false,
+      "authenticated": false,
+      "uefi_secure_boot": true,
+      "secondary_hardware_key": true,
+      "opaque_tail": [
+        255
+      ]
+    },
+    "security": {
+      "test_device": 3,
+      "platform_secure_boot": true,
+      "secure_ffu_efuse": true,
+      "debug": true,
+      "rdc": false,
+      "authenticated": false,
+      "uefi_secure_boot": true,
+      "crypto_hardware_key": true
+    },
+    "root_fingerprint_comparison": "passed",
+    "single_session_public_id_bookends": "matched",
+    "normal_session_correlated": false,
+    "gpt_read_status": "not_requested",
+    "mode_changes_sent": false
+  },
+  "manual_return_verification": {
+    "user_reported_normal_screen": true,
+    "fresh_probe": {
+      "model": "Lumia 1020",
+      "variant": "RM-875",
+      "mode": "normal",
+      "firmware": "3051.50009.1451.1003"
+    },
+    "firmware_unchanged": true,
+    "normal_public_id_recompared": false
+  },
+  "public_id_bytes_exported": false,
+  "installed_originals_preserved": false,
+  "backup_gpt_captured": false,
+  "programmer_uploaded": false,
+  "firmware_or_partition_writes_sent": false,
+  "recovery_authorized": false,
+  "phone_writes_enabled": false
+}

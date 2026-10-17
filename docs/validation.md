@@ -523,3 +523,37 @@ checks sent no mode change or firmware/partition writes.
 The preceding commit's cross-platform CI succeeded on all configured hosts:
 [run 38977704228](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38977704228).
 The new hardware harness still needs its own reviewed physical cycle.
+
+## First hardware preflight — October 16
+
+One approved cycle entered Flash after approximately 15.4 seconds and matched the
+fresh Normal public ID on the same physical USB port. At approximately 16.0
+seconds the new strict parser rejected a nine-byte version-3 NOKV security block;
+the cycle stopped before RRKH/SS or the return reset. No mode retry was sent.
+
+A separate, single-query NOKV diagnostic on the existing Flash connection
+recorded the exact reviewed FlashApp 2.2 / protocol 1.18 / platform
+Nokia.MSM8960.P5217.3.2.1, response length 86 and security bytes
+`03 01 01 01 00 00 01 01 FF`. The pinned upstream reader uses the first eight
+bytes. The parser now preserves this exact ninth `0xFF` byte as an opaque tail,
+without assigning it meaning or allowing it to enable GPT access.
+
+The subsequent separate read-only Flash preflight matched RRKH to the source
+SBL1 certificate fingerprint, matched its own public-ID bookends and observed
+agreement of the checked NOKV/SS fields. Secure boot and secure FFU were enabled;
+RDC and authentication were false. Debug/JTAG/key/test-device fields retain their
+separate raw meanings; no engineering-device or trusted-signer conclusion is
+drawn. This standalone session does not claim Normal-session correlation.
+
+The user restarted manually with Volume Down + Power and confirmed the normal
+screen. A fresh native read-only probe then confirmed Lumia 1020 RM-875 in Normal
+with unchanged firmware 3051.50009.1451.1003. The approved automatic round trip
+remains **incomplete**. No GPT, programmer, firmware or partition write command
+was sent. Installed originals, backup GPT, firmware applicability, recovery and
+unlocking remain unvalidated. Metadata only is in
+[the hardware record](../tests/hardware/lumia-1020-rm875-flash-preflight.json).
+
+All 195 local Rust tests and strict native/WASM Clippy checks pass after the
+extension fix. New coverage retains the opaque byte, refuses other extensions,
+blocks GPT even with insecure-looking understood flags, and bounds diagnostic
+metadata. Browser and non-Windows hardware preflight have not been validated.

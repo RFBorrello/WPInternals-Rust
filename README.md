@@ -85,8 +85,10 @@ adds the SBL1 extra sector, SBL2/SBL3 patches, GPT changes, source originals and
 a hashed restore manifest in one ZIP. It is a source-based reference package;
 the [read-only preflight](docs/spec-a-preflight.md) CLI can now compare FlashApp
 RRKH/security evidence and conditionally inspect its primary GPT without changing
-contexts. This preflight has replay coverage only; hardware preflight, recovery
-validation and an unlock executor remain outstanding.
+contexts. One native RM-875 Flash session matched the source root fingerprint
+and checked security fields. The first integrated mode cycle stopped on a parser
+assumption and required a manual restart; the complete hardware workflow,
+recovery validation and an unlock executor remain outstanding.
 
 ## Quick start
 

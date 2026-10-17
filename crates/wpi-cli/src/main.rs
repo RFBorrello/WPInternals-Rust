@@ -15,6 +15,8 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// One read-only NOKV diagnostic for an already exposed reviewed FlashApp. No mode change.
+    FlashSecurityDiagnostic { id: String },
     /// Preview one identity-bound Normal/Flash read-only preflight/Normal experiment. No GPT or writes.
     SpecAPreflightTest {
         input: PathBuf,
@@ -336,6 +338,9 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::FlashSecurityDiagnostic { id } => print(
+            wpi_transport::mode_test::public_id::security_diagnostic(&id)?,
+        )?,
         Command::SpecAPreflightTest {
             input,
             id,

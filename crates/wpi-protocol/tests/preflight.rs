@@ -351,3 +351,36 @@ fn bound_capture_rejects_a_different_normal_id_before_security_queries() {
         }
     }
 }
+
+#[test]
+fn observed_rm875_v3_extension_is_opaque_and_cannot_enable_gpt() {
+    for locked in [true, false] {
+        let mut e = exchanges(locked, false);
+        for i in [0, 4] {
+            let r = &mut e[i].response;
+            let len = r.len();
+            r[len - 9] = 9;
+            r.push(255);
+        }
+        let mut t = ReplayTransport::new(e);
+        let capture = run(&mut t, true).unwrap().into_observation();
+        assert!(t.finished());
+        assert_eq!(capture.application_security.unwrap().opaque_tail, [255]);
+        assert_eq!(capture.gpt_status, GptReadStatus::SecurityEvidenceMissing);
+        assert!(capture.primary_gpt.is_none());
+    }
+    let r = nokv(true);
+    let metadata = preflight::security_block_diagnostics(&r).unwrap();
+    assert_eq!(metadata.len(), 1);
+    assert_eq!(metadata[0].length, 8);
+    for len in 0..r.len() {
+        assert!(preflight::security_block_diagnostics(&r[..len]).is_err());
+    }
+    for value in [0, 1, 254] {
+        let mut r = r.clone();
+        let len = r.len();
+        r[len - 9] = 9;
+        r.push(value);
+        assert!(preflight::parse_application(&r).is_err());
+    }
+}

@@ -8,6 +8,38 @@ use wpi_types::DeviceMode;
 pub const PRIMARY_SIZE: usize = 34 * 512;
 const MAX_RESPONSE: usize = 65536;
 
+#[derive(Debug, Serialize)]
+pub struct SecurityBlockDiagnostic {
+    pub length: usize,
+    pub prefix: Vec<u8>,
+}
+/// Diagnostic metadata only; does not interpret unknown security versions or
+/// produce a Capture. No root/public ID or other subblock contents are exported.
+pub fn security_block_diagnostics(response: &[u8]) -> Result<Vec<SecurityBlockDiagnostic>> {
+    if response.len() > MAX_RESPONSE {
+        return Err(invalid("NOKV exceeds response limit"));
+    }
+    flash::parse_info(response)?;
+    let mut at = 11;
+    let mut blocks = Vec::new();
+    for _ in 0..response[10] {
+        let id = field(response, at, 1)?[0];
+        let len = u16::from_be_bytes(field(response, at + 1, 2)?.try_into().unwrap()) as usize;
+        let payload = field(response, at + 3, len)?;
+        if id == 0x0f {
+            blocks.push(SecurityBlockDiagnostic {
+                length: len,
+                prefix: payload.iter().take(16).copied().collect(),
+            });
+        }
+        at += 3 + len;
+    }
+    if at != response.len() {
+        return Err(invalid("trailing NOKV bytes"));
+    }
+    Ok(blocks)
+}
+
 /// A root certificate fingerprint is comparison evidence, not signer trust.
 /// Neither this value nor a device public ID is serialized by the capture API.
 #[derive(Clone, PartialEq, Eq)]
@@ -69,6 +101,8 @@ pub struct ApplicationSecurity {
     pub authenticated: bool,
     pub uefi_secure_boot: bool,
     pub secondary_hardware_key: bool,
+    /// Observed RM-875 v3 extension; retained without interpreting its meaning.
+    pub opaque_tail: Vec<u8>,
 }
 impl ApplicationSecurity {
     fn locked(&self) -> bool {
@@ -106,9 +140,9 @@ pub fn parse_application(
         let len = u16::from_be_bytes(field(response, at + 1, 2)?.try_into().unwrap()) as usize;
         let p = field(response, at + 3, len)?;
         if id == 0x0f {
-            if p.len() != 8
+            if !(p.len() == 8 || (p.len() == 9 && p[8] == 255))
                 || p[0] != 3
-                || p[1..]
+                || p[1..8]
                     .iter()
                     .enumerate()
                     .any(|(i, v)| *v > if i == 4 { 2 } else { 1 })
@@ -126,6 +160,7 @@ pub fn parse_application(
                 authenticated: p[5] != 0,
                 uefi_secure_boot: p[6] == 1,
                 secondary_hardware_key: p[7] == 1,
+                opaque_tail: p[8..].to_vec(),
             });
         }
         at += 3 + len;
@@ -286,6 +321,7 @@ fn capture_inner<T: MessageTransport, F: FnMut(&str) -> bool>(
     } else {
         match app.as_ref() {
             None => GptReadStatus::SecurityEvidenceMissing,
+            Some(a) if !a.opaque_tail.is_empty() => GptReadStatus::SecurityEvidenceMissing,
             Some(a) if a.locked() => GptReadStatus::ContextSwitchRequired,
             Some(_) => GptReadStatus::Read,
         }

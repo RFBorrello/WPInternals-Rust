@@ -75,6 +75,7 @@ jobs:
             tests/fixtures/rm875-preflight-reference-validation.json
             docs/rm875-firmware-search.md
             tests/hardware/windows-arm64-storage-discovery.json
+            tests/hardware/lumia-1020-rm875-flash-preflight.json
             resources/licenses/*
           if-no-files-found: error
   browser:

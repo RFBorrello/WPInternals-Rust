@@ -56,6 +56,52 @@ pub struct PreflightPreview {
     pub gpt_query_included: bool,
     pub phone_writes_enabled: bool,
 }
+#[derive(Debug, Serialize)]
+pub struct SecurityDiagnostic {
+    pub info: wpi_protocol::flash::FlashInfo,
+    pub security_blocks: Vec<wpi_protocol::preflight::SecurityBlockDiagnostic>,
+    pub response_length: usize,
+    pub mode_changes_sent: bool,
+    pub phone_writes_enabled: bool,
+}
+/// One fixed, read-only NOKV query on an already exposed reviewed FlashApp.
+/// This never resumes a stopped experiment or sends its pending return command.
+pub fn security_diagnostic(id: &str) -> Result<SecurityDiagnostic, String> {
+    let _access = PHONE_ACCESS
+        .try_lock()
+        .map_err(|_| "Another native phone operation is active")?;
+    let selected = enumerate()?
+        .into_iter()
+        .find(|d| d.id == id)
+        .ok_or("Selected phone disconnected")?;
+    if selected.mode != DeviceMode::Flash {
+        return Err(
+            "Diagnostic requires an already exposed Flash interface; no mode change is sent".into(),
+        );
+    }
+    let (mut device, mut transport) = open_selected(id)?;
+    transport.deadline = Some(Instant::now() + Duration::from_secs(20));
+    let response = transport
+        .exchange(b"NOKV", 65536)
+        .map_err(|e| e.to_string())?;
+    let info = wpi_protocol::flash::parse_info(&response).map_err(|e| e.to_string())?;
+    device.mode = info.mode;
+    device.platform_id = info.platform_id.clone();
+    validate_flash(&ProbeResult {
+        device,
+        info: Some(info.clone()),
+        normal: None,
+        firmware: None,
+    })?;
+    Ok(SecurityDiagnostic {
+        info,
+        security_blocks: wpi_protocol::preflight::security_block_diagnostics(&response)
+            .map_err(|e| e.to_string())?,
+        response_length: response.len(),
+        mode_changes_sent: false,
+        phone_writes_enabled: false,
+    })
+}
 
 fn read_snapshot<T: MessageTransport>(
     device: DeviceIdentity,

@@ -1,9 +1,12 @@
 # Read-only Spec A device preflight
 
 The shared Rust query engine and advisory assessment are available through a
-CLI research adapter. They have synthetic/replay coverage; this workflow has
-**not been run on a phone**. Browser/desktop UI controls and live write
-capabilities are not enabled by these checks.
+CLI research adapter. A separate read-only Flash session observed matching RRKH
+and consistent checked security fields on one RM-875 / firmware
+3051.50009.1451.1003 / Windows ARM64. The preceding identity-bound round trip
+stopped on a parser rejection and did not complete automatically. See the
+[hardware record](../tests/hardware/lumia-1020-rm875-flash-preflight.json).
+Browser/desktop UI controls and live write capabilities are not enabled.
 
 Preview the bounded source reference without accessing USB:
 
@@ -41,6 +44,14 @@ security contradictions and changed application/public-ID responses stop the
 session. Differently named debug/JTAG and crypto/secondary-key fields are reported
 separately rather than assumed identical. No FVER parameter is queried here.
 
+The observed RM-875 version-3 NOKV block has nine bytes: the eight upstream
+fields followed by `0xFF`. This exact additional byte is preserved as
+`opaque_tail`, without interpreting its meaning. Other extended encodings still
+fail. An opaque tail cannot enable GPT access, even if the understood flags look
+insecure. A separate `flash-security-diagnostic SELECTED_ID` command can inspect
+only NOKV block length/prefix on the already exposed exact reviewed FlashApp;
+it sends no mode change or other parameter query and cannot resume a stopped cycle.
+
 Primary GPT reading is opt-in:
 
 ```text
@@ -50,7 +61,8 @@ wpi preflight-spec-a stock.ffu --device-id SELECTED_ID --read-primary-gpt
 NOKT is sent only when both security reports agree and the current FlashApp
 reports authentication, RDC, or disabled secure FFU. Locked FlashApp returns
 `context_switch_required`; missing application security returns
-`security_evidence_missing`. Neither result sends NOKT or a context switch.
+`security_evidence_missing`; the same result applies to an opaque security tail.
+Neither result sends NOKT or a context switch.
 Upstream ReadGPT switches to BootManager in the locked case. Our preflight
 deliberately leaves that transition for a separately reviewed hardware workflow.
 BootManager/PhoneInfo applications are not accepted by this adapter.

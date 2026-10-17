@@ -158,7 +158,7 @@ pub fn assess(reference: &Reference, capture: Capture, replay: bool) -> wpi_imag
     } else {
         (Missing, match capture.gpt_status {
             GptReadStatus::ContextSwitchRequired => "Locked FlashApp requires a separately reviewed BootManager context transition for NOKT. This preflight sends none.",
-            GptReadStatus::SecurityEvidenceMissing => "NOKV security evidence is absent. No GPT query was sent.",
+            GptReadStatus::SecurityEvidenceMissing => "NOKV security evidence is absent or partly uninterpreted. No GPT query was sent.",
             _ => "Primary GPT reading was not requested. No GPT query was sent.",
         }.into())
     };
