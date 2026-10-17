@@ -675,3 +675,14 @@ shortcut. No such commands were added or sent. Source-template backup data is
 distinct from missing installed originals and the live backup GPT. Stock/native
 execution, applicability/downgrade, interruption handling, preservation and
 physical recovery validation remain outstanding.
+
+## Bounded iteration: final FFU verification cancellation — October 16
+
+The shared FFU chunk verifier now returns `Cancelled` when its final progress
+callback declines completion. Previously it ignored that callback's result and
+could report success after cancellation. A regression test cancels at every
+chunk boundary, including completion, and checks that no further reads occur.
+Focused image/integrity/recovery-audit, stock-recovery replay and the existing
+package final-cancellation tests pass, as does image-crate all-target Clippy.
+The full suite and UI were not rerun for this small change. No phone access,
+write-policy change or firmware processing was performed on real inputs.

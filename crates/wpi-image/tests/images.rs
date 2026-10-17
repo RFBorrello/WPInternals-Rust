@@ -67,6 +67,29 @@ fn truncated_and_oversized_headers_fail_without_allocation() {
     }
 }
 #[test]
+fn chunk_verification_honors_cancellation_at_every_boundary_including_completion() {
+    let ffu = FfuMetadata::open(&mut Cursor::new(FFU)).unwrap();
+    let count = (ffu.total_size - ffu.security_size) / u64::from(ffu.chunk_size);
+    for stop in 0..=count {
+        let mut reader = Cursor::new(FFU);
+        let mut seen = Vec::new();
+        let result = ffu.verify_hashes(&mut reader, |done, total| {
+            assert_eq!(total, count);
+            seen.push(done);
+            done != stop
+        });
+        assert!(
+            matches!(result, Err(ImageError::Cancelled)),
+            "boundary {stop}"
+        );
+        assert_eq!(seen, (0..=stop).collect::<Vec<_>>());
+        assert_eq!(
+            reader.position(),
+            ffu.security_size + stop * u64::from(ffu.chunk_size)
+        );
+    }
+}
+#[test]
 fn payload_tampering_is_detected_and_cancellation_is_bounded() {
     let mut corrupted = FFU.to_vec();
     *corrupted.last_mut().unwrap() ^= 1;

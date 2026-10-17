@@ -365,7 +365,9 @@ impl FfuMetadata {
                 return Err(invalid(format!("FFU hash mismatch at chunk {index}")));
             }
         }
-        progress(count, count);
+        if !progress(count, count) {
+            return Err(ImageError::Cancelled);
+        }
         Ok(())
     }
 }
