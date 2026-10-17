@@ -15,6 +15,18 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Audit a pinned stock FFU's manifest and GPT templates against saved evidence. Local only.
+    AuditRecovery {
+        input: PathBuf,
+        primary: PathBuf,
+        output: PathBuf,
+        #[arg(long)]
+        disk_sectors: u64,
+        #[arg(long)]
+        expect_primary_sha256: String,
+        #[arg(long)]
+        expect_ffu_sha256: String,
+    },
     /// Analyze a pinned reference ZIP against a saved live primary GPT. Local files only.
     PlanSpecALayout {
         package: PathBuf,
@@ -362,6 +374,50 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::AuditRecovery {
+            input,
+            primary,
+            output,
+            disk_sectors,
+            expect_primary_sha256,
+            expect_ffu_sha256,
+        } => {
+            use std::io::{Read, Write};
+            use std::sync::{
+                atomic::{AtomicBool, Ordering},
+                Arc,
+            };
+            let mut source = artifacts::open_artifact(&input)?;
+            let mut bytes = Vec::new();
+            artifacts::open_artifact(&primary)?
+                .take(17409)
+                .read_to_end(&mut bytes)?;
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let signal = cancelled.clone();
+            ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+            let mut last = std::time::Instant::now();
+            let report = wpi_image::recovery_audit::analyze(
+                &mut source,
+                &bytes,
+                disk_sectors,
+                &expect_primary_sha256,
+                &expect_ffu_sha256,
+                |stage, d, t| {
+                    if d == 0 || d == t || last.elapsed().as_millis() >= 250 {
+                        eprintln!("{stage}: {d}/{t}");
+                        last = std::time::Instant::now();
+                    }
+                    !cancelled.load(Ordering::Acquire)
+                },
+            )?;
+            artifacts::write_new(&output, |writer| {
+                serde_json::to_writer_pretty(&mut *writer, &report)
+                    .map_err(|e| wpi_image::ImageError::Invalid(e.to_string()))?;
+                writer.write_all(b"\n")?;
+                Ok(())
+            })?;
+            print(report)?;
+        }
         Command::PlanSpecALayout {
             package,
             primary,

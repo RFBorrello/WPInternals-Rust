@@ -7,6 +7,7 @@ pub mod gpt;
 pub mod integrity;
 mod partition;
 pub mod patch;
+pub mod recovery_audit;
 pub mod spec_a;
 pub mod stream;
 

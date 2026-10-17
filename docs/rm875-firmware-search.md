@@ -50,3 +50,7 @@ the correct older recovery package is acceptable; an exact installed-version FFU
 must not be assumed to be a universal prerequisite or silently substituted with
 another region's package. Mass-storage backup access has separate bootloader
 prerequisites, documented in [native backup](native-backup.md).
+The later [offline recovery audit](rm875-recovery-path.md) confirms a 10 GiB
+manifest minimum and `UseAllSpace=true` for Data. The smaller source template
+alone does not establish a need for a larger-capacity FFU; device layout handling
+and downgrade acceptance are still unvalidated.

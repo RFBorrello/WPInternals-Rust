@@ -639,3 +639,39 @@ metadata and payload fit cannot replace installed boot/EFIESP originals, backup
 GPT, firmware/donor/loader applicability or recovery validation. The locked
 retail phone's mass-storage backup limitation remains explicit; a feasible
 capture or independently validated alternative recovery path needs research.
+
+## Stock recovery file audit — October 16
+
+The CLI-only `audit-recovery` command reads the pinned stock FFU and the saved
+primary GPT. A bounded legacy INI parser checks Store/Partition layout fields;
+the audit verifies full FFU chunks/fingerprint, saved-primary/capacity bindings,
+manifest/GPT sizes and recognized end-relative source backup templates.
+It does not emulate FlashApp, generate disk sectors, connect to a phone or
+authorize writes. See [the recovery-path investigation](rm875-recovery-path.md)
+and [metadata-only evidence](../tests/fixtures/rm875-recovery-audit-validation.json).
+
+The real image declares a 20,971,520-sector minimum and Data `UseAllSpace=true`.
+The recorded phone capacity satisfies that constraint. Two end-relative payloads
+include an initial all-zero chunk and a final CRC-valid backup template. Source
+primary and backup entries differ only in the MainOS attribute's bit 63; the
+report exposes both attribute values without normalizing or interpreting them.
+The initial audit stopped on table inequality. Attribute-only reporting now
+preserves that observation; valid-CRC identity/range/name contradictions remain
+rejected, and physical recovery remains unvalidated. Python's separate INI,
+FFU/GPT/CRC/SHA implementation matches the real-file results.
+
+Five new tests cover manifest ambiguity/limits, minimum-capacity and expansion
+reporting, contradictory GPT/manifest evidence with valid enclosing FFU hashes,
+source attribute differences, corruption, digest/capacity mismatch and all
+cancellation stages (including terminal callbacks). All 212 Rust tests pass;
+native all-target and WASM Clippy pass, and the Windows ARM64 release CLI builds.
+Native CLI smoke checks preserve an existing report and publish nothing on an
+incorrect source FFU digest. Browser/desktop UI code was not changed or retested
+for this CLI/image-engine milestone. Cross-host hardware recovery is not claimed.
+
+Pinned upstream emergency entry and programmer paths were reviewed as source:
+they modify GPT regions and upload/start a programmer, not a read-only backup
+shortcut. No such commands were added or sent. Source-template backup data is
+distinct from missing installed originals and the live backup GPT. Stock/native
+execution, applicability/downgrade, interruption handling, preservation and
+physical recovery validation remain outstanding.

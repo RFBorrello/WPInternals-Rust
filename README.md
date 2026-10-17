@@ -97,6 +97,9 @@ An [offline live-layout planner](docs/spec-a-live-layout.md) now checks a pinned
 reference ZIP against that saved primary and recorded capacity. Its candidate
 uses the installed geometry, reports slot/range/identity differences and payload
 fit, and leaves the source package and all phone-write gates unchanged.
+The [stock recovery file audit](docs/rm875-recovery-path.md) verifies the FFU's
+minimum-size/expansion rules and source backup-GPT template, including explicit
+primary/backup attribute differences. It does not validate physical recovery.
 
 ## Quick start
 

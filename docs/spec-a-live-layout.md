@@ -78,3 +78,6 @@ all reported partition/payload ranges and capture requirements. It prints only
 digests, counts and comparison results. See the
 [metadata-only validation record](../tests/fixtures/rm875-live-layout-validation.json).
 Raw installed GPT data and local artifacts are not distributed.
+The subsequent [recovery-path investigation](rm875-recovery-path.md) records
+the stock FFU's minimum-capacity/Data-expansion rules and the separate limits
+of emergency entry and installed-backup access.

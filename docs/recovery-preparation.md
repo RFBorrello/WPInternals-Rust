@@ -46,10 +46,12 @@ persistent USB serials and host-specific device identifiers. A matching platform
 or valid chunk table does not authenticate firmware or approve a downgrade.
 Changes to firmware selection or selected phone clear the prior UI report.
 
-Backup copying is currently implemented only for concrete replay block sources.
-Tests cover aligned ranges, short transfers, timeouts/disconnects, cancellation
-after a complete chunk, digest generation and atomic output publication. Simulated
-results are marked `replay_only`. No phone backup button is enabled.
+Backup copying has replay coverage for aligned ranges, short transfers,
+timeouts/disconnects, cancellation after a complete chunk, digest generation and
+atomic output publication. Simulated results are marked `replay_only`. The
+separate experimental Windows adapter requires an already exposed phone disk;
+it does not provide a pre-unlock full backup of the locked retail 1020.
+No phone backup button is enabled.
 
 Next prerequisites for real operations: native storage identity and exclusive
 access, preservation of recoverable data, authenticated firmware applicability,
@@ -64,3 +66,6 @@ Experimental Windows read-only storage access is documented in [native backup](n
 It requires a phone already exposing offline/read-only mass storage. Producing an
 experimental copy does not establish validated recovery, restoration or a complete
 data-preservation plan; the preparation gate remains independent.
+The CLI-only [stock recovery file audit](rm875-recovery-path.md) additionally
+checks manifest minimum-size/expansion properties and source backup-GPT templates.
+It does not emulate FlashApp layout handling or validate physical recovery.
