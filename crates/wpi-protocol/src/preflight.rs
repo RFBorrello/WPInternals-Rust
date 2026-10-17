@@ -213,6 +213,44 @@ pub fn capture<T: MessageTransport, F: FnMut(&str) -> bool>(
     reference_root: &RootKeyHash,
     reference_platform: &str,
     read_primary: bool,
+    progress: F,
+) -> Result<Capture> {
+    capture_inner(
+        transport,
+        reference_root,
+        reference_platform,
+        read_primary,
+        None,
+        progress,
+    )
+}
+
+/// Correlate this handle with a public ID freshly read in Normal mode. A mismatch
+/// stops before RRKH/SS or GPT. Physical-port binding belongs to the adapter.
+pub fn capture_bound<T: MessageTransport, F: FnMut(&str) -> bool>(
+    transport: &mut T,
+    reference_root: &RootKeyHash,
+    reference_platform: &str,
+    read_primary: bool,
+    expected_public_id: &identity::PublicId,
+    progress: F,
+) -> Result<Capture> {
+    capture_inner(
+        transport,
+        reference_root,
+        reference_platform,
+        read_primary,
+        Some(expected_public_id),
+        progress,
+    )
+}
+
+fn capture_inner<T: MessageTransport, F: FnMut(&str) -> bool>(
+    transport: &mut T,
+    reference_root: &RootKeyHash,
+    reference_platform: &str,
+    read_primary: bool,
+    expected_public_id: Option<&identity::PublicId>,
     mut progress: F,
 ) -> Result<Capture> {
     boundary(&mut progress, "Read current application")?;
@@ -227,6 +265,11 @@ pub fn capture<T: MessageTransport, F: FnMut(&str) -> bool>(
     }
     boundary(&mut progress, "Read local public ID")?;
     let public_id = identity::read_flash(transport)?;
+    if expected_public_id.is_some_and(|expected| expected != &public_id) {
+        return Err(invalid(
+            "Flash public ID does not match the fresh Normal baseline",
+        ));
+    }
     boundary(&mut progress, "Compare root key hash")?;
     if RootKeyHash::parse(&parameter(transport, "RRKH")?)? != *reference_root {
         return Err(invalid(

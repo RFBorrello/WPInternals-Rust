@@ -9,6 +9,8 @@ const NORMAL_RECONNECT_LIMIT: Duration = Duration::from_secs(90);
 // Hotplug is a hint: Windows arrivals can precede descriptor availability.
 // Rediscovery must not repeat protocol queries to a retired boot interface.
 const REDISCOVERY_INTERVAL: Duration = Duration::from_secs(2);
+pub const PREFLIGHT_CONFIRMATION: &str = "RM875-READONLY-PREFLIGHT-ROUNDTRIP";
+pub const PREFLIGHT_EXPERIMENT: &str = "rm875_normal_flash_preflight_normal";
 
 #[derive(Debug, Serialize)]
 pub struct Preview {
@@ -45,6 +47,14 @@ pub struct Summary {
     pub public_id_matched_in_both_modes: bool,
     pub identity_authenticated: bool,
     pub recovery_authorized: bool,
+    pub spec_a_preflight_completed: bool,
+}
+#[derive(Debug, Serialize)]
+pub struct PreflightPreview {
+    pub mode_test: Preview,
+    pub reference: wpi_core::spec_a_preflight::ReferenceSummary,
+    pub gpt_query_included: bool,
+    pub phone_writes_enabled: bool,
 }
 
 fn read_snapshot<T: MessageTransport>(
@@ -262,13 +272,71 @@ pub fn preview(id: &str) -> Result<Preview, String> {
     })
 }
 
+/// Same admission as the mode test, with a distinct reviewed action list and
+/// confirmation. No physical mode command is sent by this preview.
+pub fn preflight_preview(
+    id: &str,
+    reference: &wpi_core::spec_a_preflight::Reference,
+) -> Result<PreflightPreview, String> {
+    check_reference_platform(reference)?;
+    let mut mode = preview(id)?;
+    mode.experiment = PREFLIGHT_EXPERIMENT;
+    mode.confirmation_phrase = PREFLIGHT_CONFIRMATION;
+    mode.actions.insert(4, "On a freshly bound handle compare Normal/Flash public IDs, RRKH and SS; no GPT/FVER/context requests");
+    Ok(PreflightPreview {
+        mode_test: mode,
+        reference: reference.summary().clone(),
+        gpt_query_included: false,
+        phone_writes_enabled: false,
+    })
+}
+fn check_reference_platform(
+    reference: &wpi_core::spec_a_preflight::Reference,
+) -> Result<(), String> {
+    let platform = reference.platform();
+    if FLASH_PLATFORM != platform
+        && !FLASH_PLATFORM
+            .strip_prefix(platform)
+            .is_some_and(|s| s.starts_with('.'))
+    {
+        return Err(
+            "Source reference platform is outside the reviewed RM-875 Flash profile".into(),
+        );
+    }
+    Ok(())
+}
+pub fn run_preflight<F: FnMut(&ModeTestEvent) -> bool>(
+    id: &str,
+    reference: &wpi_core::spec_a_preflight::Reference,
+    confirmation: &str,
+    cancelled: &AtomicBool,
+    emit: F,
+) -> Result<Summary, String> {
+    check_reference_platform(reference)?;
+    run_session(id, confirmation, Some(reference), cancelled, emit)
+}
 pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
     id: &str,
     confirmation: &str,
     cancelled: &AtomicBool,
     emit: F,
 ) -> Result<Summary, String> {
-    if confirmation != CONFIRMATION {
+    run_session(id, confirmation, None, cancelled, emit)
+}
+fn run_session<F: FnMut(&ModeTestEvent) -> bool>(
+    id: &str,
+    confirmation: &str,
+    reference: Option<&wpi_core::spec_a_preflight::Reference>,
+    cancelled: &AtomicBool,
+    emit: F,
+) -> Result<Summary, String> {
+    if confirmation
+        != if reference.is_some() {
+            PREFLIGHT_CONFIRMATION
+        } else {
+            CONFIRMATION
+        }
+    {
         return Err("Exact public-ID experiment confirmation required".into());
     }
     if !cfg!(all(target_os = "windows", target_arch = "aarch64")) {
@@ -310,6 +378,7 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
             port,
         },
         observed_generation: 0,
+        reference,
     };
     let descriptor = identity(selected, DeviceMode::Normal);
     let baseline = match driver
@@ -319,10 +388,18 @@ pub fn run<F: FnMut(&ModeTestEvent) -> bool>(
         Observation::Identity(s) => s,
         Observation::Boot(_) => return Err("Normal baseline identity is required".into()),
     };
-    round_trip(&mut driver, baseline, cancelled, emit)
+    round_trip_inner(&mut driver, baseline, reference.is_some(), cancelled, emit)
 }
 
 trait IdentityDriver {
+    fn preflight(
+        &mut self,
+        _current: &Snapshot,
+        _baseline: &Snapshot,
+        _cancelled: &AtomicBool,
+    ) -> Result<wpi_core::spec_a_preflight::Report, String> {
+        Err("This driver has no read-only preflight implementation".into())
+    }
     fn devices(&mut self) -> Result<Vec<DeviceIdentity>, String>;
     fn arm(&mut self, id: &str) -> Result<(), String>;
     fn removed(&mut self, id: &str) -> Result<bool, String>;
@@ -343,11 +420,12 @@ trait IdentityDriver {
     fn now(&self) -> Instant;
     fn pause(&mut self);
 }
-struct PublicDriver {
+struct PublicDriver<'a> {
     native: NativeDriver,
     observed_generation: u64,
+    reference: Option<&'a wpi_core::spec_a_preflight::Reference>,
 }
-impl PublicDriver {
+impl PublicDriver<'_> {
     fn binding(&self, id: &str) -> Result<(), DriverError> {
         let devices: Vec<_> = nusb::list_devices()
             .wait()
@@ -372,7 +450,90 @@ impl PublicDriver {
         .map_err(DriverError::Fatal)
     }
 }
-impl IdentityDriver for PublicDriver {
+/// Defense in depth for this one hardware experiment: even future changes to
+/// the generic codec cannot add a parameter, GPT read, context switch or write.
+struct PreflightTransport<'a, T> {
+    inner: &'a mut T,
+    descriptor: &'a DeviceIdentity,
+}
+impl<T: MessageTransport> MessageTransport for PreflightTransport<'_, T> {
+    fn exchange(
+        &mut self,
+        request: &[u8],
+        maximum_response: usize,
+    ) -> wpi_protocol::Result<Vec<u8>> {
+        if request != b"NOKV"
+            && request != public_identity::flash_request()
+            && request != wpi_protocol::flash::parameter_request("RRKH")?
+            && request != wpi_protocol::flash::parameter_request("SS")?
+        {
+            return Err(wpi_protocol::ProtocolError::Invalid(
+                "Request is outside this read-only preflight experiment".into(),
+            ));
+        }
+        let response = self.inner.exchange(request, maximum_response)?;
+        if request == b"NOKV" {
+            let info = wpi_protocol::flash::parse_info(&response)?;
+            let mut device = self.descriptor.clone();
+            device.mode = info.mode;
+            device.platform_id = info.platform_id.clone();
+            validate_flash(&ProbeResult {
+                device,
+                info: Some(info),
+                normal: None,
+                firmware: None,
+            })
+            .map_err(wpi_protocol::ProtocolError::Invalid)?;
+        }
+        Ok(response)
+    }
+}
+impl IdentityDriver for PublicDriver<'_> {
+    fn preflight(
+        &mut self,
+        current: &Snapshot,
+        baseline: &Snapshot,
+        cancelled: &AtomicBool,
+    ) -> Result<wpi_core::spec_a_preflight::Report, String> {
+        let reference = self.reference.ok_or("Preflight reference missing")?;
+        validate(current, baseline, DeviceMode::Flash)?;
+        self.binding(&current.probe.device.id)
+            .map_err(|e| e.message())?;
+        let (descriptor, mut transport) = open_selected(&current.probe.device.id)?;
+        if descriptor.vendor_id != current.probe.device.vendor_id
+            || descriptor.product_id != current.probe.device.product_id
+            || descriptor.serial != current.probe.device.serial
+        {
+            return Err("Descriptors changed before read-only preflight".into());
+        }
+        transport.deadline = Some(Instant::now() + Duration::from_secs(30));
+        let captured = wpi_protocol::preflight::capture_bound(
+            &mut PreflightTransport {
+                inner: &mut transport,
+                descriptor: &descriptor,
+            },
+            reference.root(),
+            reference.platform(),
+            false,
+            &baseline.public_id,
+            |_| !cancelled.load(Ordering::Acquire),
+        )
+        .map_err(|e| e.to_string())?;
+        self.binding(&current.probe.device.id)
+            .map_err(|e| e.message())?;
+        let mut report = wpi_core::spec_a_preflight::assess(reference, captured, false)
+            .map_err(|e| e.to_string())?;
+        report.normal_session_correlated = true;
+        for check in &mut report.checks {
+            if check.key == "normal_identity" {
+                check.status = PreparationStatus::Passed;
+                check.message = "Fresh Normal public ID matched both Flash bookends on a handle bound to the same physical USB port. This is local correlation, not authenticated identity.".into();
+            } else if check.key == "identity_bookends" {
+                check.message = "The same local public ID answered at both Flash bookends and matched the fresh Normal baseline. ID bytes remain private; identity is not authenticated.".into();
+            }
+        }
+        Ok(report)
+    }
     fn devices(&mut self) -> Result<Vec<DeviceIdentity>, String> {
         let devices: Vec<_> = nusb::list_devices()
             .wait()
@@ -709,9 +870,19 @@ fn wait<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
         limit.as_secs()
     ))
 }
+#[cfg(test)]
 fn round_trip<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
     driver: &mut D,
     baseline: Snapshot,
+    cancelled: &AtomicBool,
+    emit: F,
+) -> Result<Summary, String> {
+    round_trip_inner(driver, baseline, false, cancelled, emit)
+}
+fn round_trip_inner<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
+    driver: &mut D,
+    baseline: Snapshot,
+    include_preflight: bool,
     cancelled: &AtomicBool,
     emit: F,
 ) -> Result<Summary, String> {
@@ -742,6 +913,30 @@ fn round_trip<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
             cancelled,
             &mut reporter,
         )?;
+        if include_preflight {
+            if cancelled.load(Ordering::Acquire)
+                || !reporter.progress(
+                    OperationState::Running,
+                    "Read-only identity-bound RRKH / SS preflight; no GPT or context switch",
+                )
+            {
+                return Err("Cancelled before read-only preflight".into());
+            }
+            let report = driver.preflight(&flash, &baseline, cancelled)?;
+            if report.phone_writes_enabled
+                || report.recovery_authorized
+                || !report.normal_session_correlated
+            {
+                return Err("Unexpected preflight authority or missing Normal correlation".into());
+            }
+            if cancelled.load(Ordering::Acquire)
+                || !(reporter.emit)(&ModeTestEvent::SpecAPreflight {
+                    report: Box::new(report),
+                })
+            {
+                return Err("Preflight journal failed or cancellation requested; inspect state before any further command".into());
+            }
+        }
         send(
             driver,
             &flash,
@@ -768,7 +963,11 @@ fn round_trip<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
             return Err("Completion journal failed".into());
         }
         Ok(Summary {
-            result: "public_id_normal_flash_normal_observed",
+            result: if include_preflight {
+                "read_only_preflight_roundtrip_observed"
+            } else {
+                "public_id_normal_flash_normal_observed"
+            },
             mode_commands_attempted: reporter.attempted,
             normal_reconnection: wpi_core::reconnect::compare(
                 &baseline.probe.device,
@@ -778,6 +977,7 @@ fn round_trip<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
             public_id_matched_in_both_modes: true,
             identity_authenticated: false,
             recovery_authorized: false,
+            spec_a_preflight_completed: include_preflight,
         })
     })();
     result.map_err(|e: String| reporter.stopped(&e))

@@ -316,3 +316,38 @@ fn primary_wire_bounds_signature_status_and_surplus_are_checked() {
     r[0] = 0;
     assert!(preflight::parse_primary_gpt(&r).is_err());
 }
+
+#[test]
+fn bound_capture_rejects_a_different_normal_id_before_security_queries() {
+    let normal_id = |seed: u8| {
+        identity::parse_normal(
+            &serde_json::to_vec(
+                &serde_json::json!({"jsonrpc":"2.0","id":4,"result":{"PublicId":vec![seed;20]}}),
+            )
+            .unwrap(),
+            4,
+        )
+        .unwrap()
+    };
+    for seed in [42, 43] {
+        let mut t = Counted {
+            replay: ReplayTransport::new(exchanges(true, false)),
+            queries: 0,
+        };
+        let result = preflight::capture_bound(
+            &mut t,
+            &RootKeyHash::parse(&[7; 32]).unwrap(),
+            "Nokia.MSM8960.P5217",
+            false,
+            &normal_id(seed),
+            |_| true,
+        );
+        if seed == 42 {
+            assert!(result.is_ok());
+            assert!(t.replay.finished());
+        } else {
+            assert!(result.is_err());
+            assert_eq!(t.queries, 2);
+        }
+    }
+}

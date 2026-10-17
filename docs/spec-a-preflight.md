@@ -86,3 +86,37 @@ always false. Installed originals, both GPTs, exact applicability, loader/donor
 acceptance, validated recovery and an audited live executor remain prerequisites.
 The previously built RM-875 ZIP uses an older source FFU than the installed phone;
 a matching root or primary layout cannot establish downgrade acceptance.
+
+## Identity-bound hardware validation cycle
+
+A separate CLI harness can run the read-only checks between one Normal → Flash
+→ Normal cycle. It uses the existing RM-875 / firmware 3051.50009.1451.1003 /
+Windows ARM64 admission, exact FlashApp 2.2/protocol 1.18/full platform profile,
+physical-port checks, interface retirement and public-ID reconnect observer.
+It has a distinct confirmation phrase; old mode-test approvals do not enable it.
+
+```text
+wpi spec-a-preflight-test stock.ffu SELECTED_ID
+wpi spec-a-preflight-test stock.ffu SELECTED_ID --execute --confirm RM875-READONLY-PREFLIGHT-ROUNDTRIP --report new-local-journal.jsonl
+```
+
+Preview performs only fresh Normal information/public-ID reads. Execution checks
+the source reference platform before any mode change. After a correlated Flash
+arrival it opens a freshly bound handle, checks the exact NOKV profile before
+any terminal query, matches that handle's public ID with the fresh Normal ID,
+compares RRKH and SS, and checks the Flash application/public ID again. The
+preflight transport accepts only NOKV, the fixed terminal query, RRKH and SS.
+NOKT, FVER, context, reset, firmware and arbitrary parameter requests are refused
+before they reach USB. This first hardware cycle does not attempt GPT reads.
+
+A successful preflight journal records `normal_session_correlated: true`, which
+describes local public-ID/physical-port continuity, not authenticated identity.
+It retains false write/recovery/backup flags. The report is journaled before the
+separate return-to-Normal step, which revalidates identity on its command handle.
+Completion requires the original Normal serial/model/firmware/public ID again.
+The old mode-only harness does not run the new queries.
+
+Any preflight failure, cancellation or journal failure stops without sending a
+return reset or retry. The phone may need a manual Volume Down + Power restart;
+inspect its state first. A new reviewed hardware cycle must be explicitly
+approved before execution. No bootloader unlocking is performed by this test.

@@ -15,6 +15,17 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Preview one identity-bound Normal/Flash read-only preflight/Normal experiment. No GPT or writes.
+    SpecAPreflightTest {
+        input: PathBuf,
+        id: String,
+        #[arg(long, requires_all = ["confirm", "report"])]
+        execute: bool,
+        #[arg(long, requires = "execute")]
+        confirm: Option<String>,
+        #[arg(long, requires = "execute")]
+        report: Option<PathBuf>,
+    },
     /// Preview or run read-only Spec A checks in an ALREADY exposed FlashApp. Never switches modes.
     PreflightSpecA {
         input: PathBuf,
@@ -325,6 +336,30 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::SpecAPreflightTest {
+            input,
+            id,
+            execute,
+            confirm,
+            report,
+        } => {
+            let mut source = artifacts::open_artifact(&input)?;
+            let reference = wpi_core::spec_a_preflight::Reference::read(&mut source)?;
+            use wpi_transport::mode_test::public_id;
+            if !execute {
+                print(public_id::preflight_preview(&id, &reference)?)?;
+            } else {
+                execute_experiment(
+                    confirm,
+                    report,
+                    public_id::PREFLIGHT_CONFIRMATION,
+                    public_id::PREFLIGHT_EXPERIMENT,
+                    |confirmation, cancelled, events| {
+                        public_id::run_preflight(&id, &reference, confirmation, cancelled, events)
+                    },
+                )?;
+            }
+        }
         Command::PreflightSpecA {
             input,
             device_id,

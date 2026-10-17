@@ -504,3 +504,22 @@ OEM trust. See the metadata-only
 No fresh phone queries, mode transitions, programmer uploads or writes were sent.
 Device preflight remains unvalidated on hardware; the command does not switch
 contexts, preserve installed originals, capture backup GPT or enable recovery.
+
+## Preparation for the identity-bound preflight cycle — October 16
+
+The separate RM-875 CLI harness now supports RRKH/SS preflight between a fresh
+Normal/Flash/Normal round trip. Five additional tests cover the Normal public-ID
+anchor, the preflight request allowlist/exact Flash profile, event ordering,
+old-harness isolation, and failures/cancellation/journal errors before the return
+command. All 194 local Rust tests and native/WASM strict Clippy checks pass.
+This records implementation/replay coverage, not a completed hardware cycle.
+
+A fresh native Normal probe confirmed RM-875 / 3051.50009.1451.1003. Restricted
+process enumeration returned an empty list while the authorized native process
+and Windows PnP saw the healthy connected phone; an empty restricted-process list
+must not be treated as proof that the cable/device is absent. These read-only
+checks sent no mode change or firmware/partition writes.
+
+The preceding commit's cross-platform CI succeeded on all configured hosts:
+[run 38977704228](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38977704228).
+The new hardware harness still needs its own reviewed physical cycle.

@@ -144,6 +144,9 @@ pub enum ModeTestEvent {
         observed_mode: DeviceMode,
         readiness: &'static str,
     },
+    SpecAPreflight {
+        report: Box<wpi_core::spec_a_preflight::Report>,
+    },
 }
 #[derive(Debug, Serialize)]
 pub struct ModeTestSummary {

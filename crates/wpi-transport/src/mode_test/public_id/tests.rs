@@ -119,6 +119,8 @@ struct Fake {
     source_before_normal: Snapshot,
     uncertain: bool,
     cancel_after_probe: bool,
+    preflight_runs: usize,
+    preflight_report: Option<wpi_core::spec_a_preflight::Report>,
 }
 impl Fake {
     fn new(frames: Vec<Frame>) -> Self {
@@ -135,10 +137,27 @@ impl Fake {
             source_before_normal: snapshot(DeviceMode::Flash, "flash"),
             uncertain: false,
             cancel_after_probe: false,
+            preflight_runs: 0,
+            preflight_report: None,
         }
     }
 }
 impl IdentityDriver for Fake {
+    fn preflight(
+        &mut self,
+        current: &Snapshot,
+        baseline: &Snapshot,
+        cancelled: &AtomicBool,
+    ) -> Result<wpi_core::spec_a_preflight::Report, String> {
+        self.preflight_runs += 1;
+        validate(current, baseline, DeviceMode::Flash)?;
+        if cancelled.load(Ordering::Acquire) {
+            return Err("Cancelled before preflight".into());
+        }
+        self.preflight_report
+            .take()
+            .ok_or("Synthetic preflight query failure; do not retry or reset".into())
+    }
     fn devices(&mut self) -> Result<Vec<DeviceIdentity>, String> {
         self.enumerations += 1;
         if !self.prefetched {
@@ -247,6 +266,184 @@ impl IdentityDriver for Fake {
 }
 fn run_fake(fake: &mut Fake) -> Result<Summary, String> {
     round_trip(fake, baseline(), &AtomicBool::new(false), |_| true)
+}
+
+fn preflight_report() -> wpi_core::spec_a_preflight::Report {
+    let reference = wpi_core::spec_a_preflight::Reference::read(&mut std::io::Cursor::new(
+        include_bytes!("../../../../../tests/fixtures/synthetic-spec-a-package.ffu"),
+    ))
+    .unwrap();
+    let scenario: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../tests/fixtures/spec-a-preflight-locked.json"
+    ))
+    .unwrap();
+    let mut exchanges: Vec<Exchange> =
+        serde_json::from_value(scenario["exchanges"].clone()).unwrap();
+    for i in [1, 5] {
+        exchanges[i].response[40..60].fill(42);
+    }
+    let mut t = ReplayTransport::new(exchanges);
+    let capture = wpi_protocol::preflight::capture_bound(
+        &mut t,
+        reference.root(),
+        reference.platform(),
+        false,
+        &baseline().public_id,
+        |_| true,
+    )
+    .unwrap();
+    assert!(t.finished());
+    let mut report = wpi_core::spec_a_preflight::assess(&reference, capture, true).unwrap();
+    report.normal_session_correlated = true;
+    report
+}
+
+#[test]
+fn preflight_is_journaled_before_return_and_legacy_round_trip_does_not_run_it() {
+    let mut legacy = Fake::new(direct());
+    assert!(!run_fake(&mut legacy).unwrap().spec_a_preflight_completed);
+    assert_eq!(legacy.preflight_runs, 0);
+    let mut fake = Fake::new(direct());
+    fake.preflight_report = Some(preflight_report());
+    let mut log = Vec::new();
+    let result = round_trip_inner(&mut fake, baseline(), true, &AtomicBool::new(false), |e| {
+        log.push(serde_json::to_value(e).unwrap());
+        true
+    })
+    .unwrap();
+    assert!(result.spec_a_preflight_completed);
+    assert_eq!(fake.preflight_runs, 1);
+    assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+    let preflight = log
+        .iter()
+        .position(|e| e["kind"] == "spec_a_preflight")
+        .unwrap();
+    let returning = log
+        .iter()
+        .position(|e| e["action"] == "NOKR from public-ID-validated FlashApp")
+        .unwrap();
+    assert!(preflight < returning);
+    assert_eq!(log[preflight]["report"]["gpt_read_status"], "not_requested");
+    assert_eq!(log[preflight]["report"]["phone_writes_enabled"], false);
+}
+
+#[test]
+fn preflight_failure_missing_correlation_or_journal_failure_never_sends_return_reset() {
+    for kind in [
+        "query_error",
+        "normal_correlation",
+        "unexpected_authority",
+        "journal",
+    ] {
+        let mut fake = Fake::new(direct());
+        if kind != "query_error" {
+            let mut report = preflight_report();
+            if kind == "normal_correlation" {
+                report.normal_session_correlated = false;
+            }
+            if kind == "unexpected_authority" {
+                report.phone_writes_enabled = true;
+            }
+            fake.preflight_report = Some(report);
+        }
+        let result = round_trip_inner(&mut fake, baseline(), true, &AtomicBool::new(false), |e| {
+            !matches!(e, ModeTestEvent::SpecAPreflight { .. }) || kind != "journal"
+        });
+        assert!(result.is_err(), "{kind}");
+        assert_eq!(fake.preflight_runs, 1);
+        assert_eq!(fake.actions, [Action::EnterFlash]);
+    }
+    let mut bad = frame(DeviceMode::Flash, "flash");
+    bad.observations[0].public_id = public_id(43);
+    let mut fake = Fake::new(vec![bad]);
+    fake.preflight_report = Some(preflight_report());
+    assert!(
+        round_trip_inner(&mut fake, baseline(), true, &AtomicBool::new(false), |_| {
+            true
+        })
+        .is_err()
+    );
+    assert_eq!(fake.preflight_runs, 0);
+    assert_eq!(fake.actions, [Action::EnterFlash]);
+}
+
+#[test]
+fn preflight_transport_rejects_gpt_context_reset_writes_and_unreviewed_parameters() {
+    let descriptor = snapshot(DeviceMode::Flash, "flash").probe.device;
+    struct Spy {
+        calls: usize,
+    }
+    impl MessageTransport for Spy {
+        fn exchange(&mut self, _: &[u8], _: usize) -> wpi_protocol::Result<Vec<u8>> {
+            self.calls += 1;
+            Err(wpi_protocol::ProtocolError::Transport(
+                "unexpected transport call".into(),
+            ))
+        }
+    }
+    let mut spy = Spy { calls: 0 };
+    for request in [
+        b"NOKT".to_vec(),
+        b"NOKR".to_vec(),
+        b"NOKXCBB".to_vec(),
+        b"NOKXFS".to_vec(),
+        wpi_protocol::flash::parameter_request("FVER").unwrap(),
+    ] {
+        assert!(PreflightTransport {
+            inner: &mut spy,
+            descriptor: &descriptor
+        }
+        .exchange(&request, 65536)
+        .is_err());
+    }
+    assert_eq!(spy.calls, 0);
+    let mut response = b"NOKV\0\x02\x01\x12\x02\x02\x01".to_vec();
+    response.extend_from_slice(&[5, 0, FLASH_PLATFORM.len() as u8]);
+    response.extend_from_slice(FLASH_PLATFORM.as_bytes());
+    for good in [true, false] {
+        let mut bytes = response.clone();
+        if !good {
+            bytes[8] = 3;
+        }
+        let mut replay = ReplayTransport::new(vec![Exchange {
+            request: b"NOKV".to_vec(),
+            response: bytes,
+            error: None,
+        }]);
+        assert_eq!(
+            PreflightTransport {
+                inner: &mut replay,
+                descriptor: &descriptor
+            }
+            .exchange(b"NOKV", 65536)
+            .is_ok(),
+            good
+        );
+        assert!(replay.finished());
+    }
+}
+
+#[test]
+fn cancellation_before_or_after_preflight_never_sends_the_return_command() {
+    for before in [true, false] {
+        let mut fake = Fake::new(direct());
+        fake.preflight_report = Some(preflight_report());
+        let cancelled = AtomicBool::new(false);
+        let result = round_trip_inner(&mut fake, baseline(), true, &cancelled, |e| {
+            if before
+                && matches!(e,ModeTestEvent::Progress{event} if event.message.starts_with("Read-only identity-bound"))
+            {
+                return false;
+            }
+            if !before && matches!(e, ModeTestEvent::SpecAPreflight { .. }) {
+                cancelled.store(true, Ordering::Release);
+            }
+            true
+        });
+        assert!(result.is_err());
+        assert_eq!(fake.preflight_runs, usize::from(!before));
+        assert_eq!(fake.actions, [Action::EnterFlash]);
+    }
 }
 
 #[test]
