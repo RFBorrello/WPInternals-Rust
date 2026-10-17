@@ -710,3 +710,19 @@ tests and targeted Clippy pass; the full suite was not rerun. Only synthetic
 images are used, and production code and phone-write policy remain unchanged.
 Local checks disable incremental compilation and debug symbols to reduce cache
 growth after the storage cleanup.
+
+## Bounded iteration: payload acknowledgement failures — October 16
+
+The payload-failure regression now exercises the same eight acknowledgement
+faults at all six v1 and three v2 payload boundaries (72 cases). Each result
+requires recovery, reports only previously acknowledged bytes, and leaves later
+payloads queued. A sentinel remains after the final payload so an unexpected
+retry or extra command cannot be hidden by an already exhausted replay queue.
+All six focused recovery-replay tests and targeted Clippy pass with incremental
+compilation/debug symbols disabled. Production code and write gates are unchanged;
+the full suite was not rerun.
+
+A separate read-only Normal-mode probe confirmed the connected Lumia 1020
+RM-875 still reports `3051.50009.1451.1003`. It sent no mode changes or
+firmware/partition writes and does not validate recovery. The user's requirement
+to preserve the phone's data remains in force.

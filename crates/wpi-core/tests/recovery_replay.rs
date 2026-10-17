@@ -113,18 +113,21 @@ fn v1_and_v2_stock_replay_complete_with_monotonic_progress() {
         assert_eq!(terminal, Some(OperationState::Completed));
     }
 }
-#[test]
-fn uncertain_or_invalid_header_ack_stops_without_retrying_or_sending_payloads() {
-    let faults = [
-        (Vec::new(), Some("timeout after header submission")),
-        (Vec::new(), Some("disconnect after header submission")),
+fn acknowledgement_faults() -> [(Vec<u8>, Option<&'static str>); 8] {
+    [
+        (Vec::new(), Some("timeout after command submission")),
+        (Vec::new(), Some("disconnect after command submission")),
         (Vec::new(), None),
         (b"NOKXFS\0".to_vec(), None),
         (b"NOKXFT\0\0".to_vec(), None),
         (b"NOKXFS\0\x01".to_vec(), None),
         (b"NOKU".to_vec(), None),
         (vec![0; 65537], None),
-    ];
+    ]
+}
+#[test]
+fn uncertain_or_invalid_header_ack_stops_without_retrying_or_sending_payloads() {
+    let faults = acknowledgement_faults();
     for v2 in [false, true] {
         for (case, (response, error)) in faults.iter().enumerate() {
             let mut transcript = exchanges(v2);
@@ -151,18 +154,41 @@ fn uncertain_or_invalid_header_ack_stops_without_retrying_or_sending_payloads() 
 }
 #[test]
 fn failed_payload_ack_requires_inspection_and_never_retries() {
-    let mut transcript = exchanges(false);
-    transcript[2].error = Some("disconnect after payload submission".into());
-    let mut transport = ReplayTransport::new(transcript);
-    let mut terminal = None;
-    let error = recovery_replay::run(&mut Cursor::new(FFU), &mut transport, |event| {
-        terminal = Some(event.state);
-        true
-    })
-    .unwrap_err();
-    assert!(matches!(error, RecoveryError::RecoveryRequired(_)));
-    assert_eq!(terminal, Some(OperationState::RecoveryRequired));
-    assert!(!transport.finished());
+    let faults = acknowledgement_faults();
+    for v2 in [false, true] {
+        let mut expected = exchanges(v2);
+        let payload_count = expected.len() - 2;
+        let buffer = if v2 { 8192 } else { 4096 };
+        // Keep a guard queued even after the final payload: an unexpected retry
+        // would otherwise hit an empty replay and could escape this assertion.
+        expected.push(Exchange {
+            request: b"UNSUBMITTED".to_vec(),
+            response: Vec::new(),
+            error: None,
+        });
+        for stop in 0..payload_count {
+            for (case, (response, error)) in faults.iter().enumerate() {
+                let mut transcript = expected.clone();
+                transcript[2 + stop].response = response.clone();
+                transcript[2 + stop].error = error.map(str::to_owned);
+                let mut transport = ReplayTransport::new(transcript.clone());
+                let mut terminal = None;
+                let result = recovery_replay::run(&mut Cursor::new(FFU), &mut transport, |event| {
+                    terminal = Some((event.state, event.completed_bytes));
+                    event.state != OperationState::RecoveryRequired
+                });
+                assert!(
+                    matches!(result, Err(RecoveryError::RecoveryRequired(_))),
+                    "v2={v2}, payload={stop}, case={case}"
+                );
+                assert_eq!(
+                    terminal,
+                    Some((OperationState::RecoveryRequired, (stop * buffer) as u64))
+                );
+                assert_remaining(&mut transport, &transcript[3 + stop..]);
+            }
+        }
+    }
 }
 #[test]
 fn platform_mismatch_is_rejected_before_any_simulated_write() {
