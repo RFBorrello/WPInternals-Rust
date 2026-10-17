@@ -3,6 +3,7 @@ use wpi_core::recovery_replay::{self, RecoveryError};
 use wpi_protocol::{
     flash,
     replay::{Exchange, ReplayTransport},
+    MessageTransport,
 };
 use wpi_types::OperationState;
 const FFU: &[u8] = include_bytes!("../../../tests/fixtures/synthetic.ffu");
@@ -39,6 +40,60 @@ fn exchanges(v2: bool) -> Vec<Exchange> {
         });
     }
     transcript
+}
+#[test]
+fn cancellation_before_header_leaves_all_simulated_writes_unsubmitted() {
+    for v2 in [false, true] {
+        let transcript = exchanges(v2);
+        let mut transport = ReplayTransport::new(transcript.clone());
+        let mut states = Vec::new();
+        let result = recovery_replay::run(&mut Cursor::new(FFU), &mut transport, |event| {
+            states.push(event.state);
+            false
+        });
+        assert!(matches!(result, Err(RecoveryError::Cancelled)));
+        assert!(!states.contains(&OperationState::RecoveryRequired));
+        assert!(!states.contains(&OperationState::Completed));
+        // NOKV was consumed; every header/payload exchange must remain queued.
+        assert_remaining(&mut transport, &transcript[1..]);
+    }
+}
+#[test]
+fn cancellation_after_header_stops_at_each_payload_boundary_and_requires_recovery() {
+    for v2 in [false, true] {
+        let transcript = exchanges(v2);
+        let payload_count = transcript.len() - 2;
+        let buffer = if v2 { 8192 } else { 4096 };
+        for stop in 0..payload_count {
+            let mut transport = ReplayTransport::new(transcript.clone());
+            let mut boundaries = 0;
+            let mut terminal = None;
+            let result = recovery_replay::run(&mut Cursor::new(FFU), &mut transport, |event| {
+                terminal = Some((event.state, event.completed_bytes));
+                if event.state == OperationState::Running {
+                    boundaries += 1;
+                    // First Running event is before the header, then payloads.
+                    return boundaries != stop + 2;
+                }
+                true
+            });
+            assert!(matches!(result, Err(RecoveryError::RecoveryRequired(_))));
+            assert_eq!(
+                terminal,
+                Some((OperationState::RecoveryRequired, (stop * buffer) as u64))
+            );
+            assert_remaining(&mut transport, &transcript[2 + stop..]);
+        }
+    }
+}
+fn assert_remaining(transport: &mut ReplayTransport, expected: &[Exchange]) {
+    for exchange in expected {
+        assert_eq!(
+            transport.exchange(&exchange.request, 65536).unwrap(),
+            exchange.response
+        );
+    }
+    assert!(transport.finished());
 }
 #[test]
 fn v1_and_v2_stock_replay_complete_with_monotonic_progress() {

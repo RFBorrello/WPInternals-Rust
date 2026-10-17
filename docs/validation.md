@@ -686,3 +686,14 @@ Focused image/integrity/recovery-audit, stock-recovery replay and the existing
 package final-cancellation tests pass, as does image-crate all-target Clippy.
 The full suite and UI were not rerun for this small change. No phone access,
 write-policy change or firmware processing was performed on real inputs.
+
+## Bounded iteration: recovery replay cancellation boundaries — October 16
+
+Two added regression tests exercise synchronous FFU v1 and v2 cancellation.
+Cancellation before the header leaves every simulated write queued. Cancellation
+at each subsequent payload boundary stops further submissions and returns
+`RecoveryRequired`, preserving the distinction from cancellation before writes.
+Each test verifies the complete unconsumed transcript, rather than merely checking
+the returned error. All five recovery-replay tests and focused Clippy pass.
+Production code, phone-write gates and the data-preservation requirement are
+unchanged; no physical phone is contacted. The full suite was not rerun.
