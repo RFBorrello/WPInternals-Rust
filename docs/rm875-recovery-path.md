@@ -90,3 +90,6 @@ fault/reconnection rehearsal, together with applicability and data preservation.
 A physical recovery test would modify the phone and may erase data; it requires
 a separately reviewed implementation and explicit approval. No new mode cycle,
 programmer upload or recovery write is authorized by this offline audit.
+The [session journal](recovery-journal.md) is now implemented for replay only as
+the first native-recovery building block. It does not resolve the hardware,
+applicability or data-preservation gaps above.

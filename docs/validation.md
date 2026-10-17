@@ -726,3 +726,30 @@ A separate read-only Normal-mode probe confirmed the connected Lumia 1020
 RM-875 still reports `3051.50009.1451.1003`. It sent no mode changes or
 firmware/partition writes and does not validate recovery. The user's requirement
 to preserve the phone's data remains in force.
+
+## Recovery replay journal
+
+The journaled replay engine now fingerprints the complete source and records
+ready state, header/payload intents, separate acknowledgements, cancellation,
+recovery-required state and transfer completion. A new regular JSONL file is
+flushed and synchronized at each entry. Existing files are never overwritten,
+failed appends poison the sink, and partial files remain for inspection. Every
+entry is replay-only, disallows automatic resume/phone writes and requires fresh
+device checks. No journal import or native recovery executor is implemented.
+
+Five additional tests cover both protocols, source binding, ordered metadata,
+lost final replies, cancellation, file protection and journal failures at all
+26 checkpoints across the two synthetic success sequences. Remaining transcripts
+and a final sentinel verify no subsequent submission or retry after failure.
+All 77 core/protocol tests pass; core/CLI all-target Clippy, the CLI build and
+WASM compilation pass with compact local build settings. The full image/UI suite
+and hardware were not exercised for this milestone.
+
+CLI smoke tests used a public synthetic FFU and bounded synthetic transcript.
+Success persisted 16 entries and 24,576 acknowledged payload bytes. A lost final
+reply persisted 15 entries, retained the final intent and confirmed only 20,480
+bytes before reporting `RecoveryRequired`. Both cases preserved an existing
+journal on a repeated invocation. These local artifacts are ignored by Git.
+Power-loss behavior and crash-safe directory publication are not validated;
+transfer completion does not establish successful device recovery. See
+[the journal guide](recovery-journal.md). No phone communication occurred.

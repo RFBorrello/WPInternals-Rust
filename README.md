@@ -100,6 +100,9 @@ fit, and leaves the source package and all phone-write gates unchanged.
 The [stock recovery file audit](docs/rm875-recovery-path.md) verifies the FFU's
 minimum-size/expansion rules and source backup-GPT template, including explicit
 primary/backup attribute differences. It does not validate physical recovery.
+The [recovery session journal](docs/recovery-journal.md) records intents and
+acknowledgements durably for bounded protocol replays. Save failures stop further
+submissions; there is no native flashing or automatic resume capability.
 
 ## Quick start
 

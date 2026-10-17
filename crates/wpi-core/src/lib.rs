@@ -10,6 +10,7 @@ pub mod mode_replay;
 pub mod operations;
 pub mod profiles;
 pub mod reconnect;
+pub mod recovery_journal;
 pub mod recovery_prepare;
 pub mod recovery_replay;
 pub mod spec_a_preflight;

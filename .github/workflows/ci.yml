@@ -71,6 +71,7 @@ jobs:
             docs/boot-gpt-capture.md
             docs/spec-a-live-layout.md
             docs/rm875-recovery-path.md
+            docs/recovery-journal.md
             tests/fixtures/rm875-spec-a-validation.json
             tests/fixtures/rm875-offline-checks-validation.json
             tests/fixtures/rm875-assembly-validation.json

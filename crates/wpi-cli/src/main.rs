@@ -15,6 +15,12 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Run a local recovery protocol replay with a NEW durable JSONL journal. No USB access.
+    ReplayRecovery {
+        input: PathBuf,
+        scenario: PathBuf,
+        journal: PathBuf,
+    },
     /// Audit a pinned stock FFU's manifest and GPT templates against saved evidence. Local only.
     AuditRecovery {
         input: PathBuf,
@@ -374,6 +380,55 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::ReplayRecovery {
+            input,
+            scenario,
+            journal,
+        } => {
+            use std::sync::{
+                atomic::{AtomicBool, Ordering},
+                Arc,
+            };
+            #[derive(serde::Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Scenario {
+                exchanges: Vec<wpi_protocol::replay::Exchange>,
+            }
+            let scenario: Scenario = serde_json::from_value(read_json(&scenario)?)?;
+            if scenario.exchanges.is_empty() || scenario.exchanges.len() > 512 {
+                return Err("Recovery replay requires 1–512 exchanges".into());
+            }
+            if journal.extension().is_none_or(|e| e != "jsonl") {
+                return Err("Choose a new .jsonl journal file".into());
+            }
+            let mut source = artifacts::open_artifact(&input)?;
+            let mut transport = wpi_protocol::replay::ReplayTransport::new(scenario.exchanges);
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let signal = cancelled.clone();
+            ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+            let mut journal = wpi_core::recovery_journal::FileJournal::create(&journal)?;
+            let result = wpi_core::recovery_replay::run_journaled(
+                &mut source,
+                &mut transport,
+                |event| {
+                    eprintln!(
+                        "Replay {:?}: {}/{}",
+                        event.state, event.completed_bytes, event.total_bytes
+                    );
+                    !cancelled.load(Ordering::Acquire)
+                },
+                |entry| journal.append(entry),
+            );
+            print(
+                serde_json::json!({"replay_only":true,"phone_contacted":false,"phone_writes_enabled":false,
+                "transfer_completed":result.is_ok(),"transcript_fully_consumed":transport.finished(),
+                "automatic_resume_allowed":false,"error":result.as_ref().err().map(ToString::to_string)}),
+            )?;
+            result?;
+            if !transport.finished() {
+                return Err("Replay contains unused exchanges; inspect the scenario".into());
+            }
+        }
         Command::AuditRecovery {
             input,
             primary,
