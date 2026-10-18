@@ -14,6 +14,7 @@ pub mod efiesp;
 pub mod layout;
 pub mod live_plan;
 pub mod package;
+pub mod programmer_plan;
 pub mod sbl1;
 pub mod uefi;
 

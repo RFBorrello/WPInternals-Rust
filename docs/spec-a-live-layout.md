@@ -81,3 +81,8 @@ Raw installed GPT data and local artifacts are not distributed.
 The subsequent [recovery-path investigation](rm875-recovery-path.md) records
 the stock FFU's minimum-capacity/Data-expansion rules and the separate limits
 of emergency entry and installed-backup access.
+
+The [programmer-phase composer](spec-a-unlock-executor.md#package-bound-programmer-composition)
+now shares these verified inputs to derive immutable replay regions and a
+metadata-only report. It retains the same blocked phone-write capabilities;
+the layout advisory itself remains unchanged.

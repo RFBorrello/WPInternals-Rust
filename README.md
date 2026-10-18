@@ -94,6 +94,10 @@ The [Spec A executor work](docs/spec-a-unlock-executor.md) now includes V1
 programmer codecs and a replay-only transfer phase with address-bound replies,
 command-boundary cancellation and fail-stop error handling. It does not enable
 live unlocking or establish preservation of installed data.
+`wpi plan-spec-a-programmer` now composes the ten boot-stage regions from a
+pinned package and saved live-derived layout, with explicit GPT/SBL1/WINSECAPP
+length rules and checks excluding unrelated partition writes. Its report is
+metadata only; the immutable in-memory plan can feed the concrete replay phase.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.

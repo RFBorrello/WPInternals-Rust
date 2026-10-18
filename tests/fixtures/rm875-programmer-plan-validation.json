@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "validation": "local-file-calculation-only",
+  "date": "2026-10-17",
+  "hardware_variant": "RM-875",
+  "source_firmware": "3051.50009.1424.0002",
+  "installed_firmware_from_prior_capture": "3051.50009.1451.1003",
+  "package_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+  "saved_primary_sha256": "cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec",
+  "candidate_primary_sha256": "8bd4ecb71c8599300dafc897b2647ad9749faeddcc738130d071783d690c0f50",
+  "report_sha256": "0cd1cd683a7d6e7b9387c5e873fc139bb4158cb5fe1b2935429c236dbdba98c8",
+  "transfer_count": 10,
+  "total_transfer_bytes": 7529371,
+  "normalized_backup_pairs": [
+    "TZ",
+    "RPM",
+    "WINSECAPP"
+  ],
+  "transfers": [
+    {
+      "target": "HACK",
+      "source_path": "prepared/HACK.img",
+      "start_bytes": 18312704,
+      "byte_length": 512,
+      "sha256": "d40afa393993430e357ca8c510aa01107ca915612331a4180571277acf973b2a",
+      "omitted_tail_bytes": 0
+    },
+    {
+      "target": "MBR",
+      "source_path": "saved-primary/MBR",
+      "start_bytes": 0,
+      "byte_length": 512,
+      "sha256": "0409440e16fc25bee2e0a8e48dcd138baa98758d5b7042d1dde3ef4225818c5d",
+      "omitted_tail_bytes": 0
+    },
+    {
+      "target": "GPT",
+      "source_path": "live-derived/GPT-primary",
+      "start_bytes": 512,
+      "byte_length": 16895,
+      "sha256": "ca545a9e3ead746db29ac6a56fcac16a0ca6dfeff4cbbbaad2b67fa878b4d641",
+      "omitted_tail_bytes": 1
+    },
+    {
+      "target": "SBL2",
+      "source_path": "prepared/SBL2.img",
+      "start_bytes": 18874368,
+      "byte_length": 1536000,
+      "sha256": "e8e14b9b41bb24f04f0135df1e3776895fd30c22d4b42a3b939e0adf7dadb511",
+      "omitted_tail_bytes": 0
+    },
+    {
+      "target": "SBL3",
+      "source_path": "prepared/SBL3.img",
+      "start_bytes": 20971520,
+      "byte_length": 332700,
+      "sha256": "ed15871b6a6cd8038930a50e8a3210ea562a346697a7de3cf504b52642461ff3",
+      "omitted_tail_bytes": 0
+    },
+    {
+      "target": "UEFI",
+      "source_path": "prepared/UEFI.img",
+      "start_bytes": 23068672,
+      "byte_length": 2560000,
+      "sha256": "1803d3350ca37c24d6a1e249322f6e47c6cc132dddee566ef993ee4e604224e5",
+      "omitted_tail_bytes": 0
+    },
+    {
+      "target": "SBL1",
+      "source_path": "prepared/SBL1.img",
+      "start_bytes": 16777216,
+      "byte_length": 1534976,
+      "sha256": "cc390f235948c7a656f43cb974715ee9bfdadbebeaa59d76518f36fb77644160",
+      "omitted_tail_bytes": 512
+    },
+    {
+      "target": "TZ",
+      "source_path": "prepared/TZ.img",
+      "start_bytes": 29360128,
+      "byte_length": 512000,
+      "sha256": "c0a840ce117134e13a54ecd54d062266be3091c690d93cdf250e292a5a0bcad7",
+      "omitted_tail_bytes": 0
+    },
+    {
+      "target": "RPM",
+      "source_path": "prepared/RPM.img",
+      "start_bytes": 27262976,
+      "byte_length": 512000,
+      "sha256": "db96eaf5e39f03061bee44f4e5714c4629a9e1306628d086a7333cced6108c5d",
+      "omitted_tail_bytes": 0
+    },
+    {
+      "target": "WINSECAPP",
+      "source_path": "prepared/WINSECAPP.img",
+      "start_bytes": 31457280,
+      "byte_length": 523776,
+      "sha256": "1b0fb0b341ccf57b442bc8bf9ef85ba7f46cfbe4dadf942256a91e5b1bd3b71c",
+      "omitted_tail_bytes": 512
+    }
+  ],
+  "independent_reference_comparison": "matches",
+  "unrelated_partition_write_ranges_excluded": true,
+  "data_preservation_validated": false,
+  "replay_only": true,
+  "phone_contacted": false,
+  "phone_writes_enabled": false,
+  "limitations": [
+    "Historical saved primary GPT; no fresh device authority",
+    "Source package originals are not installed partition backups",
+    "No backup GPT captured",
+    "Emergency entry, programmer upload and later boot-integrity stages are separate work",
+    "No native unlock execution or hardware acceptance validated"
+  ]
+}

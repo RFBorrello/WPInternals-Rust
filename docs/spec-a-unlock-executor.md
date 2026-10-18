@@ -70,16 +70,58 @@ address overflow, the final 32-bit byte, adjacent regions and caller ordering.
 Transport errors model uncertainty; physical USB fragmentation and partial-write
 accounting are not tested by a message-level transcript.
 
-## Remaining integration
+## Package-bound programmer composition
 
-The next step is deriving the exact programming regions from the verified
-package and live-derived candidate, rather than accepting reference restore
-coordinates. The pinned unlock sequence writes HACK first when present, then
-MBR, primary GPT, SBL2, SBL3, UEFI, SBL1, TZ, RPM and WINSECAPP. Its GPT write
-deliberately omits the final byte (`0x41ff` bytes after sector zero), its SBL1
-length has a separate shortened-range rule, and WINSECAPP has a loader-bound
-workaround. Those rules require explicit byte-level tests before composition;
-the generic rehearsal does not silently derive or apply them.
+`wpi-image::spec_a::programmer_plan::build` now verifies the pinned reference ZIP
+and saved primary through the existing live-layout checks, then constructs an
+immutable **replay-only** plan in memory. `run_plan` in the core programmer
+rehearsal accepts this object directly. There is no JSON import, sector-image
+export, native writer or new phone capability. The CLI exports metadata only:
+
+```text
+wpi plan-spec-a-programmer reference.zip saved-primary.bin new-report.json --disk-sectors RECORDED_SECTORS --expect-primary-sha256 PRIMARY_SHA256 --expect-package-sha256 PACKAGE_SHA256
+python scripts/reference-spec-a-programmer-plan.py reference.zip saved-primary.bin new-report.json
+```
+
+The ten regions follow the pinned first-unlock programmer order: HACK, MBR,
+primary GPT, SBL2, SBL3, UEFI, SBL1, TZ, RPM and WINSECAPP. Boot addresses use the
+saved phone's transformed layout, including normalized active/backup slots.
+The MBR is retained from the saved installed primary rather than copied from
+the source FFU; this is an intentional preservation choice. GPT bytes come from
+the live-derived candidate. The rest are hash-verified package boot payloads.
+
+The GPT write omits the last byte (`0x41ff` bytes after sector zero); that byte
+must already agree with the saved primary. SBL1 omits a further 512-byte tail
+after the HACK layout shrink, reproducing the pinned programmer length. The
+source/prepared SBL1 prefixes, exact live-derived capacity and regenerated HACK
+must agree, and the entire parsed signed image must fit inside that shorter
+transfer. WINSECAPP is capped at exclusive byte address `0x1e7fe00`. Omissions
+are explicit in each report row. Unsafe lengths, overflow, overlap and unrelated
+partition intersections fail; no fill, relocation or inferred padding occurs.
+Both installed and candidate partition maps are checked, excluding boot slots
+and their boot backups only. MainOS, Data and EFIESP receive no transfers in
+this phase. This does not establish their preservation through a whole unlock.
+
+Inputs remain local. Each boot member is rehashed when read after archive
+verification and limited to 4 MiB. Cancellation is observed during archive
+verification, before relationship checks, at every region boundary and before
+returning the plan. Parsing and individual bounded I/O calls are not interrupted
+mid-call. Existing output reports are protected by atomic new-file publication.
+The CLI creates no binary plan and has no execute or device-selection argument.
+The report retains historical-layout blockers and explicitly leaves
+`data_preservation_validated`, `phone_contacted` and `phone_writes_enabled` false.
+
+Synthetic tests cover installed MBR differences, normalized addresses, exact
+GPT/SBL1 omissions, WINSECAPP's clipped tail, unchanged MainOS/Data/EFIESP entries
+and disjoint write ranges. They also reject changed SBL1 geometry and tampered
+HACK/prefix data even with recalculated ZIP hashes, detect later file mutation,
+and cancel at all eleven composition boundaries. The local RM-875 inputs yield
+ten transfers totaling 7,529,371 bytes, with GPT/SBL1/WINSECAPP omissions of
+1/512/512 bytes. Independent Python calculations match the addresses, lengths
+and payload hashes. This was a local calculation, not a hardware experiment;
+see [the metadata-only record](../tests/fixtures/rm875-programmer-plan-validation.json).
+
+## Remaining integration
 
 Full execution also needs emergency-entry and programmer-upload state machines,
 fresh identity/RRKH/port binding across modes, installed-layout and recovery

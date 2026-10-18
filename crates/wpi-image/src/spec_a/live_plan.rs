@@ -75,13 +75,20 @@ fn digest_matches(actual: &str, expected: &str) -> bool {
         && expected.bytes().all(|b| b.is_ascii_hexdigit())
         && actual.eq_ignore_ascii_case(expected)
 }
-fn member<'a>(files: &'a [archive::FileRecord], path: &str) -> Result<&'a archive::FileRecord> {
+pub(super) fn member<'a>(
+    files: &'a [archive::FileRecord],
+    path: &str,
+) -> Result<&'a archive::FileRecord> {
     files
         .iter()
         .find(|f| f.path == path)
         .ok_or_else(|| invalid(format!("Missing package member {path}")))
 }
-fn read_member<R: Read + Seek>(r: &mut R, f: &archive::FileRecord, max: u64) -> Result<Vec<u8>> {
+pub(super) fn read_member<R: Read + Seek>(
+    r: &mut R,
+    f: &archive::FileRecord,
+    max: u64,
+) -> Result<Vec<u8>> {
     if f.size > max {
         return Err(invalid("Package metadata exceeds limit"));
     }
@@ -156,6 +163,31 @@ pub fn analyze<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
     expected_package_sha256: &str,
     progress: F,
 ) -> Result<Report> {
+    Ok(verify(
+        package,
+        primary,
+        recorded_capacity_sectors,
+        expected_primary_sha256,
+        expected_package_sha256,
+        progress,
+    )?
+    .report)
+}
+
+pub(super) struct Verified {
+    pub report: Report,
+    pub files: Vec<archive::FileRecord>,
+    pub candidate: layout::Layout,
+}
+
+pub(super) fn verify<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
+    package: &mut R,
+    primary: &[u8],
+    recorded_capacity_sectors: u64,
+    expected_primary_sha256: &str,
+    expected_package_sha256: &str,
+    progress: F,
+) -> Result<Verified> {
     if primary.len() != layout::PRIMARY_SIZE
         || !digest_matches(&super::hash(primary), expected_primary_sha256)
         || recorded_capacity_sectors < 68
@@ -319,7 +351,7 @@ pub fn analyze<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
     {
         blockers.push("SBL1 payload length differs from live-derived SBL1 geometry; rebuild and revalidate its HACK relationship.".into());
     }
-    Ok(Report {
+    let report = Report {
         schema: 1,
         kind: "wpi-spec-a-live-layout-advisory",
         package_sha256,
@@ -337,7 +369,7 @@ pub fn analyze<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
         partition_count: live.partitions.len(),
         disk_identity_matches_reference: live.disk_guid == reference.original.disk_guid,
         primary_matches_reference: primary == original,
-        normalized_backup_pairs: candidate.swapped,
+        normalized_backup_pairs: candidate.swapped.clone(),
         partitions,
         payloads,
         all_payloads_fit,
@@ -348,15 +380,20 @@ pub fn analyze<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
         phone_contacted: false,
         phone_writes_enabled: false,
         execution_blockers: blockers,
+    };
+    Ok(Verified {
+        report,
+        files,
+        candidate,
     })
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::{ffu::FfuMetadata, patch::PatchCatalog};
     use std::io::{Cursor, Write};
-    fn fixture() -> (Vec<u8>, Vec<u8>) {
+    pub(crate) fn fixture() -> (Vec<u8>, Vec<u8>) {
         let source = include_bytes!("../../../../tests/fixtures/synthetic-spec-a-package.ffu");
         let catalog = PatchCatalog::parse(&format!(r#"<PatchDefinitions><PatchDefinition Name="SecureBootHack-V1.1-EFIESP"><TargetVersions><TargetVersion Description="synthetic"><TargetFiles><TargetFile Path="{}" HashOriginal="{}" HashPatched="{}"><Patches><Patch Address="0x2" OriginalBytes="6364" PatchedBytes="5859" /></Patches><Obsolete /></TargetFile></TargetFiles></TargetVersion></TargetVersions></PatchDefinition></PatchDefinitions>"#,super::super::efiesp::PATH,crate::patch::sha1(b"abcdefgh"),crate::patch::sha1(b"abXYefgh"))).unwrap();
         let mut input = Cursor::new(source);

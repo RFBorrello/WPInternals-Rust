@@ -15,6 +15,18 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Compose an advisory Spec A programmer-phase report from pinned local files. No USB access.
+    PlanSpecAProgrammer {
+        package: PathBuf,
+        primary: PathBuf,
+        output: PathBuf,
+        #[arg(long)]
+        disk_sectors: u64,
+        #[arg(long)]
+        expect_primary_sha256: String,
+        #[arg(long)]
+        expect_package_sha256: String,
+    },
     /// Run a local recovery protocol replay with a NEW durable JSONL journal. No USB access.
     ReplayRecovery {
         input: PathBuf,
@@ -473,6 +485,52 @@ fn run() -> Result<(), Box<dyn Error>> {
                 Ok(())
             })?;
             print(report)?;
+        }
+        Command::PlanSpecAProgrammer {
+            package,
+            primary,
+            output,
+            disk_sectors,
+            expect_primary_sha256,
+            expect_package_sha256,
+        } => {
+            use std::{
+                io::{Read, Write},
+                sync::{
+                    atomic::{AtomicBool, Ordering},
+                    Arc,
+                },
+            };
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let signal = cancelled.clone();
+            ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+            let mut source = artifacts::open_artifact(&package)?;
+            let mut bytes = Vec::new();
+            artifacts::open_artifact(&primary)?
+                .take(17409)
+                .read_to_end(&mut bytes)?;
+            let mut last = std::time::Instant::now();
+            let plan = wpi_image::spec_a::programmer_plan::build(
+                &mut source,
+                &bytes,
+                disk_sectors,
+                &expect_primary_sha256,
+                &expect_package_sha256,
+                |stage, d, t| {
+                    if last.elapsed().as_millis() >= 250 || d == t {
+                        eprintln!("{stage}: {d}/{t}");
+                        last = std::time::Instant::now();
+                    }
+                    !cancelled.load(Ordering::Acquire)
+                },
+            )?;
+            artifacts::write_new(&output, |writer| {
+                serde_json::to_writer_pretty(&mut *writer, plan.report())
+                    .map_err(|e| wpi_image::ImageError::Invalid(e.to_string()))?;
+                writer.write_all(b"\n")?;
+                Ok(())
+            })?;
+            print(plan.report())?;
         }
         Command::PlanSpecALayout {
             package,

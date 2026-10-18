@@ -789,3 +789,35 @@ programmer upload or partition write occurred. No native writer or UI unlock
 control is enabled. Package/live-layout composition, emergency entry, durable
 checkpoints, boot patches and preservation/recovery validation remain separate
 integration work. See [the executor guide](spec-a-unlock-executor.md).
+
+## Live-layout programmer composition — October 17
+
+The image engine now constructs an immutable replay-only programmer plan from
+the existing package/saved-GPT verification. Core `run_plan` binds this object
+to the concrete programmer replay; advisory JSON cannot be imported as a plan.
+The new CLI exports only a report, using regular local inputs, cancellable
+verification and atomic new-file output. It opens no device transport.
+
+Composition follows ten boot-stage regions, retains the saved MBR, derives GPT
+and boot addresses from the saved installed geometry, checks SBL1/HACK geometry
+and signed extent, and explicitly reproduces the GPT/SBL1/WINSECAPP length rules.
+Both installed and candidate maps exclude unrelated partition intersections.
+Synthetic tests prove MainOS/Data/EFIESP entry equality and disjoint write ranges,
+check installed MBR differences, reject changed geometry and internally consistent
+tampered members, detect package mutation after verification, and cancel at all
+eleven composition boundaries. The full image/core/protocol suite passed;
+the final six focused composition tests also pass after test-only additions.
+Strict image/core/CLI all-target Clippy, formatting, CLI build and WASM check pass.
+Browser/UI tests were not rerun for this CLI/engine-only change.
+
+The pinned local RM-875 package and saved primary produce ten regions totaling
+7,529,371 bytes. GPT omits one byte, SBL1 and WINSECAPP each omit 512 bytes.
+The candidate GPT digest remains
+`8bd4ecb71c8599300dafc897b2647ad9749faeddcc738130d071783d690c0f50`.
+An independent Python ZIP/GPT/CRC/SHA calculation matches all transfer addresses,
+lengths and hashes. This is a historical-file calculation, not a live probe or
+unlock test. No phone commands or partition writes occurred. Installed backups,
+fresh identity, emergency entry/upload, journaled native execution and subsequent
+boot patches remain open; actual data preservation is unvalidated. See
+[the record](../tests/fixtures/rm875-programmer-plan-validation.json) and
+[the executor guide](spec-a-unlock-executor.md#package-bound-programmer-composition).

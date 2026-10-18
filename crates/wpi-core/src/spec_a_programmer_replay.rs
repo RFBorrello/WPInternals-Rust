@@ -11,6 +11,24 @@ pub struct Region<'a> {
     pub data: &'a [u8],
 }
 
+/// Compose only immutable regions from the image engine's verified, in-memory
+/// replay plan. Advisory JSON reports cannot be passed to this API.
+pub fn run_plan<F: FnMut(&OperationEvent) -> bool>(
+    plan: &wpi_image::spec_a::programmer_plan::Plan,
+    transport: &mut ReplayTransport,
+    event: F,
+) -> Result<(), Error> {
+    let regions: Vec<_> = plan
+        .regions()
+        .iter()
+        .map(|r| Region {
+            start_bytes: r.start_bytes(),
+            data: r.bytes(),
+        })
+        .collect();
+    run(&regions, transport, event)
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Programmer replay preflight: {0}")]
