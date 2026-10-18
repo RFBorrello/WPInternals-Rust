@@ -1,15 +1,13 @@
 //! Native adapters; raw block devices are intentionally never opened by an arbitrary path.
 use nusb::MaybeFuture;
 use serde::Serialize;
-use std::{
-    sync::Mutex,
-    time::{Duration, Instant},
-};
-use wpi_protocol::{MessageTransport, ProtocolError};
+use std::{sync::Mutex, time::Instant};
+use wpi_protocol::MessageTransport;
 use wpi_types::*;
 pub mod identity_probe;
 pub mod mode_test;
 pub mod spec_a_preflight;
+mod usb_session;
 static PHONE_ACCESS: Mutex<()> = Mutex::new(());
 
 pub fn enumerate() -> Result<Vec<DeviceIdentity>, String> {
@@ -181,59 +179,24 @@ fn probe_session(
     })
 }
 
+/// Native single-message USB adapter. An uncertain transfer permanently retires
+/// this handle; callers must inspect device state before opening another session.
 pub struct UsbMessages {
-    input: nusb::Endpoint<nusb::transfer::Bulk, nusb::transfer::In>,
-    output: nusb::Endpoint<nusb::transfer::Bulk, nusb::transfer::Out>,
+    session: usb_session::Session<usb_session::NativeIo>,
     deadline: Option<Instant>,
 }
 impl UsbMessages {
     pub fn new(interface: nusb::Interface, input: u8, output: u8) -> Result<Self, nusb::Error> {
-        use nusb::transfer::{Bulk, In, Out};
         Ok(Self {
-            input: interface.endpoint::<Bulk, In>(input)?,
-            output: interface.endpoint::<Bulk, Out>(output)?,
+            session: usb_session::Session::new(usb_session::NativeIo::new(
+                interface, input, output,
+            )?),
             deadline: None,
         })
     }
-    fn timeout(&self) -> wpi_protocol::Result<Duration> {
-        let timeout = self.deadline.map_or(Duration::from_secs(5), |d| {
-            d.saturating_duration_since(Instant::now())
-                .min(Duration::from_secs(5))
-        });
-        if timeout.is_zero() {
-            return Err(ProtocolError::Transport(
-                "USB operation deadline expired".into(),
-            ));
-        }
-        Ok(timeout)
-    }
     /// One OUT transfer only. A short completion is an error, never a remainder retry.
     fn send_once(&mut self, request: &[u8]) -> wpi_protocol::Result<()> {
-        use nusb::transfer::Buffer;
-        if request.is_empty() || request.len() > 65536 {
-            return Err(ProtocolError::Invalid(
-                "invalid native request bound".into(),
-            ));
-        }
-        let timeout = self.timeout()?;
-        self.output.submit(Buffer::from(request.to_vec()));
-        let result = self.output.wait_next_complete(timeout);
-        if let Some(result) = result {
-            result
-                .status
-                .map_err(|e| ProtocolError::Transport(e.to_string()))?;
-            if result.actual_len != request.len() {
-                return Err(ProtocolError::Transport(
-                    "Incomplete USB OUT transfer; no retry was sent".into(),
-                ));
-            }
-            Ok(())
-        } else {
-            self.output.cancel_all();
-            Err(ProtocolError::Transport(
-                "USB OUT timed out; delivery is uncertain and must not be retried".into(),
-            ))
-        }
+        self.session.send_once(request, self.deadline)
     }
 }
 impl MessageTransport for UsbMessages {
@@ -242,31 +205,8 @@ impl MessageTransport for UsbMessages {
         request: &[u8],
         maximum_response: usize,
     ) -> wpi_protocol::Result<Vec<u8>> {
-        if maximum_response == 0 || maximum_response > 1024 * 1024 {
-            return Err(ProtocolError::Invalid("invalid response bound".into()));
-        }
-        self.send_once(request)?;
-        let timeout = self.timeout()?;
-        let packet = self.input.max_packet_size();
-        if packet == 0 {
-            return Err(ProtocolError::Invalid("USB IN packet size is zero".into()));
-        }
-        let length = maximum_response.div_ceil(packet) * packet;
-        self.input.submit(nusb::transfer::Buffer::new(length));
-        let result = self.input.wait_next_complete(timeout).ok_or_else(|| {
-            self.input.cancel_all();
-            ProtocolError::Transport("USB IN timed out; inspect state before retrying".into())
-        })?;
-        result
-            .status
-            .map_err(|e| ProtocolError::Transport(e.to_string()))?;
-        if result.actual_len == 0 {
-            return Err(ProtocolError::Transport("device disconnected".into()));
-        }
-        if result.actual_len > maximum_response {
-            return Err(ProtocolError::Invalid("USB response exceeds bound".into()));
-        }
-        Ok(result.buffer.into_vec())
+        self.session
+            .exchange(request, maximum_response, self.deadline)
     }
 }
 

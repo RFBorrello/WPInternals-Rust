@@ -215,6 +215,8 @@ and set `WPI_BROWSER_CHANNEL=chromium`.
 - `wpi-protocol`: OS-independent Lumia and Qualcomm codecs plus replay transport.
 - `wpi-core`: compatibility, inspection, atomic artifacts, and operation coordination.
 - `wpi-transport`: native USB and serial discovery; read-only USB probe.
+  [Native USB transactions](docs/native-usb-transactions.md) retire uncertain sessions
+  and share one bounded deadline across OUT/IN transfers.
 - `wpi-cli`, `wpi-wasm`, `apps/desktop`, `apps/ui`: frontends and adapters.
 
 See the [agreed roadmap](docs/roadmap.md), [feature parity](docs/parity.md), [hardware validation](docs/hardware-validation.md),

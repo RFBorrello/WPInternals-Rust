@@ -885,3 +885,26 @@ suite and UI tests were not exercised for this milestone. No phone commands,
 mode changes, loader uploads or partition writes occurred. This is a Rust-library
 component with no native execution, journal import or automatic resume API. See
 [the joined journal guide](spec-a-joined-journal.md).
+
+## Native USB session retirement — October 18
+
+Native single-message transactions now retire permanently on uncertain transfer
+results. Errors cancel both endpoints; later calls cannot consume queued stale
+completions, retry OUT or send another command. Local bound/packet/deadline checks
+precede submission. One five-second transaction deadline covers OUT and IN, capped
+by the existing operation deadline. The adapter validates completed IN lengths
+and returns only those bytes. Send-only mode commands retain their OUT-only behavior.
+
+All 50 transport tests pass, including seven new deterministic injected-I/O tests
+for partial/failed writes, failed/empty/oversized reads, queued replies, deadline
+expiry, local validation and successful reuse. Strict transport/CLI all-target
+Clippy and the CLI build pass. Core/image/UI suites were not rerun for this native
+adapter change. Physical USB cancellation/disconnect behavior remains unvalidated.
+
+One read-only identity probe with the updated CLI succeeded on the connected
+Lumia 1020 RM-875 in Normal mode on Windows ARM64, reporting the existing firmware
+3051.50009.1451.1003, public-ID availability and physical-port availability. No
+mode changes, programmer uploads or firmware/partition writes were sent. The
+[sanitized record](../tests/hardware/lumia-1020-rm875-usb-session-probe.json) includes
+the executable hash. This does not enable native unlock execution or establish
+data preservation. See [native USB transaction behavior](native-usb-transactions.md).

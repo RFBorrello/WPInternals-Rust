@@ -73,6 +73,7 @@ jobs:
             docs/spec-a-unlock-executor.md
             docs/spec-a-emergency-replay.md
             docs/spec-a-joined-journal.md
+            docs/native-usb-transactions.md
             docs/rm875-recovery-path.md
             docs/recovery-journal.md
             tests/fixtures/rm875-spec-a-validation.json
@@ -87,6 +88,7 @@ jobs:
             tests/hardware/windows-arm64-storage-discovery.json
             tests/hardware/lumia-1020-rm875-flash-preflight.json
             tests/hardware/lumia-1020-rm875-boot-gpt-cycle-completed.json
+            tests/hardware/lumia-1020-rm875-usb-session-probe.json
             resources/licenses/*
           if-no-files-found: error
   browser:

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "date": "2026-10-18",
+  "host": "windows_arm64",
+  "transport": "native_nusb_winusb",
+  "operation": "normal_read_only_identity_probe",
+  "source_base_commit": "41e26ac",
+  "source_changes": "Native USB session retirement and shared transaction deadline",
+  "cli_sha256": "d0587a80b292aab6b3dc08667717fabfb81418c8f1dbb07f7c6a2054b9b83feb",
+  "result": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "mode": "normal",
+    "firmware": "3051.50009.1451.1003",
+    "public_id_available": true,
+    "physical_port_binding_available": true,
+    "mode_change_sent": false
+  },
+  "firmware_or_partition_writes_sent": false,
+  "programmer_uploaded": false,
+  "hardware_faults_injected": false,
+  "identity_authenticated": false,
+  "unlock_verified": false,
+  "data_preservation_validated": false,
+  "scope": "One successful Normal-mode identity probe using the updated native adapter. Failure handling is covered by injected I/O tests, not hardware fault tests. No identifiers or response payloads are published."
+}
