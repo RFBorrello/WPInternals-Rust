@@ -1,6 +1,7 @@
 //! Spec A emergency entry and one legacy DLOAD programmer upload, REPLAY ONLY.
 //! WPInternals 2.9.2 LumiaUnlockBootloaderViewModel.PerformSoftBrick/SendLoader
 //! and QualcommDownload.cs, Rene Lergner, MIT. No OS/device handles or write grant.
+use crate::spec_a_journal::{Checkpoint, Kind, Phase, Step};
 use serde::Serialize;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use wpi_image::{ffu::FfuMetadata, spec_a, ImageError};
@@ -36,6 +37,9 @@ pub struct EntryPlan {
     sha256: String,
 }
 impl EntryPlan {
+    pub(crate) fn source(&self) -> (&str, &str) {
+        (&self.sha256, &self.platform)
+    }
     pub fn read<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
         source: &mut R,
         expected_sha256: &str,
@@ -128,6 +132,12 @@ pub struct Loader {
     decoded_sha256: String,
 }
 impl Loader {
+    pub(crate) fn byte_len(&self) -> u64 {
+        self.bytes.len() as u64
+    }
+    pub(crate) fn fingerprints(&self) -> (&str, &str) {
+        (&self.input_sha256, &self.decoded_sha256)
+    }
     /// Pin exactly one local import. Internal certificate equality and the V1
     /// marker are format/family evidence, not authentication or device acceptance.
     pub fn prepare(
@@ -248,8 +258,24 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
     scenario: &mut Scenario,
     event: F,
 ) -> Result<Report, Error> {
+    run_checkpointed(plan, loader, binding, scenario, event, |_| Ok(()))
+}
+
+pub(crate) fn run_checkpointed<
+    F: FnMut(&OperationEvent) -> bool,
+    J: FnMut(Checkpoint) -> std::io::Result<()>,
+>(
+    plan: &EntryPlan,
+    loader: &Loader,
+    binding: &Binding,
+    scenario: &mut Scenario,
+    event: F,
+    checkpoint: J,
+) -> Result<Report, Error> {
     let mut runner = Runner {
         event,
+        checkpoint,
+        current: Checkpoint::new(Phase::EntryUpload, Kind::Ready, Step::SourcePreflight),
         sequence: 0,
         done: 0,
         total: loader.bytes.len() as u64,
@@ -294,11 +320,17 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
             "missing Spec A/FFU-v1/security evidence".into(),
         ));
     }
+    runner.record(Checkpoint::new(
+        Phase::EntryUpload,
+        Kind::PhaseComplete,
+        Step::SourcePreflight,
+    ))?;
     let header = flash::ffu_header_v1(&plan.header)
         .map_err(|e| runner.fail("header encoding", e.to_string()))?;
     let response = runner.request(&mut scenario.flash, "FFU header", &header, true, false)?;
     flash::check_status(&response, b"NOKXFS")
         .map_err(|e| runner.fail("FFU header", e.to_string()))?;
+    runner.ack()?;
     let zero = flash::ffu_payload_v1(&vec![0; ENTRY_CHUNK], 0)
         .map_err(|e| runner.fail("entry encoding", e.to_string()))?;
     let response = runner.request(
@@ -310,13 +342,24 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
     )?;
     flash::check_status(&response, b"NOKXFS")
         .map_err(|e| runner.fail("boundary zero chunk", e.to_string()))?;
+    runner.ack()?;
     if !runner.notify(OperationState::Running, "Replay entry reboot") {
         return Err(runner.cancel("entry reboot"));
     }
+    runner.record(Checkpoint::new(
+        Phase::EntryUpload,
+        Kind::Intent,
+        Step::EntryReboot,
+    ))?;
     scenario
         .flash
         .send(b"NOKR")
         .map_err(|e| runner.fail("entry reboot", e.to_string()))?;
+    runner.record(Checkpoint::new(
+        Phase::EntryUpload,
+        Kind::Submitted,
+        Step::EntryReboot,
+    ))?;
     runner.arrival(
         &scenario.download_arrivals,
         Endpoint::Download,
@@ -330,6 +373,7 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
         false,
     )?;
     dload::check_ack(&response).map_err(|e| runner.fail("DLOAD alive", e.to_string()))?;
+    runner.ack()?;
     let response = runner.request(
         &mut scenario.download,
         "DLOAD root",
@@ -342,6 +386,7 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
     if root != loader.root {
         return Err(runner.fail("DLOAD root", "root fingerprint changed across modes".into()));
     }
+    runner.ack()?;
     for (index, chunk) in loader.bytes.chunks(dload::MAX_MEMORY_BYTES).enumerate() {
         let address = dload::LOADER_ADDRESS + (index * dload::MAX_MEMORY_BYTES) as u32;
         let request = dload::memory(address, chunk)
@@ -350,6 +395,7 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
             runner.request(&mut scenario.download, "RAM upload", &request, false, false)?;
         dload::check_ack(&response).map_err(|e| runner.fail("RAM upload", e.to_string()))?;
         runner.done += chunk.len() as u64;
+        runner.ack()?;
     }
     let response = runner.request(
         &mut scenario.download,
@@ -359,6 +405,7 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
         true,
     )?;
     dload::check_ack(&response).map_err(|e| runner.fail("loader start", e.to_string()))?;
+    runner.ack()?;
     runner.arrival(
         &scenario.programmer_arrivals,
         Endpoint::Programmer,
@@ -373,6 +420,7 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
     )?;
     v1::check_ack(&response, v1::Ack::Hello)
         .map_err(|e| runner.fail("programmer hello", e.to_string()))?;
+    runner.ack()?;
     runner.notify(
         OperationState::Completed,
         "Replay programmer handshake complete; no phone was contacted or unlocked",
@@ -393,15 +441,27 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
     })
 }
 
-struct Runner<F> {
+struct Runner<F, J> {
     event: F,
+    checkpoint: J,
+    current: Checkpoint,
     sequence: u64,
     done: u64,
     total: u64,
     storage: bool,
     started_loader: bool,
 }
-impl<F: FnMut(&OperationEvent) -> bool> Runner<F> {
+impl<F: FnMut(&OperationEvent) -> bool, J: FnMut(Checkpoint) -> std::io::Result<()>> Runner<F, J> {
+    fn record(&mut self, checkpoint: Checkpoint) -> Result<(), Error> {
+        self.current = checkpoint;
+        (self.checkpoint)(checkpoint).map_err(|e| self.fail("journal", e.to_string()))
+    }
+    fn ack(&mut self) -> Result<(), Error> {
+        self.record(Checkpoint {
+            kind: Kind::Acknowledged,
+            ..self.current
+        })
+    }
     fn notify(&mut self, state: OperationState, message: &str) -> bool {
         self.sequence += 1;
         (self.event)(&OperationEvent {
@@ -456,6 +516,23 @@ impl<F: FnMut(&OperationEvent) -> bool> Runner<F> {
         if !self.notify(OperationState::Running, phase) {
             return Err(self.cancel(phase));
         }
+        let mut checkpoint =
+            Checkpoint::new(Phase::EntryUpload, Kind::Intent, Step::emergency(phase));
+        match checkpoint.step {
+            Step::FfuHeader => checkpoint.bytes = (request.len() - 32) as u64,
+            Step::BoundaryZero => checkpoint.bytes = ENTRY_CHUNK as u64,
+            Step::RamUpload => {
+                // Decode our bounded, freshly generated request to bind journal
+                // metadata to its actual byte address/length, not an event label.
+                let payload = wpi_protocol::qualcomm::decode_hdlc(request)
+                    .map_err(|e| self.fail("journal metadata", e.to_string()))?;
+                checkpoint.address = Some(u32::from_be_bytes(payload[1..5].try_into().unwrap()));
+                checkpoint.bytes = u16::from_be_bytes(payload[5..7].try_into().unwrap()) as u64;
+            }
+            Step::LoaderStart => checkpoint.address = Some(dload::LOADER_ADDRESS),
+            _ => {}
+        }
+        self.record(checkpoint)?;
         self.storage |= storage;
         self.started_loader |= start;
         transport
@@ -468,6 +545,16 @@ impl<F: FnMut(&OperationEvent) -> bool> Runner<F> {
         expected: Endpoint,
         port: &str,
     ) -> Result<(), Error> {
+        let step = if expected == Endpoint::Download {
+            Step::DownloadArrival
+        } else {
+            Step::ProgrammerArrival
+        };
+        self.record(Checkpoint::new(
+            Phase::EntryUpload,
+            Kind::AwaitingArrival,
+            step,
+        ))?;
         if observations.is_empty() || observations.len() > 64 {
             return Err(self.fail(
                 "reconnection",
@@ -499,6 +586,11 @@ impl<F: FnMut(&OperationEvent) -> bool> Runner<F> {
                     {
                         return Err(self.fail("reconnection", "missing disconnect, wrong/ambiguous endpoint, changed port or surplus arrival".into()));
                     }
+                    self.record(Checkpoint::new(
+                        Phase::EntryUpload,
+                        Kind::ArrivalMatched,
+                        step,
+                    ))?;
                     return Ok(());
                 }
             }

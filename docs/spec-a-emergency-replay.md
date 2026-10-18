@@ -82,7 +82,10 @@ Completion means only a simulated programmer handshake. It is not bootloader
 unlock, verified boot, full-device backup or data preservation. Reports always
 keep `device_identity_authenticated`, `data_preservation_validated`,
 `phone_contacted` and `phone_writes_enabled` false and label themselves replay-only.
-No durable journal or report-import/resume API exists for this phase.
+The standalone phase has no durable journal. The separate
+[joined replay](spec-a-joined-journal.md) now persists command/arrival checkpoints
+while composing it with the first boot-transfer phase. No report-import/resume
+API exists.
 
 ## Evidence and next integration
 
@@ -102,8 +105,8 @@ python scripts/reference-spec-a-dload.py .reference/WPinternals tests/fixtures/s
 ```
 
 The [programmer transfer composer](spec-a-unlock-executor.md) remains a separate
-replay phase. Next work must join the phases with durable artifact-bound intent/
-acknowledgement checkpoints, a native USB/serial and arrival adapter, fresh device
+replay phase. They are now joined with [artifact-bound checkpoints](spec-a-joined-journal.md).
+Next work needs a native USB/serial and arrival adapter, fresh device
 and recovery policy, and later UEFI/EFIESP boot-integrity stages. The saved
 primary GPT and source FFU originals are not installed partition backups. The
 phone owner's data-preservation preference remains in force. Only synthetic

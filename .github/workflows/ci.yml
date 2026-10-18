@@ -72,6 +72,7 @@ jobs:
             docs/spec-a-live-layout.md
             docs/spec-a-unlock-executor.md
             docs/spec-a-emergency-replay.md
+            docs/spec-a-joined-journal.md
             docs/rm875-recovery-path.md
             docs/recovery-journal.md
             tests/fixtures/rm875-spec-a-validation.json

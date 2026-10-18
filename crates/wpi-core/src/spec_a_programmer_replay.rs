@@ -1,6 +1,7 @@
 //! Rehearse the V1 programmer transfer phase of Spec A unlocking, after loader
 //! entry. Derived from WPInternals 2.9.2 QualcommFlasher.cs (Rene Lergner, MIT).
 //! Concrete replay only: not an unlock executor, admission policy or write grant.
+use crate::spec_a_journal::{Checkpoint, Kind, Phase, Step};
 use wpi_protocol::{qualcomm::v1, replay::ReplayTransport, MessageTransport};
 use wpi_types::{Operation, OperationEvent, OperationState};
 
@@ -44,7 +45,7 @@ pub enum Error {
     },
 }
 
-fn validate(regions: &[Region<'_>]) -> Result<u64, Error> {
+pub(crate) fn validate(regions: &[Region<'_>]) -> Result<u64, Error> {
     if regions.is_empty() || regions.len() > 32 {
         return Err(Error::Preflight("requires 1–32 regions".into()));
     }
@@ -78,17 +79,46 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
     transport: &mut ReplayTransport,
     event: F,
 ) -> Result<(), Error> {
+    run_inner(regions, transport, event, |_| Ok(()), false)
+}
+
+pub(crate) fn continue_checkpointed<
+    F: FnMut(&OperationEvent) -> bool,
+    J: FnMut(Checkpoint) -> std::io::Result<()>,
+>(
+    regions: &[Region<'_>],
+    transport: &mut wpi_protocol::replay::FramedReplayTransport,
+    event: F,
+    checkpoint: J,
+) -> Result<(), Error> {
+    run_inner(regions, transport, event, checkpoint, true)
+}
+
+fn run_inner<
+    T: MessageTransport,
+    F: FnMut(&OperationEvent) -> bool,
+    J: FnMut(Checkpoint) -> std::io::Result<()>,
+>(
+    regions: &[Region<'_>],
+    transport: &mut T,
+    event: F,
+    checkpoint: J,
+    handshake_done: bool,
+) -> Result<(), Error> {
     let total = validate(regions)?;
     let mut session = Session {
         transport,
         event,
+        checkpoint,
         sequence: 0,
         total,
         done: 0,
         started: false,
         write_attempted: false,
     };
-    session.submit("hello", &v1::hello(), v1::Ack::Hello, 0)?;
+    if !handshake_done {
+        session.submit("hello", &v1::hello(), v1::Ack::Hello, 0)?;
+    }
     session.submit(
         "security mode",
         v1::SECURITY_MODE_ZERO,
@@ -122,16 +152,22 @@ pub fn run<F: FnMut(&OperationEvent) -> bool>(
     Ok(())
 }
 
-struct Session<'a, F> {
-    transport: &'a mut ReplayTransport,
+struct Session<'a, T, F, J> {
+    transport: &'a mut T,
     event: F,
+    checkpoint: J,
     sequence: u64,
     total: u64,
     done: u64,
     started: bool,
     write_attempted: bool,
 }
-impl<F: FnMut(&OperationEvent) -> bool> Session<'_, F> {
+impl<
+        T: MessageTransport,
+        F: FnMut(&OperationEvent) -> bool,
+        J: FnMut(Checkpoint) -> std::io::Result<()>,
+    > Session<'_, T, F, J>
+{
     fn notify(&mut self, state: OperationState, message: &str) -> bool {
         self.sequence += 1;
         (self.event)(&OperationEvent {
@@ -177,6 +213,18 @@ impl<F: FnMut(&OperationEvent) -> bool> Session<'_, F> {
         ) {
             return Err(self.stop(phase, "cancelled at command boundary".into()));
         }
+        let checkpoint = Checkpoint {
+            phase: Phase::BootTransfer,
+            kind: Kind::Intent,
+            step: Step::programmer(phase),
+            address: if let v1::Ack::Write(address) = ack {
+                Some(address)
+            } else {
+                None
+            },
+            bytes: write_bytes as u64,
+        };
+        (self.checkpoint)(checkpoint).map_err(|e| self.stop("journal", e.to_string()))?;
         self.started = true;
         self.write_attempted |= write_bytes != 0;
         let result = self
@@ -187,6 +235,11 @@ impl<F: FnMut(&OperationEvent) -> bool> Session<'_, F> {
             return Err(self.stop(phase, error.to_string()));
         }
         self.done += write_bytes as u64;
+        (self.checkpoint)(Checkpoint {
+            kind: Kind::Acknowledged,
+            ..checkpoint
+        })
+        .map_err(|e| self.stop("journal", e.to_string()))?;
         Ok(())
     }
 }

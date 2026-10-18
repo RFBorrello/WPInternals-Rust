@@ -34,44 +34,13 @@ pub struct Entry {
 /// can advance. A failed append poisons the sink; partial bytes are kept for
 /// inspection, never repaired or silently appended to on restart.
 #[cfg(not(target_arch = "wasm32"))]
-pub struct FileJournal {
-    file: std::fs::File,
-    failed: bool,
-}
+pub struct FileJournal(crate::journal_file::FileSink);
 #[cfg(not(target_arch = "wasm32"))]
 impl FileJournal {
     pub fn create(path: &std::path::Path) -> std::io::Result<Self> {
-        let file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(path)?;
-        if !file.metadata()?.is_file() {
-            return Err(std::io::Error::other("Journal must be a new regular file"));
-        }
-        file.sync_all()?;
-        Ok(Self {
-            file,
-            failed: false,
-        })
+        Ok(Self(crate::journal_file::FileSink::create(path)?))
     }
     pub fn append(&mut self, entry: &Entry) -> std::io::Result<()> {
-        use std::io::Write;
-        if self.failed {
-            return Err(std::io::Error::other(
-                "Journal is unusable after an earlier save failure",
-            ));
-        }
-        let result = (|| {
-            let mut line = serde_json::to_vec(entry).map_err(std::io::Error::other)?;
-            if line.len() > 2048 {
-                return Err(std::io::Error::other("Journal entry exceeds limit"));
-            }
-            line.push(b'\n');
-            self.file.write_all(&line)?;
-            self.file.flush()?;
-            self.file.sync_all()
-        })();
-        self.failed = result.is_err();
-        result
+        self.0.append(entry, 2048)
     }
 }

@@ -125,9 +125,11 @@ see [the metadata-only record](../tests/fixtures/rm875-programmer-plan-validatio
 
 The [emergency-entry/upload replay](spec-a-emergency-replay.md) now models the
 entry writes, one loader, bounded reconnect observations and programmer handshake.
+The [joined replay journal](spec-a-joined-journal.md) now persists their handoff
+and the first boot-transfer commands through one programmer connection.
 Full execution still needs native emergency/upload/arrival adapters,
 fresh identity/RRKH/port binding across modes, installed-layout and recovery
-policy, durable intent/acknowledgement checkpoints, and the subsequent UEFI/
+policy, native crash/interruption validation, and the subsequent UEFI/
 EFIESP boot-integrity stages. A full installed backup should be captured once
 mass storage becomes accessible, before optional sideloading policy changes.
 The existing source ZIP and saved primary GPT are not installed partition

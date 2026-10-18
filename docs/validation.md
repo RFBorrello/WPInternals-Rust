@@ -854,3 +854,34 @@ were not rerun. This milestone used only synthetic inputs/transcripts and sent
 no phone commands, entry writes or programmer uploads. Durable phase journals,
 native adapters/arrival observation, recovery/preservation policy and later live
 boot-integrity stages remain unimplemented. See [the emergency rehearsal guide](spec-a-emergency-replay.md).
+
+## Joined Spec A phase journal — October 17
+
+The replay engine now joins entry/upload and the first boot-transfer phase through
+one programmer connection, without a duplicate Hello. Its public API accepts the
+image composer's opaque plan, checks its source FFU/platform against the entry
+plan and validates ranges before entry. Six artifact digests bind every metadata
+checkpoint. Intent is saved before submission, acknowledgement after validation,
+and the send-only entry reboot uses a distinct submitted status. Arrival waits,
+matched arrivals and the handoff are also checkpointed. One progress sequence
+publishes completion only after transfer completion is saved; no unlock or boot
+verification is claimed.
+
+Five new composition tests exercise 90 synthetic journal checkpoints, save failure
+at every checkpoint, cancellation at every outer boundary, uncertain final writes,
+terminal-save failures, artifact contradictions and native JSONL protection. A
+poisoned journal is never called again. Persistence errors retain their cause even
+when a child phase reports cancellation. Native sinks create new files, flush and
+sync each record; the existing recovery journal shares the sink with its original
+2 KiB limit, while the joined journal uses 4 KiB. Existing files are preserved and
+oversized/failed saves poison the sink. Crash/power-loss durability is unvalidated.
+
+All 101 core/protocol tests, strict core/CLI all-target Clippy, formatting and
+WASM compilation pass with compact local build settings. The emergency fixture
+helpers are shared between existing phase tests and the joined tests. The latter
+compose independent synthetic V1 regions through a private worker; public callers
+still require the verified image plan. Real-package execution, hardware, image
+suite and UI tests were not exercised for this milestone. No phone commands,
+mode changes, loader uploads or partition writes occurred. This is a Rust-library
+component with no native execution, journal import or automatic resume API. See
+[the joined journal guide](spec-a-joined-journal.md).
