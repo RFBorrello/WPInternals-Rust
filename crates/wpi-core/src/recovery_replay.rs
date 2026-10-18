@@ -40,12 +40,46 @@ pub fn run_journaled<
 >(
     reader: &mut R,
     transport: &mut ReplayTransport,
-    mut event: F,
+    event: F,
     sink: J,
 ) -> Result<(), RecoveryError> {
+    run_journaled_cancellable(reader, transport, event, sink, || true)
+}
+
+/// Adds cooperative cancellation during local preflight. Returning false stops
+/// before any replay request or journal entry. After preflight, the event callback
+/// remains the cancellation boundary. This API still accepts only replay transport.
+pub fn run_journaled_cancellable<
+    R: Read + Seek,
+    F: FnMut(&OperationEvent) -> bool,
+    J: FnMut(&Entry) -> std::io::Result<()>,
+    C: FnMut() -> bool,
+>(
+    reader: &mut R,
+    transport: &mut ReplayTransport,
+    mut event: F,
+    sink: J,
+    mut preflight_continue: C,
+) -> Result<(), RecoveryError> {
+    if !preflight_continue() {
+        return Err(RecoveryError::Cancelled);
+    }
     let ffu = FfuMetadata::open(reader)?;
     ffu.gpt(reader)?;
-    ffu.verify_hashes(reader, |_, _| true)?;
+    let preflight_error = |error| match error {
+        ImageError::Cancelled => RecoveryError::Cancelled,
+        other => RecoveryError::Image(other),
+    };
+    ffu.verify_hashes(reader, |_, _| preflight_continue())
+        .map_err(preflight_error)?;
+    reader.seek(SeekFrom::Start(0)).map_err(ImageError::from)?;
+    let image_sha256 =
+        wpi_image::stream::copy_hashed(reader, &mut std::io::sink(), ffu.total_size, |_, _| {
+            preflight_continue()
+        })
+        .map_err(preflight_error)?;
+    // No transport request is sent until local verification and its final
+    // cancellation checkpoint have passed.
     let info = flash::read_info(transport)?;
     if info.mode != DeviceMode::Flash {
         return Err(RecoveryError::Preflight("device is not in FlashApp".into()));
@@ -77,8 +111,6 @@ pub fn run_journaled<
     } else {
         ffu.chunk_size as usize
     };
-    reader.seek(SeekFrom::Start(0)).map_err(ImageError::from)?;
-    let image_sha256 = wpi_image::stream::sha256(reader)?;
     let mut journal = Journal {
         sink,
         entry: Entry {

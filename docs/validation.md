@@ -753,3 +753,19 @@ journal on a repeated invocation. These local artifacts are ignored by Git.
 Power-loss behavior and crash-safe directory publication are not validated;
 transfer completion does not establish successful device recovery. See
 [the journal guide](recovery-journal.md). No phone communication occurred.
+
+## Recovery preflight cancellation — October 17
+
+The CLI now observes cancellation during FFU chunk verification and bounded
+whole-file fingerprinting, before consuming even the replay information query.
+A new regression stops at every preflight checkpoint for both protocols and
+checks that no subsequent image read, transfer event, journal entry or protocol
+request occurs. Both terminal hash callbacks are included. Existing event-based
+transfer cancellation and journal behavior remain covered. All 12 focused
+recovery replay tests and strict core/CLI all-target Clippy pass with compact
+local build settings. The full suite and hardware were not exercised.
+
+The owner confirmed this Lumia can be used for live tests and reaffirmed the
+preference to preserve its data. No phone command or data-changing operation
+was performed in this iteration; the preservation and native-executor gaps
+remain open.

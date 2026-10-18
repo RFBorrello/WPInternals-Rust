@@ -97,6 +97,82 @@ fn assert_remaining(transport: &mut ReplayTransport, expected: &[Exchange]) {
     assert!(transport.finished());
 }
 #[test]
+fn preflight_cancellation_at_every_boundary_leaves_all_requests_and_journal_untouched() {
+    use std::{cell::Cell, io::Read, io::Seek, rc::Rc};
+    struct ObservedReader {
+        source: Cursor<&'static [u8]>,
+        bytes_read: Rc<Cell<u64>>,
+    }
+    impl Read for ObservedReader {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            let count = self.source.read(buffer)?;
+            self.bytes_read.set(self.bytes_read.get() + count as u64);
+            Ok(count)
+        }
+    }
+    impl Seek for ObservedReader {
+        fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
+            self.source.seek(position)
+        }
+    }
+    for v2 in [false, true] {
+        let mut checkpoints = Vec::new();
+        let observed = Rc::new(Cell::new(0));
+        let mut reader = ObservedReader {
+            source: Cursor::new(FFU),
+            bytes_read: observed.clone(),
+        };
+        let mut baseline = ReplayTransport::new(exchanges(v2));
+        recovery_replay::run_journaled_cancellable(
+            &mut reader,
+            &mut baseline,
+            |_| true,
+            |_| Ok(()),
+            || {
+                checkpoints.push(observed.get());
+                true
+            },
+        )
+        .unwrap();
+        assert!(baseline.finished());
+        let ffu = wpi_image::ffu::FfuMetadata::open(&mut Cursor::new(FFU)).unwrap();
+        let chunks = (ffu.total_size - ffu.security_size) / u64::from(ffu.chunk_size);
+        let digest_buffers = ffu.total_size.div_ceil(wpi_image::COPY_BUFFER as u64);
+        // Initial check, each chunk/buffer, and both terminal checks.
+        assert_eq!(
+            checkpoints.len() as u64,
+            1 + chunks + 1 + digest_buffers + 1
+        );
+        assert_eq!(checkpoints[0], 0);
+        for (stop, expected_read) in checkpoints.iter().enumerate() {
+            observed.set(0);
+            let mut reader = ObservedReader {
+                source: Cursor::new(FFU),
+                bytes_read: observed.clone(),
+            };
+            let transcript = exchanges(v2);
+            let mut transport = ReplayTransport::new(transcript.clone());
+            let mut calls = 0;
+            let result = recovery_replay::run_journaled_cancellable(
+                &mut reader,
+                &mut transport,
+                |_| panic!("no transfer events before preflight completes"),
+                |_| panic!("no journal entries before preflight completes"),
+                || {
+                    let proceed = calls != stop;
+                    calls += 1;
+                    proceed
+                },
+            );
+            assert!(matches!(result, Err(RecoveryError::Cancelled)));
+            assert_eq!(calls, stop + 1);
+            // Includes the final digest check: no later read or NOKV is allowed.
+            assert_eq!(observed.get(), *expected_read);
+            assert_remaining(&mut transport, &transcript);
+        }
+    }
+}
+#[test]
 fn v1_and_v2_stock_replay_complete_with_monotonic_progress() {
     for v2 in [false, true] {
         let mut transport = ReplayTransport::new(exchanges(v2));

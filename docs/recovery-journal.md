@@ -51,10 +51,17 @@ write. Future native execution still needs a reviewed admission policy, device a
 artifact binding, interruption/reconnection handling, preservation and physical
 recovery validation. No new compatibility capability is enabled.
 
-CLI cancellation is observed at existing replay event boundaries. Image
-preflight and whole-file fingerprinting do not yet expose cancellation through
-that callback. Only transfer acknowledgements are journaled; USB-level
-partial-transfer behavior remains separate protocol/adapter work.
+The CLI uses `run_journaled_cancellable` to check Ctrl+C before image parsing,
+at each FFU hash-verification boundary and each 1 MiB fingerprint buffer,
+including both completion boundaries. All local preflight finishes before the
+first simulated information request. A cancellation there returns `Cancelled`,
+leaves the transcript untouched and writes no journal entries; the CLI-created
+journal file can remain empty. Parsing and individual I/O calls are not
+interruptible mid-call. Transfer cancellation remains at event boundaries.
+Existing `run` and `run_journaled` callers retain event-only cancellation unless
+they opt into the additional preflight callback. Only transfer acknowledgements
+are journaled; USB-level partial-transfer behavior remains separate
+protocol/adapter work.
 
 Unit tests cover both protocol versions, ordered intents/acknowledgements, source
 binding, cancellation, lost final replies and failures at all 26 journal checkpoints
@@ -65,3 +72,9 @@ saved 16 entries for success and 15 for a lost final reply; the latter confirmed
 only 20,480 of 24,576 payload bytes and required inspection. Both protected an
 existing journal. All fixtures are synthetic; no proprietary images or captured
 phone data are distributed.
+
+A further regression cancels at every local preflight checkpoint for both
+protocol versions, including the final fingerprint checkpoint. It checks that
+no later image bytes are read, no transfer event or journal entry is emitted,
+and even the information request remains unconsumed. The successful baseline
+also verifies the unchanged image fingerprint through the existing journal tests.

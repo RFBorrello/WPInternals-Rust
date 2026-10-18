@@ -407,7 +407,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             let signal = cancelled.clone();
             ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
             let mut journal = wpi_core::recovery_journal::FileJournal::create(&journal)?;
-            let result = wpi_core::recovery_replay::run_journaled(
+            let result = wpi_core::recovery_replay::run_journaled_cancellable(
                 &mut source,
                 &mut transport,
                 |event| {
@@ -418,6 +418,7 @@ fn run() -> Result<(), Box<dyn Error>> {
                     !cancelled.load(Ordering::Acquire)
                 },
                 |entry| journal.append(entry),
+                || !cancelled.load(Ordering::Acquire),
             );
             print(
                 serde_json::json!({"replay_only":true,"phone_contacted":false,"phone_writes_enabled":false,

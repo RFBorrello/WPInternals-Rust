@@ -5,6 +5,12 @@ Lumia 1020, not a promise of a pre-unlock backup that existing access cannot
 provide. This milestone audits local stock firmware and saved GPT evidence.
 It sends no USB commands and does not validate physical recovery.
 
+The owner has designated this RM-875 as the live test phone and reaffirmed the
+preference to preserve its data. This does not establish that a stock flash is
+data preserving. No installed-data backup or validated preservation path exists
+yet, so development and read-only investigation can continue while a recovery
+flash that may erase data remains outside the current preservation constraint.
+
 ## Stock FFU facts
 
 The local `3051.50009.1424.0002` FFU has a legacy INI manifest containing
