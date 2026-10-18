@@ -90,6 +90,10 @@ and checked security fields. The first integrated mode cycle stopped on a parser
 assumption and required a manual restart; a subsequent GPT-read cycle completed
 automatically with unchanged firmware. Recovery validation, installed partition
 backups and an unlock executor remain outstanding.
+The [Spec A executor work](docs/spec-a-unlock-executor.md) now includes V1
+programmer codecs and a replay-only transfer phase with address-bound replies,
+command-boundary cancellation and fail-stop error handling. It does not enable
+live unlocking or establish preservation of installed data.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.

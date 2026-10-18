@@ -18,6 +18,9 @@ Offline package generation additionally ports `SBL1.GenerateExtraSector`,
 `SBL2.Patch`, `SBL3.Patch`, `GPT.InsertHack`/`RestoreBackupPartitions` and the
 Spec A preparation sequence from the same pinned release. Marker GUIDs are
 deterministic for reproducibility; their generation is an independent choice.
+The V1 programmer command codecs and replay transfer phase additionally follow
+`Models/QualcommFlasher.cs` and `Models/QualcommSerial.cs` from that pinned release.
+The independent synthetic transcript generator uses its CRC lookup table.
 
 # Dependency licenses
 

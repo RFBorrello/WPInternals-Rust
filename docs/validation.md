@@ -769,3 +769,23 @@ The owner confirmed this Lumia can be used for live tests and reaffirmed the
 preference to preserve its data. No phone command or data-changing operation
 was performed in this iteration; the preservation and native-executor gaps
 remain open.
+
+## Spec A programmer-phase executor rehearsal — October 17
+
+The unlock track now has pure V1 programmer codecs and a concrete-replay-only
+phase executor. Requests preserve the pinned upstream unframed format; replies
+require bounded HDLC/CRC validation and exact write-address echoes. Region
+validation precedes the session, byte counters advance only after valid replies,
+and cancellation/error stops without retries or later cleanup/reboot commands.
+Completion describes the simulated phase, not verified device unlock or boot.
+
+Eight new tests include an independent synthetic C#-algorithm translation,
+81 command-fault cases, all nine cancellation boundaries, range/overlap/resource
+limits and 32-bit edge cases. All 86 core/protocol tests pass. Strict all-target
+core/protocol/CLI Clippy, formatting and WASM compilation pass with incremental
+compilation and debug symbols disabled. The Python reference check passes.
+The full image/UI suite and hardware were not exercised; no phone command,
+programmer upload or partition write occurred. No native writer or UI unlock
+control is enabled. Package/live-layout composition, emergency entry, durable
+checkpoints, boot patches and preservation/recovery validation remain separate
+integration work. See [the executor guide](spec-a-unlock-executor.md).
