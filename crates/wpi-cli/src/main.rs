@@ -128,6 +128,13 @@ enum Command {
     Probe { id: String },
     /// Read a local public ID without exporting its bytes. Sends no mode change.
     IdentityProbe { id: String },
+    /// Read-only handshake on an ALREADY exposed emergency USB endpoint. No mode changes or uploads.
+    ProbeEmergency {
+        id: String,
+        /// Required protocol choice; no automatic detection or fallback.
+        #[arg(long, value_parser = ["dload", "programmer-v1"])]
+        protocol: String,
+    },
     /// Read phone information and preview a mode change. Never sends a mode-change command.
     PrepareMode {
         id: String,
@@ -729,6 +736,14 @@ fn run() -> Result<(), Box<dyn Error>> {
         Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
         Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
         Command::IdentityProbe { id } => print(wpi_transport::identity_probe::run(&id)?)?,
+        Command::ProbeEmergency { id, protocol } => {
+            let protocol = match protocol.as_str() {
+                "dload" => wpi_transport::emergency_probe::Protocol::Dload,
+                "programmer-v1" => wpi_transport::emergency_probe::Protocol::ProgrammerV1,
+                _ => return Err("Select dload or programmer-v1 explicitly".into()),
+            };
+            print(wpi_transport::emergency_probe::run(&id, protocol)?)?;
+        }
         Command::ModeTest {
             id,
             execute,

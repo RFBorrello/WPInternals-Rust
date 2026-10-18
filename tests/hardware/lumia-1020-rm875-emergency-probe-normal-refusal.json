@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "date": "2026-10-18",
+  "host": "windows_arm64",
+  "operation": "emergency_probe_normal_mode_refusal",
+  "source_base_commit": "bc2bbe7",
+  "source_changes": "Fragmented USB replies and explicitly selected read-only emergency probes",
+  "cli_sha256": "1d364fea1c37cd997c220925ef8630232b9ece23b4bb5a9e3087b123b07fe961",
+  "selected_usb": { "vendor_id": 1057, "product_id": 1633, "mode": "normal" },
+  "cases": [
+    { "protocol": "dload", "exit_code": 1, "rejected_before_open": true, "queries_sent": 0 },
+    { "protocol": "programmer_v1", "exit_code": 1, "rejected_before_open": true, "queries_sent": 0 }
+  ],
+  "normal_usb_interface_still_present": true,
+  "mode_changes_sent": false,
+  "programmer_uploaded": false,
+  "firmware_or_partition_writes_sent": false,
+  "emergency_hardware_communication_validated": false,
+  "scope": "Discovery and CLI refusal checks only. The same selected Normal USB interface remained present. No model or firmware query was issued in this check; hardware identity was established in the preceding read-only identification milestone. No serial, port value, public ID or root fingerprint is published."
+}

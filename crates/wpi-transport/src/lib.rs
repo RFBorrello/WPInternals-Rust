@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::{sync::Mutex, time::Instant};
 use wpi_protocol::MessageTransport;
 use wpi_types::*;
+pub mod emergency_probe;
 pub mod identity_probe;
 pub mod mode_test;
 pub mod spec_a_preflight;
@@ -72,7 +73,7 @@ fn open_selected(id: &str) -> Result<(DeviceIdentity, UsbMessages), String> {
         .ok_or("Not a recognized Lumia interface")?;
     if !matches!(mode, DeviceMode::Flash | DeviceMode::Normal) {
         return Err(
-            "This release probes only Lumia normal/flash interfaces. Emergency mode is enumeration-only."
+            "This probe supports only Lumia normal/flash interfaces. Use the explicitly selected read-only emergency probe for an already exposed emergency interface."
                 .into(),
         );
     }

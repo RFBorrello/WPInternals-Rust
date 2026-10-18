@@ -908,3 +908,29 @@ mode changes, programmer uploads or firmware/partition writes were sent. The
 [sanitized record](../tests/hardware/lumia-1020-rm875-usb-session-probe.json) includes
 the executable hash. This does not enable native unlock execution or establish
 data preservation. See [native USB transaction behavior](native-usb-transactions.md).
+
+## Native fragmented emergency replies — October 18
+
+The private native session now assembles one CRC-checked HDLC reply across multiple
+IN completions with a total 8 KiB bound and one shared OUT/IN deadline. Short reads
+never repeat OUT or reset time. Empty, malformed, oversized, incomplete or failed
+replies retire the session. A new explicit CLI `probe-emergency` command selects
+DLOAD alive/root or V1 Hello on an already exposed recognized emergency endpoint.
+It accepts exactly one vendor bulk pair, requires physical-port binding, and
+rechecks descriptor/port uniqueness before each query and after completion. It
+never guesses protocols, uploads, writes, changes modes or enables the replay
+executor's hardware path. Reports export presence only, not identifiers or roots.
+
+Eleven new tests bring the transport suite to 61 passing tests, including maximum
+8 KiB bytewise/full-packet assembly without an extra zero-length terminator, every
+split in escaped replies, injected failure/deadline
+cases, admission/interface checks, fixed read-only sequences and reference-vector
+integration through the framed adapter. Strict transport/CLI all-target Clippy,
+formatting and the CLI build pass; missing protocol selection is rejected at parse
+time. Both protocol choices rejected the connected Normal-mode RM-875 before open
+or queries, and its Normal interface remained present. The
+[sanitized refusal record](../tests/hardware/lumia-1020-rm875-emergency-probe-normal-refusal.json)
+includes the executable hash. No emergency hardware communication, mode change,
+upload, write or driver change occurred. Core/image/UI suites were not rerun.
+Cross-mode unlock admission, arrival handling, serial transport and preservation/
+recovery policy remain pending. See the [emergency probe guide](native-emergency-probe.md).

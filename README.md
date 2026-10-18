@@ -217,6 +217,8 @@ and set `WPI_BROWSER_CHANNEL=chromium`.
 - `wpi-transport`: native USB and serial discovery; read-only USB probe.
   [Native USB transactions](docs/native-usb-transactions.md) retire uncertain sessions
   and share one bounded deadline across OUT/IN transfers.
+  An explicit [emergency USB probe](docs/native-emergency-probe.md) handles fragmented
+  DLOAD/V1 replies for already exposed endpoints; it cannot enter those modes or write.
 - `wpi-cli`, `wpi-wasm`, `apps/desktop`, `apps/ui`: frontends and adapters.
 
 See the [agreed roadmap](docs/roadmap.md), [feature parity](docs/parity.md), [hardware validation](docs/hardware-validation.md),

@@ -1,6 +1,7 @@
 //! Private USB transaction policy shared by native endpoints and fault tests.
 //! A failed transaction retires the session; cancelled completions are never reused.
 use std::time::{Duration, Instant};
+use wpi_protocol::qualcomm::{dload::ReplyDecoder, v1::MAX_REPLY_FRAME};
 use wpi_protocol::{ProtocolError, Result};
 
 const TRANSACTION_TIMEOUT: Duration = Duration::from_secs(5);
@@ -100,6 +101,51 @@ impl<T: Io> Session<T> {
                 return Err(ProtocolError::Invalid("USB response exceeds bound".into()));
             }
             Ok(response)
+        })();
+        self.finish(result)
+    }
+
+    /// One request and one bounded HDLC reply assembled across USB completions.
+    /// A short IN is a fragment, never a reason to retransmit OUT or reset time.
+    pub(super) fn exchange_framed(
+        &mut self,
+        request: &[u8],
+        maximum_response: usize,
+        deadline: Option<Instant>,
+    ) -> Result<Vec<u8>> {
+        let end = self.check(request, deadline)?;
+        if maximum_response == 0 || maximum_response > MAX_REPLY_FRAME {
+            return Err(ProtocolError::Invalid(
+                "invalid framed response bound".into(),
+            ));
+        }
+        let packet = self.io.packet_size();
+        if packet == 0 || packet > 65536 {
+            return Err(ProtocolError::Invalid("invalid USB IN packet size".into()));
+        }
+        let result = (|| {
+            self.write(request, end)?;
+            let mut decoder = ReplyDecoder::default();
+            let mut received = 0;
+            loop {
+                let available = maximum_response - received;
+                if available == 0 {
+                    return Err(ProtocolError::Invalid(
+                        "incomplete framed reply at limit".into(),
+                    ));
+                }
+                // Request one packet, so a complete frame ending on a full USB
+                // packet does not need a ZLP to finish an oversized IN request.
+                let fragment = self.io.read(packet, self.remaining(end)?)?;
+                self.remaining(end)?;
+                if fragment.len() > available {
+                    return Err(ProtocolError::Invalid("framed reply exceeds bound".into()));
+                }
+                received += fragment.len();
+                if let Some(frame) = decoder.push(&fragment)? {
+                    return Ok(frame);
+                }
+            }
         })();
         self.finish(result)
     }
@@ -230,6 +276,11 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("retired"));
+        assert!(session
+            .exchange_framed(&[9], 16, None)
+            .unwrap_err()
+            .to_string()
+            .contains("retired"));
         assert_eq!(counts, (session.io.written.len(), session.io.reads.len()));
         assert_eq!(session.io.cancellations, 1);
     }
@@ -342,6 +393,128 @@ mod tests {
             assert!(session.send_once(&[1], None).is_err());
             assert!(session.io.reads.is_empty());
             assert_retired(&mut session);
+        }
+    }
+
+    #[test]
+    fn framed_reply_accepts_every_split_and_bytewise_escapes_and_crc() {
+        use wpi_protocol::qualcomm::encode_hdlc;
+        for payload in [vec![2], vec![0x18, 1, 0, 0x7e, 0x7d, 4]] {
+            let frame = encode_hdlc(&payload).unwrap();
+            for split in 1..frame.len() {
+                let mut io = Fake::default();
+                io.output.push_back(Ok(1));
+                io.input
+                    .extend([Ok(frame[..split].to_vec()), Ok(frame[split..].to_vec())]);
+                let mut session = Session::new(io);
+                assert_eq!(
+                    session.exchange_framed(&[6], frame.len(), None).unwrap(),
+                    frame
+                );
+                assert_eq!(session.io.written, [vec![6]]);
+                assert_eq!(session.io.reads.len(), 2);
+            }
+            let mut io = Fake::default();
+            io.output.push_back(Ok(1));
+            io.input.extend(frame.iter().map(|b| Ok(vec![*b])));
+            let mut session = Session::new(io);
+            assert_eq!(
+                session.exchange_framed(&[6], frame.len(), None).unwrap(),
+                frame
+            );
+            assert_eq!(session.io.reads.len(), frame.len());
+        }
+    }
+    #[test]
+    fn framed_malformed_trailing_oversized_or_incomplete_reply_retires() {
+        let frame = wpi_protocol::qualcomm::encode_hdlc(&[2]).unwrap();
+        let mut bad_crc = frame.clone();
+        bad_crc[1] ^= 1;
+        let mut trailing = frame.clone();
+        trailing.extend_from_slice(&frame);
+        for (fragments, bound) in [
+            (vec![Ok(vec![])], 32),
+            (vec![Ok(vec![1])], 32),
+            (vec![Ok(bad_crc)], 32),
+            (vec![Ok(trailing)], 32),
+            (vec![Ok(vec![0x7e, 1, 1, 1])], 4),
+            (vec![Ok(frame.clone())], frame.len() - 1),
+            (vec![Ok(vec![0x7e]), Err(fault())], 32),
+        ] {
+            let mut io = Fake::default();
+            io.output.push_back(Ok(1));
+            let expected_reads = fragments.len();
+            io.input.extend(fragments);
+            io.input.push_back(Ok(frame.clone()));
+            let mut session = Session::new(io);
+            assert!(session.exchange_framed(&[6], bound, None).is_err());
+            assert_eq!(session.io.written.len(), 1);
+            assert_eq!(session.io.reads.len(), expected_reads);
+            assert_retired(&mut session);
+            assert_eq!(session.io.input.len(), 1);
+        }
+    }
+    #[test]
+    fn fragmented_reads_share_deadline_and_never_repeat_out() {
+        let frame = wpi_protocol::qualcomm::encode_hdlc(&[2]).unwrap();
+        let mut io = Fake {
+            write_elapsed: Duration::from_secs(1),
+            read_elapsed: Duration::from_secs(1),
+            ..Fake::default()
+        };
+        io.output.push_back(Ok(1));
+        io.input.extend(frame.iter().map(|b| Ok(vec![*b])));
+        let mut session = Session::new(io);
+        assert!(session.exchange_framed(&[6], 32, None).is_err());
+        assert_eq!(
+            session
+                .io
+                .reads
+                .iter()
+                .map(|r| r.1.as_secs())
+                .collect::<Vec<_>>(),
+            [4, 3, 2, 1]
+        );
+        assert_eq!(session.io.written, [vec![6]]);
+        assert_retired(&mut session);
+    }
+    #[test]
+    fn framed_limits_and_short_out_stop_before_in() {
+        let mut session = Session::new(Fake::default());
+        for bound in [0, MAX_REPLY_FRAME + 1] {
+            assert!(session.exchange_framed(&[6], bound, None).is_err());
+        }
+        assert!(session.io.written.is_empty());
+        session.io.output.push_back(Ok(0));
+        assert!(session.exchange_framed(&[6], 32, None).is_err());
+        assert!(session.io.reads.is_empty());
+        assert_retired(&mut session);
+    }
+    #[test]
+    fn maximum_framed_reply_uses_packet_reads_and_accepts_bytewise_delivery() {
+        let frame = (1..=120)
+            .find_map(|value| {
+                let frame =
+                    wpi_protocol::qualcomm::encode_hdlc(&vec![value; MAX_REPLY_FRAME - 4]).unwrap();
+                (frame.len() == MAX_REPLY_FRAME).then_some(frame)
+            })
+            .unwrap();
+        for fragment_length in [1, 64] {
+            let mut io = Fake::default();
+            io.output.push_back(Ok(1));
+            io.input
+                .extend(frame.chunks(fragment_length).map(|c| Ok(c.to_vec())));
+            let mut session = Session::new(io);
+            assert_eq!(
+                session
+                    .exchange_framed(&[6], MAX_REPLY_FRAME, None)
+                    .unwrap(),
+                frame
+            );
+            assert_eq!(session.io.reads.len(), MAX_REPLY_FRAME / fragment_length);
+            assert!(session.io.reads.iter().all(|(length, _)| *length == 64));
+            assert_eq!(session.io.written.len(), 1);
+            assert!(session.io.input.is_empty());
         }
     }
 }

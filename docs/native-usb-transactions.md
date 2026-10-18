@@ -40,7 +40,9 @@ on the connected RM-875 in Normal mode. The sanitized
 the executable hash and scope. It establishes successful information reads only;
 no mode changes, fault injection on hardware, programmer upload or writes occurred.
 
-This remains a single-message Normal/Flash adapter. Native fragmented HDLC replies,
+`UsbMessages` remains the single-message Normal/Flash adapter. A separate
+[read-only emergency probe](native-emergency-probe.md) now uses the same session
+policy to assemble bounded HDLC replies across multiple IN completions. Native
 serial communication beyond discovery, emergency/programmer arrival handling and
 fresh admission for an unlock session still need implementation and validation.
 The joined unlock API continues to accept only concrete replay transports. No

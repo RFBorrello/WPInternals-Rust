@@ -24,7 +24,7 @@ fn live_blocker(device: &DeviceIdentity) -> Option<&'static str> {
         .then_some(LIVE_BLOCKER)
 }
 #[derive(Clone, PartialEq, Eq)]
-enum PhysicalPort {
+pub(super) enum PhysicalPort {
     #[cfg(target_os = "windows")]
     Windows {
         hub: std::ffi::OsString,
@@ -33,7 +33,7 @@ enum PhysicalPort {
     #[cfg(not(target_os = "windows"))]
     Native { bus: String, chain: Vec<u8> },
 }
-fn physical_port(d: &nusb::DeviceInfo) -> Option<PhysicalPort> {
+pub(super) fn physical_port(d: &nusb::DeviceInfo) -> Option<PhysicalPort> {
     #[cfg(target_os = "windows")]
     {
         windows_port(d.parent_instance_id(), d.port_number())
