@@ -35,8 +35,21 @@ pub struct EntryPlan {
     header: Vec<u8>,
     platform: String,
     sha256: String,
+    total_size: u64,
 }
 impl EntryPlan {
+    /// Reconstruct bounded reference metadata using the retained hash table and
+    /// verified copies of each payload chunk. No later file header is trusted.
+    pub fn reference<R: Read + Seek>(
+        &self,
+        source: &mut R,
+    ) -> wpi_image::Result<crate::spec_a_preflight::Reference> {
+        let mut pinned =
+            crate::spec_a_source::Source::new(source, &self.header, self.total_size, true)?;
+        let mut reference = crate::spec_a_preflight::Reference::read(&mut pinned)?;
+        reference.mark_full_integrity_checked(&self.sha256);
+        Ok(reference)
+    }
     pub(crate) fn source(&self) -> (&str, &str) {
         (&self.sha256, &self.platform)
     }
@@ -80,7 +93,9 @@ impl EntryPlan {
             return Err(invalid("Entry source digest differs from selected FFU"));
         }
         let ffu = FfuMetadata::read_headers(&mut Cursor::new(&header.bytes), initial.total_size)?;
-        if ffu.header_size as usize != header.bytes.len() || ffu.chunk_size as usize != ENTRY_CHUNK
+        if ffu.header_size as usize != header.bytes.len()
+            || ffu.chunk_size as usize != ENTRY_CHUNK
+            || !(ffu.total_size - ffu.security_size).is_multiple_of(u64::from(ffu.chunk_size))
         {
             return Err(invalid("Entry requires the pinned 128 KiB FFU profile"));
         }
@@ -102,13 +117,17 @@ impl EntryPlan {
                 "Entry first chunk must map once to each disk boundary only",
             ));
         }
-        ffu.verify_hashes(source, |done, _| {
+        let mut pinned =
+            crate::spec_a_source::Source::new(source, &header.bytes, initial.total_size, false)?;
+        ffu.verify_hashes(&mut pinned, |done, _| {
             progress(initial.total_size + done * u64::from(ffu.chunk_size), total)
         })?;
-        ffu.gpt(source)?;
-        source.seek(SeekFrom::Start(ffu.header_size))?;
+        let mut checked =
+            crate::spec_a_source::Source::new(source, &header.bytes, initial.total_size, true)?;
+        ffu.gpt(&mut checked)?;
+        checked.seek(SeekFrom::Start(ffu.header_size))?;
         let mut first = vec![0; ENTRY_CHUNK];
-        source.read_exact(&mut first)?;
+        checked.read_exact(&mut first)?;
         if first.iter().any(|b| *b != 0) {
             return Err(invalid(
                 "Entry source first payload chunk is not zero filled",
@@ -121,6 +140,7 @@ impl EntryPlan {
             header: header.bytes,
             platform: ffu.platform_id,
             sha256,
+            total_size: initial.total_size,
         })
     }
 }
@@ -132,6 +152,9 @@ pub struct Loader {
     decoded_sha256: String,
 }
 impl Loader {
+    pub(crate) fn matches_root(&self, root: &RootKeyHash) -> bool {
+        self.root == *root
+    }
     pub(crate) fn byte_len(&self) -> u64 {
         self.bytes.len() as u64
     }

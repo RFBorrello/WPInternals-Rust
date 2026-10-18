@@ -6,6 +6,7 @@ use wpi_protocol::preflight::{Capture, GptReadStatus, RootKeyHash};
 use wpi_types::{PreparationCheck, PreparationStatus};
 
 pub struct Reference {
+    pinned_source_sha256: Option<String>,
     platform: String,
     root: RootKeyHash,
     primary: Vec<u8>,
@@ -21,6 +22,17 @@ pub struct ReferenceSummary {
     pub oem_signer_trusted: bool,
 }
 impl Reference {
+    pub(crate) fn mark_full_integrity_checked(&mut self, sha256: &str) {
+        self.summary.full_ffu_integrity_checked = true;
+        self.pinned_source_sha256 = Some(sha256.into());
+    }
+    pub(crate) fn matches_pinned_source(&self, sha256: &str) -> bool {
+        self.summary.full_ffu_integrity_checked
+            && self
+                .pinned_source_sha256
+                .as_deref()
+                .is_some_and(|s| s.eq_ignore_ascii_case(sha256))
+    }
     /// Bounded reference metadata only. This does not replace full source FFU
     /// verification, authenticity/applicability checks or installed originals.
     pub fn read<R: Read + Seek>(source: &mut R) -> wpi_image::Result<Self> {
@@ -69,6 +81,7 @@ impl Reference {
             oem_signer_trusted: false,
         };
         Ok(Self {
+            pinned_source_sha256: None,
             platform: ffu.platform_id,
             root,
             primary,

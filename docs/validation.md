@@ -966,3 +966,48 @@ No serial port was opened on hardware, mode changes were sent, programmers uploa
 or partitions written. Positive serial/arrival hardware behavior and other hosts
 remain unvalidated; core/image/UI suites were not rerun. The joined unlock executor
 is still replay-only. See [native serial and arrival behavior](native-serial-arrival.md).
+
+## Artifact-bound read-only Spec A session — October 18
+
+A prepared context now owns the pinned entry plan, one loader and the opaque image
+programmer plan. It checks complete source/platform agreement, a source-digest-bound
+pinned reference, full original-SBL1 equality between source/package, loader root
+equality and supported saved capacity. Six artifact digests remain bound to the
+in-memory context. References parsed by metadata-only inspection cannot satisfy the
+pinned-source requirement, and reports cannot reconstruct the context or session.
+
+Entry verification now reads hash tables from retained headers. Later reference,
+GPT and zero-payload reads verify chunks against that pinned table before using
+their bytes, with one cached chunk and bounded seeks. Tests reject a changed payload
+even when the live file's hash table is also rewritten. Source reconstruction does
+not trust a later header read or copy an entire firmware image to memory/disk.
+
+Five ordered Normal queries check public-ID bookends and the reviewed RM-875 model,
+product and firmware. A consuming read-only Flash check uses the same private public
+ID/root context, checks Spec A/security/capacity at NOKV before later requests, then
+validates root/security and application/ID bookends. Flash logic was exercised only
+through replay. The native adapter exposes Normal only, revalidates descriptors and
+physical port before each query and after completion, caps the session at 30 seconds
+subject to OS discovery, and permits only the five fixed requests. Any binding or
+transport error retires it; mode changes, writes and recovery commands are absent.
+
+The core/image/protocol/transport suite passed 279 tests. One subsequently added
+source-coherence test and one CLI subprocess regression also passed, for 281 distinct
+tests across the relevant suites. New cases cover source/reference swapping,
+mutable headers/payloads, bounded reads, identity/root/profile/capacity changes,
+every query fault/cancellation boundary and native request allowlisting. Synthetic
+session tests use private contexts; public bundle construction was exercised with
+the real local inputs below. Strict all-target Clippy, formatting, CLI build and
+WASM compilation pass. UI tests were not rerun. The initial CLI help run overflowed
+the Windows ARM64 process stack before phone access; boxed arguments and a separate
+handler fixed it, and the subprocess test now guards startup on the default stack.
+
+The new CLI verified the real RM-875 FFU, package, saved GPT and FAST8960 import,
+constructed the public bundle and completed five native Normal queries on the
+connected 1020. Public-ID bookends, USB descriptors and physical port matched.
+No Flash transition/probe, GPT query, programmer upload or phone write occurred.
+The result keeps fresh Flash/GPT evidence missing, recovery/preservation unvalidated,
+hardware validation false, writes disabled and automatic resume disabled. See the
+[sanitized record](../tests/hardware/lumia-1020-rm875-session-check.json) and
+[session guide](spec-a-session.md). This establishes one read-only Normal check,
+not device acceptance of the older source firmware or live unlock readiness.

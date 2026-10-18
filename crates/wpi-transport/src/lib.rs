@@ -11,6 +11,7 @@ pub mod identity_probe;
 pub mod mode_test;
 pub mod serial_probe;
 pub mod spec_a_preflight;
+pub mod spec_a_session;
 mod usb_session;
 static PHONE_ACCESS: Mutex<()> = Mutex::new(());
 

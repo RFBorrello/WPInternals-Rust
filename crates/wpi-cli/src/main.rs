@@ -13,8 +13,29 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
 }
+#[derive(clap::Args)]
+struct CheckSpecASessionArgs {
+    source: PathBuf,
+    package: PathBuf,
+    primary: PathBuf,
+    loader: PathBuf,
+    #[arg(long)]
+    device_id: String,
+    #[arg(long)]
+    disk_sectors: u64,
+    #[arg(long)]
+    expect_source_sha256: String,
+    #[arg(long)]
+    expect_package_sha256: String,
+    #[arg(long)]
+    expect_primary_sha256: String,
+    #[arg(long)]
+    expect_loader_sha256: String,
+}
 #[derive(Subcommand)]
 enum Command {
+    /// Bind pinned local unlock inputs to five read-only Normal-mode queries. No mode change or writes.
+    CheckSpecASession(Box<CheckSpecASessionArgs>),
     /// Compose an advisory Spec A programmer-phase report from pinned local files. No USB access.
     PlanSpecAProgrammer {
         package: PathBuf,
@@ -509,6 +530,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             })?;
             print(report)?;
         }
+        Command::CheckSpecASession(args) => check_spec_a_session(*args)?,
         Command::PlanSpecAProgrammer {
             package,
             primary,
@@ -1115,6 +1137,80 @@ fn run() -> Result<(), Box<dyn Error>> {
             ))?;
         }
     }
+    Ok(())
+}
+fn check_spec_a_session(args: CheckSpecASessionArgs) -> Result<(), Box<dyn Error>> {
+    let CheckSpecASessionArgs {
+        source,
+        package,
+        primary,
+        loader,
+        device_id,
+        disk_sectors,
+        expect_source_sha256,
+        expect_package_sha256,
+        expect_primary_sha256,
+        expect_loader_sha256,
+    } = args;
+
+    use std::{
+        io::Read,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
+    };
+    use wpi_core::{
+        spec_a_emergency_replay::{EntryPlan, Loader},
+        spec_a_session::Prepared,
+    };
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let signal = cancelled.clone();
+    ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+    let mut ffu = artifacts::open_artifact(&source)?;
+    let mut last = std::time::Instant::now();
+    let entry = EntryPlan::read(&mut ffu, &expect_source_sha256, |d, t| {
+        if d == t || last.elapsed().as_millis() >= 250 {
+            eprintln!("Pin source FFU: {d}/{t}");
+            last = std::time::Instant::now();
+        }
+        !cancelled.load(Ordering::Acquire)
+    })?;
+    if cancelled.load(Ordering::Acquire) {
+        return Err("Cancelled before pinned reference reads".into());
+    }
+    let reference = entry.reference(&mut ffu)?;
+    let mut loader_bytes = Vec::new();
+    artifacts::open_artifact(&loader)?
+        .take(wpi_image::spec_a::MAX_LOADER_FILE as u64 + 1)
+        .read_to_end(&mut loader_bytes)?;
+    let loader = Loader::prepare(&loader_bytes, &expect_loader_sha256, reference.root())?;
+    let mut primary_bytes = Vec::new();
+    artifacts::open_artifact(&primary)?
+        .take(17409)
+        .read_to_end(&mut primary_bytes)?;
+    let mut zip = artifacts::open_artifact(&package)?;
+    let boot = wpi_image::spec_a::programmer_plan::build(
+        &mut zip,
+        &primary_bytes,
+        disk_sectors,
+        &expect_primary_sha256,
+        &expect_package_sha256,
+        |stage, d, t| {
+            if d == t || last.elapsed().as_millis() >= 250 {
+                eprintln!("{stage}: {d}/{t}");
+                last = std::time::Instant::now();
+            }
+            !cancelled.load(Ordering::Acquire)
+        },
+    )?;
+    let prepared = Prepared::new(entry, reference, loader, boot)?;
+    print(wpi_transport::spec_a_session::check_normal(
+        &device_id,
+        &prepared,
+        &cancelled,
+        |stage| eprintln!("{stage}"),
+    )?)?;
     Ok(())
 }
 fn main() {

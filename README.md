@@ -106,6 +106,10 @@ A [joined Spec A replay](docs/spec-a-joined-journal.md) now persists artifact-bo
 intent/acknowledgement and mode-arrival checkpoints across entry, upload and the
 first boot-transfer phase. Save failures stop before the next command; journal
 files cannot authorize execution or automatic resume.
+A separate [artifact-bound session check](docs/spec-a-session.md) joins pinned FFU,
+package, GPT and loader inputs with fresh Normal identity bookends. Its native CLI
+performs five read-only queries; Flash correlation is tested through replay and
+phone writes remain disabled.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.

@@ -101,7 +101,9 @@ remained present. See the [sanitized record](../tests/hardware/lumia-1020-rm875-
 
 Successful emergency serial communication, a physical arrival, disconnect faults,
 line behavior, other hosts and device/driver combinations remain unvalidated. No
-mode change, programmer upload or firmware/partition write occurred. The immutable
-source binding, cross-mode public-ID/root comparison, recovery/preservation policy
-and later boot-integrity stages still need integration before live unlock execution.
+mode change, programmer upload or firmware/partition write occurred. The
+[artifact-bound session checks](spec-a-session.md) now have a shared in-memory
+context and a native Normal-only command. Native cross-mode admission,
+recovery/preservation policy and later boot-integrity stages still need integration
+before live unlock execution.
 The joined Spec A executor continues to accept concrete replay transports only.

@@ -53,8 +53,12 @@ pub struct Report {
 pub struct Plan {
     regions: Vec<Region>,
     report: Report,
+    source_sbl1_sha256: String,
 }
 impl Plan {
+    pub fn source_sbl1_sha256(&self) -> &str {
+        &self.source_sbl1_sha256
+    }
     pub fn regions(&self) -> &[Region] {
         &self.regions
     }
@@ -238,6 +242,7 @@ pub fn build<R: Read + Seek, F: FnMut(&str, u64, u64) -> bool>(
     let total_transfer_bytes = transfers.iter().map(|t| t.byte_length).sum();
     Ok(Plan {
         regions,
+        source_sbl1_sha256: super::hash(&first),
         report: Report {
             schema: 1,
             kind: "wpi-spec-a-programmer-replay-plan",
@@ -301,6 +306,20 @@ mod tests {
         let (zip, primary) = fixture();
         let before = primary.clone();
         let plan = plan(&zip, &primary).unwrap();
+        let mut source = Cursor::new(include_bytes!(
+            "../../../../tests/fixtures/synthetic-spec-a-package.ffu"
+        ));
+        let ffu = crate::ffu::FfuMetadata::open(&mut source).unwrap();
+        let gpt = ffu.gpt(&mut source).unwrap();
+        let sbl1 = gpt
+            .partitions
+            .iter()
+            .find(|p| p.name == "SBL1")
+            .unwrap()
+            .byte_range()
+            .unwrap();
+        let original = ffu.read_disk(&mut source, sbl1.0, sbl1.1 as usize).unwrap();
+        assert_eq!(plan.source_sbl1_sha256(), super::super::hash(&original));
         assert_eq!(primary, before);
         let report = plan.report();
         let targets: Vec<_> = report.transfers.iter().map(|t| t.target.as_str()).collect();

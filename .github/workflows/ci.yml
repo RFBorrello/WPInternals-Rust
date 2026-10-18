@@ -73,6 +73,7 @@ jobs:
             docs/spec-a-unlock-executor.md
             docs/spec-a-emergency-replay.md
             docs/spec-a-joined-journal.md
+            docs/spec-a-session.md
             docs/native-usb-transactions.md
             docs/native-emergency-probe.md
             docs/native-serial-arrival.md
@@ -93,6 +94,7 @@ jobs:
             tests/hardware/lumia-1020-rm875-usb-session-probe.json
             tests/hardware/lumia-1020-rm875-emergency-probe-normal-refusal.json
             tests/hardware/lumia-1020-rm875-serial-arrival-readiness.json
+            tests/hardware/lumia-1020-rm875-session-check.json
             resources/licenses/*
           if-no-files-found: error
   browser:

@@ -92,6 +92,7 @@ These are protocol-composition tests using synthetic transfer regions in a
 private test worker. Public callers must supply the image composer's opaque plan;
 the existing image tests and local-file comparison cover that plan's derivation.
 This is not an end-to-end real-package execution or hardware validation. The
-phone remains outside this replay. Next work is native adapter/arrival handling,
-fresh admission and recovery policy, and the remaining boot-integrity stages,
-with the owner's data-preservation preference retained.
+phone remains outside this replay. Separate native adapters, discovery-only arrivals
+and [artifact-bound read-only checks](spec-a-session.md) now exist. Native cross-mode
+admission, recovery policy and the remaining boot-integrity stages still need
+integration, with the owner's data-preservation preference retained.

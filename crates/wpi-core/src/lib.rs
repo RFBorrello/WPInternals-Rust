@@ -19,6 +19,8 @@ pub mod spec_a_emergency_replay;
 pub mod spec_a_journal;
 pub mod spec_a_preflight;
 pub mod spec_a_programmer_replay;
+pub mod spec_a_session;
+mod spec_a_source;
 pub mod spec_a_unlock_replay;
 pub use profiles::{capabilities, classify_usb, known_models};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
