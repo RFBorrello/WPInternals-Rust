@@ -13,6 +13,8 @@ pub const PREFLIGHT_CONFIRMATION: &str = "RM875-READONLY-PREFLIGHT-ROUNDTRIP";
 pub const PREFLIGHT_EXPERIMENT: &str = "rm875_normal_flash_preflight_normal";
 pub const GPT_CONFIRMATION: &str = "RM875-BOOT-GPT-READ-ROUNDTRIP";
 pub const GPT_EXPERIMENT: &str = "rm875_flash_preflight_boot_primary_gpt_normal";
+pub const PREPARED_CONFIRMATION: &str = "RM875-PREPARED-READONLY-ROUNDTRIP";
+pub const PREPARED_EXPERIMENT: &str = "rm875_prepared_normal_flash_normal";
 
 #[derive(Debug, Serialize)]
 pub struct Preview {
@@ -51,6 +53,7 @@ pub struct Summary {
     pub recovery_authorized: bool,
     pub spec_a_preflight_completed: bool,
     pub primary_gpt: Option<wpi_core::boot_gpt::Report>,
+    pub prepared_session: Option<wpi_core::spec_a_session::Report>,
 }
 #[derive(Debug, Serialize)]
 pub struct PreflightPreview {
@@ -422,8 +425,47 @@ fn run_session_with_gpt<F: FnMut(&ModeTestEvent) -> bool>(
     cancelled: &AtomicBool,
     emit: F,
 ) -> Result<Summary, String> {
+    run_session_inputs(
+        id,
+        confirmation,
+        reference,
+        gpt_output,
+        None,
+        cancelled,
+        emit,
+    )
+}
+pub fn run_prepared<F: FnMut(&ModeTestEvent) -> bool>(
+    id: &str,
+    prepared: &wpi_core::spec_a_session::Prepared,
+    confirmation: &str,
+    cancelled: &AtomicBool,
+    emit: F,
+) -> Result<Summary, String> {
+    run_session_inputs(
+        id,
+        confirmation,
+        Some(prepared.reference()),
+        None,
+        Some(prepared),
+        cancelled,
+        emit,
+    )
+}
+#[allow(clippy::too_many_arguments)]
+fn run_session_inputs<F: FnMut(&ModeTestEvent) -> bool>(
+    id: &str,
+    confirmation: &str,
+    reference: Option<&wpi_core::spec_a_preflight::Reference>,
+    gpt_output: Option<&std::path::Path>,
+    prepared: Option<&wpi_core::spec_a_session::Prepared>,
+    cancelled: &AtomicBool,
+    mut emit: F,
+) -> Result<Summary, String> {
     if confirmation
-        != if gpt_output.is_some() {
+        != if prepared.is_some() {
+            PREPARED_CONFIRMATION
+        } else if gpt_output.is_some() {
             GPT_CONFIRMATION
         } else if reference.is_some() {
             PREFLIGHT_CONFIRMATION
@@ -478,6 +520,9 @@ fn run_session_with_gpt<F: FnMut(&ModeTestEvent) -> bool>(
             candidate: None,
         }),
         flash_sectors: None,
+        prepared,
+        prepared_normal: None,
+        prepared_flash: None,
     };
     let descriptor = identity(selected, DeviceMode::Normal);
     let baseline = match driver
@@ -487,10 +532,27 @@ fn run_session_with_gpt<F: FnMut(&ModeTestEvent) -> bool>(
         Observation::Identity(s) => s,
         Observation::Boot(_) => return Err("Normal baseline identity is required".into()),
     };
+    if let Some(prepared) = prepared {
+        let (normal, _) =
+            crate::spec_a_session::capture_normal_bound(id, prepared, cancelled, |_| {})?;
+        if !emit(&ModeTestEvent::PreparedSession {
+            report: Box::new(normal.report()),
+        }) {
+            return Err("Prepared session journal failed before mode entry".into());
+        }
+        driver.prepared_normal = Some(normal);
+    }
     round_trip_inner(&mut driver, baseline, reference.is_some(), cancelled, emit)
 }
 
 trait IdentityDriver {
+    fn finish_prepared(
+        &mut self,
+        _normal: &Snapshot,
+        _cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::spec_a_session::Report>, String> {
+        Ok(None)
+    }
     fn boot_gpt(
         &mut self,
         _probe: &ProbeResult,
@@ -541,6 +603,9 @@ struct PublicDriver<'a> {
     reference: Option<&'a wpi_core::spec_a_preflight::Reference>,
     gpt: Option<GptPlan<'a>>,
     flash_sectors: Option<u32>,
+    prepared: Option<&'a wpi_core::spec_a_session::Prepared>,
+    prepared_normal: Option<wpi_core::spec_a_session::NormalSession<'a>>,
+    prepared_flash: Option<wpi_core::spec_a_session::FlashSession<'a>>,
 }
 struct GptPlan<'a> {
     output: &'a std::path::Path,
@@ -610,6 +675,30 @@ impl<T: MessageTransport> MessageTransport for PreflightTransport<'_, T> {
     }
 }
 impl IdentityDriver for PublicDriver<'_> {
+    fn finish_prepared(
+        &mut self,
+        normal: &Snapshot,
+        cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::spec_a_session::Report>, String> {
+        let Some(prepared) = self.prepared else {
+            return Ok(None);
+        };
+        self.binding(&normal.probe.device.id)
+            .map_err(|e| e.message())?;
+        let flash = self
+            .prepared_flash
+            .take()
+            .ok_or("Prepared Flash handoff is missing; no session may complete")?;
+        let (returning, _) = crate::spec_a_session::capture_normal_bound(
+            &normal.probe.device.id,
+            prepared,
+            cancelled,
+            |_| {},
+        )?;
+        self.binding(&normal.probe.device.id)
+            .map_err(|e| e.message())?;
+        Ok(Some(flash.verify_return_session(returning)?))
+    }
     fn boot_gpt(
         &mut self,
         probe: &ProbeResult,
@@ -699,6 +788,21 @@ impl IdentityDriver for PublicDriver<'_> {
         validate(current, baseline, DeviceMode::Flash)?;
         self.binding(&current.probe.device.id)
             .map_err(|e| e.message())?;
+        // Finish and close the prepared probe BEFORE opening the legacy probe
+        // handle. WinUSB interface ownership must never overlap here.
+        if self.prepared.is_some() {
+            let baseline = self
+                .prepared_normal
+                .take()
+                .ok_or("Prepared Normal handoff is missing; stop without retry")?;
+            self.prepared_flash = Some(crate::spec_a_session::capture_flash_bound(
+                &current.probe.device.id,
+                baseline,
+                &self.native.serial,
+                &self.native.port,
+                cancelled,
+            )?);
+        }
         let (descriptor, mut transport) = open_selected(&current.probe.device.id)?;
         if descriptor.vendor_id != current.probe.device.vendor_id
             || descriptor.product_id != current.probe.device.product_id
@@ -1168,6 +1272,26 @@ fn round_trip_inner<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
             return Err("Cancelled before completion; state inspection required".into());
         }
         let primary_gpt = driver.finish_gpt(&normal, &baseline, cancelled)?;
+        let prepared_session = driver.finish_prepared(&normal, cancelled)?;
+        if let Some(report) = prepared_session.as_ref() {
+            if !report.normal_flash_normal_public_id_matches
+                || !report.normal_identity_bookends_match
+                || !report.normal_flash_public_id_matches
+                || !report.flash_root_and_security_checked
+                || !report.flash_capacity_matches_saved_layout
+                || !report.source_ffu_integrity_checked
+                || !report.source_sbl1_and_loader_root_bound
+                || report.phone_writes_enabled
+                || report.automatic_resume_allowed
+                || !(reporter.emit)(&ModeTestEvent::PreparedSession {
+                    report: Box::new(report.clone()),
+                })
+            {
+                return Err(
+                    "Prepared session failed its return checks or durable report save".into(),
+                );
+            }
+        }
         if let Some(report) = primary_gpt.as_ref() {
             if !(reporter.emit)(&ModeTestEvent::BootGptSaved {
                 report: report.clone(),
@@ -1202,6 +1326,7 @@ fn round_trip_inner<D: IdentityDriver, F: FnMut(&ModeTestEvent) -> bool>(
             recovery_authorized: false,
             spec_a_preflight_completed: include_preflight,
             primary_gpt,
+            prepared_session,
         })
     })();
     result.map_err(|e: String| reporter.stopped(&e))

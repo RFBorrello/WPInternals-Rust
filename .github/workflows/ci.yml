@@ -54,6 +54,7 @@ jobs:
             LICENSE
             THIRD_PARTY_NOTICES.md
             resources/upstream/LICENSE
+            resources/upstream/SBA
             vendor/ntfs/LICENSE-MIT
             vendor/ntfs/LICENSE-APACHE
             resources/licenses/ctrlc-MIT
@@ -74,6 +75,7 @@ jobs:
             docs/spec-a-emergency-replay.md
             docs/spec-a-joined-journal.md
             docs/spec-a-session.md
+            docs/spec-a-finish-stages.md
             docs/native-usb-transactions.md
             docs/native-emergency-probe.md
             docs/native-serial-arrival.md
@@ -86,6 +88,7 @@ jobs:
             tests/fixtures/rm875-preflight-reference-validation.json
             tests/fixtures/rm875-live-layout-validation.json
             tests/fixtures/rm875-programmer-plan-validation.json
+            tests/fixtures/rm875-finish-plan-validation.json
             tests/fixtures/rm875-recovery-audit-validation.json
             docs/rm875-firmware-search.md
             tests/hardware/windows-arm64-storage-discovery.json

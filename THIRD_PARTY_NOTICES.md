@@ -12,6 +12,11 @@ The upstream MIT license is preserved in `resources/upstream/LICENSE`.
 `resources/upstream/PatchDefinitions.xml` is copied unchanged from that release
 and retains its original copyright and license text. Derived Rust modules name
 the upstream reference in their module documentation.
+`resources/upstream/SBA` is the unchanged 960-byte Spec A UEFI-variable resource
+from the same pinned MIT-licensed release. Its container and decompressed image
+are hash-pinned in the Rust finish-stage planner. The UEFI-variable GPT transform,
+dual-EFIESP slices and NOKF sector codec follow `LumiaUnlockUEFI`,
+`LumiaGenerateEFIESPFlashPayload` and `NokiaFlashModel.FlashSectors` from that source.
 
 This project is an independent implementation and is not an official upstream release.
 Offline package generation additionally ports `SBL1.GenerateExtraSector`,

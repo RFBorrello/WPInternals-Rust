@@ -1,8 +1,9 @@
 # Artifact-bound Spec A read-only session
 
 The engine can now keep verified unlock inputs and fresh Normal/Flash identity
-checks together in one in-memory context. The native CLI exposes only the Normal
-part of this check. It sends no mode change, GPT query, programmer upload or write.
+checks together in one in-memory context. The native CLI defaults to the Normal
+part and can explicitly run the mode cycle described below. Neither route sends
+a GPT query, programmer upload or storage write.
 The joined unlock executor still accepts concrete replay transports only.
 
 ## Pinned source and prepared inputs
@@ -52,8 +53,8 @@ failure prevents reusing that baseline for an automatic retry.
 
 The core transport interface supports tests and read-only protocol callers; it
 does not prove hardware access, physical-port binding or elapsed-time freshness.
-This milestone tests Flash checks through replay only. There is no native command
-that switches the phone to Flash or connects these checks to the write executor.
+The optional native cycle now connects these checks across modes. It does not
+connect them to a write executor or establish a completed physical unlock.
 
 ## Native Normal-only command
 
@@ -88,6 +89,39 @@ unestablished. All reports retain phone writes disabled, hardware validation fal
 and automatic resume disabled. Successful checks are not an unlock grant.
 
 ## Validation
+
+### Optional artifact-bound native cycle
+
+After verifying the same four local inputs, append the following options to
+`check-spec-a-session` to run one CLI-only Windows ARM64 experiment:
+
+```text
+--roundtrip --confirm RM875-PREPARED-READONLY-ROUNDTRIP --journal NEW-cycle.jsonl
+```
+
+The native phone-operation lock spans the entire cycle. The existing public-ID
+mode harness sends the Normal-to-Flash request once and returns with one NOKR
+only after its checks pass. It observes a returning BootManager without querying
+that retired interface again or adding a recovery reset. Timeouts, cancellation,
+identity mismatches and journal failures stop without automatic recovery.
+
+The prepared context now retains its pinned reference. A nonserializable Normal
+session is consumed into a Flash session after six fixed, ordered read-only
+queries. Every query has fresh descriptor/physical-port checks, a shared deadline
+and a strict allowlist. Unknown records on the same physical port also block the
+check. The context/source root, protocol, capacity and original public ID must
+agree. Returning Normal performs all five queries again and consumes the Flash
+session only if the original public ID and the exact prepared context agree.
+
+The CLI synchronizes a new JSONL journal before any mode command and at each
+mode-harness event. Reports are redacted and keep storage writes, hardware unlock
+validation and automatic resume false. No saved report or journal reconstructs a
+session. This new cycle has unit/transport regression coverage but has **not**
+been run physically in this milestone; the earlier five-query hardware record
+is not evidence for the new cycle. A failure can require manual phone restart.
+Keep browser phone controls idle during an explicitly selected native cycle.
+
+### Earlier Normal-only evidence
 
 New tests cover retained headers, verified chunk caching, rewritten live hash
 tables, changed/truncated payloads, bounds, source/reference/SBL1 coherence, identity/

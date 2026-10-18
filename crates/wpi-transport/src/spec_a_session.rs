@@ -1,4 +1,5 @@
-//! Native Normal-only artifact/session check. No transition, wait or hardware writer.
+//! Native read-only artifact/session checks. Public Normal-only probe; private
+//! mode-harness handoffs retain one operation lock. No storage writer.
 use super::{
     device_binding::{self, Snapshot},
     open_selected, PHONE_ACCESS,
@@ -53,6 +54,7 @@ struct Guard<T, C> {
     check: C,
     next: usize,
     failed: bool,
+    requests: Vec<Vec<u8>>,
 }
 impl<T, C: FnMut() -> Result<(), String>> Guard<T, C> {
     fn check(&mut self) -> Result<(), String> {
@@ -77,12 +79,22 @@ fn request(at: usize) -> Option<Vec<u8>> {
         _ => None,
     }
 }
+fn flash_requests() -> Result<Vec<Vec<u8>>, String> {
+    Ok(vec![
+        b"NOKV".to_vec(),
+        identity::flash_request(),
+        wpi_protocol::flash::parameter_request("RRKH").map_err(|e| e.to_string())?,
+        wpi_protocol::flash::parameter_request("SS").map_err(|e| e.to_string())?,
+        b"NOKV".to_vec(),
+        identity::flash_request(),
+    ])
+}
 impl<T: MessageTransport, C: FnMut() -> Result<(), String>> MessageTransport for Guard<T, C> {
     fn exchange(&mut self, bytes: &[u8], maximum_response: usize) -> wpi_protocol::Result<Vec<u8>> {
         self.check().map_err(ProtocolError::Transport)?;
         if maximum_response == 0
             || maximum_response > 65536
-            || request(self.next).as_deref() != Some(bytes)
+            || self.requests.get(self.next).map(Vec::as_slice) != Some(bytes)
         {
             self.failed = true;
             return Err(ProtocolError::Unsupported);
@@ -97,11 +109,28 @@ pub fn check_normal<F: FnMut(&str)>(
     id: &str,
     prepared: &Prepared,
     cancelled: &AtomicBool,
-    mut progress: F,
+    progress: F,
 ) -> Result<Report, String> {
     let _access = PHONE_ACCESS
         .try_lock()
         .map_err(|_| "Another native phone operation is active")?;
+    let (baseline, count) = capture_normal_bound(id, prepared, cancelled, progress)?;
+    Ok(Report {
+        session: baseline.report(),
+        transport: "native_usb",
+        usb_descriptor_bookends_match: true,
+        physical_port_matches: true,
+        normal_queries_sent: count,
+        mode_changes_sent: false,
+    })
+}
+/// Caller must retain PHONE_ACCESS across the whole multi-mode session.
+pub(super) fn capture_normal_bound<'a, F: FnMut(&str)>(
+    id: &str,
+    prepared: &'a Prepared,
+    cancelled: &AtomicBool,
+    mut progress: F,
+) -> Result<(session::NormalSession<'a>, usize), String> {
     if cancelled.load(Ordering::Acquire) {
         return Err("Cancelled before USB selection".into());
     }
@@ -117,6 +146,7 @@ pub fn check_normal<F: FnMut(&str)>(
         transport,
         next: 0,
         failed: false,
+        requests: (0..5).filter_map(request).collect(),
         check: || {
             if cancelled.load(Ordering::Acquire) || Instant::now() >= deadline {
                 return Err("Normal session cancelled or expired".into());
@@ -133,14 +163,66 @@ pub fn check_normal<F: FnMut(&str)>(
         !cancelled.load(Ordering::Acquire)
     })?;
     guard.check()?;
-    Ok(Report {
-        session: baseline.report(),
-        transport: "native_usb",
-        usb_descriptor_bookends_match: true,
-        physical_port_matches: true,
-        normal_queries_sent: guard.next,
-        mode_changes_sent: false,
-    })
+    Ok((baseline, guard.next))
+}
+
+pub(super) fn capture_flash_bound<'a>(
+    id: &str,
+    baseline: session::NormalSession<'a>,
+    serial: &str,
+    port: &super::mode_test::PhysicalPort,
+    cancelled: &AtomicBool,
+) -> Result<session::FlashSession<'a>, String> {
+    let selected = device_binding::selected(id)?;
+    if selected.descriptor.mode != DeviceMode::Flash
+        || selected.descriptor.vendor_id != 0x0421
+        || selected.descriptor.product_id != 0x066e
+        || selected.port.as_ref() != Some(port)
+        || selected
+            .descriptor
+            .serial
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .is_some_and(|s| s != serial)
+    {
+        return Err(
+            "Flash endpoint contradicts the Normal physical-port or available serial binding"
+                .into(),
+        );
+    }
+    let (descriptor, mut transport) = open_selected(id)?;
+    if descriptor != selected.descriptor {
+        return Err("Flash descriptors changed during open".into());
+    }
+    let deadline = Instant::now() + Duration::from_secs(30);
+    transport.deadline = Some(deadline);
+    let mut guard = Guard {
+        transport,
+        next: 0,
+        failed: false,
+        requests: flash_requests()?,
+        check: || {
+            if cancelled.load(Ordering::Acquire) || Instant::now() >= deadline {
+                return Err("Prepared Flash checks cancelled or expired".into());
+            }
+            let current = device_binding::scan()?;
+            let matches: Vec<_> = current
+                .iter()
+                .filter(|s| s.descriptor.id == selected.descriptor.id)
+                .collect();
+            if matches.len() != 1
+                || matches[0] != &selected
+                || current.iter().filter(|s| s.port == selected.port).count() != 1
+                || Instant::now() >= deadline
+            {
+                return Err("Prepared Flash descriptors, physical port or deadline changed".into());
+            }
+            Ok(())
+        },
+    };
+    let flash = baseline.into_flash(&mut guard, |_| !cancelled.load(Ordering::Acquire))?;
+    guard.check()?;
+    Ok(flash)
 }
 
 #[cfg(test)]
@@ -148,6 +230,59 @@ mod tests {
     use super::*;
     use std::cell::Cell;
     use wpi_protocol::replay::{Exchange, ReplayTransport};
+    #[test]
+    fn prepared_flash_allowlist_retires_at_each_binding_failure_and_rejects_gpt_or_reset() {
+        let requests = flash_requests().unwrap();
+        let steps: Vec<_> = requests
+            .iter()
+            .map(|r| Exchange {
+                request: r.clone(),
+                response: vec![1],
+                error: None,
+            })
+            .collect();
+        for at in 0..6 {
+            let mut checks = 0;
+            let mut guard = Guard {
+                transport: ReplayTransport::new(steps.clone()),
+                next: 0,
+                failed: false,
+                requests: requests.clone(),
+                check: || {
+                    let now = checks;
+                    checks += 1;
+                    if now == at {
+                        Err("physical port changed".into())
+                    } else {
+                        Ok(())
+                    }
+                },
+            };
+            for r in &requests[..at] {
+                guard.exchange(r, 65536).unwrap();
+            }
+            assert!(guard.exchange(&requests[at], 65536).is_err());
+            assert!(guard.exchange(&requests[at], 65536).is_err());
+            for later in &steps[at..] {
+                assert_eq!(
+                    guard.transport.exchange(&later.request, 65536).unwrap(),
+                    later.response
+                );
+            }
+            assert!(guard.transport.finished());
+        }
+        for request in [b"NOKT".as_slice(), b"NOKR", b"NOKF", b"NOKXFS"] {
+            let mut guard = Guard {
+                transport: ReplayTransport::new(steps.clone()),
+                next: 0,
+                failed: false,
+                requests: requests.clone(),
+                check: || Ok(()),
+            };
+            assert!(guard.exchange(request, 65536).is_err());
+            assert_eq!(guard.next, 0);
+        }
+    }
     fn exchanges() -> Vec<Exchange> {
         (0..5)
             .map(|at| Exchange {
@@ -166,6 +301,7 @@ mod tests {
                 transport: ReplayTransport::new(steps.clone()),
                 next: 0,
                 failed: false,
+                requests: (0..5).filter_map(request).collect(),
                 check: || {
                     let at = checks.get();
                     checks.set(at + 1);
@@ -199,6 +335,7 @@ mod tests {
                 transport: ReplayTransport::new(steps.clone()),
                 next: 0,
                 failed: false,
+                requests: (0..5).filter_map(request).collect(),
                 check: || Ok(()),
             };
             assert!(guard.exchange(&invalid, 65536).is_err());
@@ -217,6 +354,7 @@ mod tests {
                 transport: ReplayTransport::new(broken),
                 next: 0,
                 failed: false,
+                requests: (0..5).filter_map(request).collect(),
                 check: || Ok(()),
             };
             for e in &steps[..at] {

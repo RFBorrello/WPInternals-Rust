@@ -125,6 +125,7 @@ struct Fake {
     gpt_seen: bool,
     gpt_published: bool,
     gpt_fail: bool,
+    prepared_report: Option<wpi_core::spec_a_session::Report>,
 }
 impl Fake {
     fn new(frames: Vec<Frame>) -> Self {
@@ -147,10 +148,18 @@ impl Fake {
             gpt_seen: false,
             gpt_published: false,
             gpt_fail: false,
+            prepared_report: None,
         }
     }
 }
 impl IdentityDriver for Fake {
+    fn finish_prepared(
+        &mut self,
+        _normal: &Snapshot,
+        _cancelled: &AtomicBool,
+    ) -> Result<Option<wpi_core::spec_a_session::Report>, String> {
+        Ok(self.prepared_report.take())
+    }
     fn boot_gpt(
         &mut self,
         probe: &ProbeResult,
@@ -1204,4 +1213,78 @@ fn longer_normal_boot_window_does_not_extend_flash_arrival_deadline() {
     let mut fake = Fake::new(frames);
     assert!(run_fake(&mut fake).unwrap_err().contains("30-second"));
     assert_eq!(fake.actions, [Action::EnterFlash]);
+}
+
+#[test]
+fn prepared_return_requires_all_fresh_checks_and_a_saved_report_without_an_extra_reset() {
+    let make = || wpi_core::spec_a_session::Report {
+        artifacts: wpi_core::spec_a_journal::Artifacts {
+            source_ffu_sha256: "a".repeat(64),
+            package_sha256: "b".repeat(64),
+            saved_primary_sha256: "c".repeat(64),
+            candidate_primary_sha256: "d".repeat(64),
+            loader_input_sha256: "e".repeat(64),
+            loader_decoded_sha256: "f".repeat(64),
+        },
+        variant: "RM-875",
+        firmware: FIRMWARE,
+        normal_identity_bookends_match: true,
+        normal_flash_public_id_matches: true,
+        normal_flash_normal_public_id_matches: true,
+        flash_root_and_security_checked: true,
+        flash_capacity_matches_saved_layout: true,
+        source_ffu_integrity_checked: true,
+        source_sbl1_and_loader_root_bound: true,
+        fresh_installed_gpt_checked: false,
+        identity_authenticated: false,
+        data_preservation_validated: false,
+        hardware_validated: false,
+        phone_writes_enabled: false,
+        automatic_resume_allowed: false,
+        blockers: vec!["synthetic metadata, no native write authority"],
+    };
+    for at in 0..10 {
+        let mut report = make();
+        match at {
+            0 => report.normal_identity_bookends_match = false,
+            1 => report.normal_flash_public_id_matches = false,
+            2 => report.normal_flash_normal_public_id_matches = false,
+            3 => report.flash_root_and_security_checked = false,
+            4 => report.flash_capacity_matches_saved_layout = false,
+            5 => report.source_ffu_integrity_checked = false,
+            6 => report.source_sbl1_and_loader_root_bound = false,
+            7 => report.phone_writes_enabled = true,
+            8 => report.automatic_resume_allowed = true,
+            _ => {}
+        }
+        let mut fake = Fake::new(direct());
+        fake.prepared_report = Some(report);
+        let mut saved = false;
+        let result = round_trip_inner(
+            &mut fake,
+            baseline(),
+            false,
+            &AtomicBool::new(false),
+            |event| {
+                if let ModeTestEvent::PreparedSession { .. } = event {
+                    saved = true;
+                }
+                true
+            },
+        );
+        assert_eq!(result.is_ok(), at == 9);
+        assert_eq!(saved, at == 9);
+        assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
+    }
+    let mut fake = Fake::new(direct());
+    fake.prepared_report = Some(make());
+    let result = round_trip_inner(
+        &mut fake,
+        baseline(),
+        false,
+        &AtomicBool::new(false),
+        |event| !matches!(event, ModeTestEvent::PreparedSession { .. }),
+    );
+    assert!(result.is_err());
+    assert_eq!(fake.actions, [Action::EnterFlash, Action::ReturnNormal]);
 }

@@ -30,6 +30,7 @@ pub struct Prepared {
     loader: Loader,
     boot: Plan,
     context: Context,
+    reference: Reference,
 }
 impl Prepared {
     pub fn new(
@@ -67,6 +68,7 @@ impl Prepared {
             loader,
             boot,
             context,
+            reference,
         })
     }
     pub fn entry(&self) -> &EntryPlan {
@@ -80,6 +82,9 @@ impl Prepared {
     }
     pub fn artifacts(&self) -> &Artifacts {
         &self.context.artifacts
+    }
+    pub fn reference(&self) -> &Reference {
+        &self.reference
     }
 }
 fn check_sources(
@@ -118,6 +123,11 @@ pub struct NormalSession<'a> {
     context: &'a Context,
     public_id: PublicId,
 }
+/// A consuming handoff retains the same prepared context and original Normal
+/// public ID through Flash and back to Windows. Still no hardware write grant.
+pub struct FlashSession<'a> {
+    baseline: NormalSession<'a>,
+}
 struct FlashGuard<'a, T> {
     inner: &'a mut T,
     capacity: u64,
@@ -142,13 +152,14 @@ impl<T: MessageTransport> MessageTransport for FlashGuard<'_, T> {
         Ok(reply)
     }
 }
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Report {
     pub artifacts: Artifacts,
     pub variant: &'static str,
     pub firmware: &'static str,
     pub normal_identity_bookends_match: bool,
     pub normal_flash_public_id_matches: bool,
+    pub normal_flash_normal_public_id_matches: bool,
     pub flash_root_and_security_checked: bool,
     pub flash_capacity_matches_saved_layout: bool,
     pub source_ffu_integrity_checked: bool,
@@ -214,7 +225,7 @@ fn capture<'a, T: MessageTransport, F: FnMut(&str) -> bool>(
     boundary(&mut progress, "Finish Normal identity checks")?;
     Ok(NormalSession { context, public_id })
 }
-impl NormalSession<'_> {
+impl<'a> NormalSession<'a> {
     pub fn report(&self) -> Report {
         self.report_with_flash(false)
     }
@@ -225,6 +236,13 @@ impl NormalSession<'_> {
         transport: &mut T,
         progress: F,
     ) -> Result<Report, String> {
+        Ok(self.into_flash(transport, progress)?.report())
+    }
+    pub fn into_flash<T: MessageTransport, F: FnMut(&str) -> bool>(
+        self,
+        transport: &mut T,
+        progress: F,
+    ) -> Result<FlashSession<'a>, String> {
         let mut guarded = FlashGuard {
             inner: transport,
             capacity: self.context.capacity,
@@ -239,7 +257,7 @@ impl NormalSession<'_> {
         )
         .map_err(|e| e.to_string())?
         .into_observation();
-        Ok(self.report_with_flash(true))
+        Ok(FlashSession { baseline: self })
     }
     fn report_with_flash(&self, flash: bool) -> Report {
         let mut blockers=vec![
@@ -260,6 +278,7 @@ impl NormalSession<'_> {
             firmware: FIRMWARE,
             normal_identity_bookends_match: true,
             normal_flash_public_id_matches: flash,
+            normal_flash_normal_public_id_matches: false,
             flash_root_and_security_checked: flash,
             flash_capacity_matches_saved_layout: flash,
             source_ffu_integrity_checked: true,
@@ -272,6 +291,34 @@ impl NormalSession<'_> {
             automatic_resume_allowed: false,
             blockers,
         }
+    }
+}
+impl<'a> FlashSession<'a> {
+    pub fn report(&self) -> Report {
+        self.baseline.report_with_flash(true)
+    }
+    /// Re-read all five Normal queries and require the original public ID.
+    /// Consumed on cancellation, mismatch or error; never resumes a failed cycle.
+    pub fn verify_return<T: MessageTransport, F: FnMut(&str) -> bool>(
+        self,
+        transport: &mut T,
+        progress: F,
+    ) -> Result<Report, String> {
+        let returning = capture(self.baseline.context, transport, progress)?;
+        self.verify_return_session(returning)
+    }
+    pub fn verify_return_session(self, returning: NormalSession<'a>) -> Result<Report, String> {
+        if !std::ptr::eq(returning.context, self.baseline.context)
+            || returning.public_id != self.baseline.public_id
+        {
+            return Err(
+                "Returning Normal identity or prepared context differs from the session baseline"
+                    .into(),
+            );
+        }
+        let mut report = self.report();
+        report.normal_flash_normal_public_id_matches = true;
+        Ok(report)
     }
 }
 
@@ -393,6 +440,57 @@ mod tests {
             report.artifacts.package_sha256,
             context.artifacts.package_sha256
         );
+    }
+    #[test]
+    fn consuming_return_handoff_rechecks_identity_context_and_every_normal_query() {
+        let context = ctx();
+        let flash = || {
+            capture(&context, &mut ReplayTransport::new(normal_steps()), |_| {
+                true
+            })
+            .unwrap()
+            .into_flash(&mut ReplayTransport::new(flash_steps()), |_| true)
+            .unwrap()
+        };
+        let report = flash()
+            .verify_return(&mut ReplayTransport::new(normal_steps()), |_| true)
+            .unwrap();
+        assert!(report.normal_flash_normal_public_id_matches);
+        assert!(
+            !report.phone_writes_enabled
+                && !report.hardware_validated
+                && !report.automatic_resume_allowed
+        );
+        for at in 0..5 {
+            let steps = normal_steps();
+            let mut broken = steps.clone();
+            broken[at].error = Some("disconnect on return".into());
+            let mut transport = ReplayTransport::new(broken);
+            assert!(flash().verify_return(&mut transport, |_| true).is_err());
+            for later in &steps[at + 1..] {
+                assert_eq!(
+                    transport.exchange(&later.request, 65536).unwrap(),
+                    later.response
+                );
+            }
+            assert!(transport.finished());
+        }
+        let mut different = normal_steps();
+        for (at, id) in [(0, 0), (4, 4)] {
+            different[at].response = serde_json::to_vec(
+                &serde_json::json!({"jsonrpc":"2.0","id":id,"result":{"PublicId":vec![99;20]}}),
+            )
+            .unwrap();
+        }
+        assert!(flash()
+            .verify_return(&mut ReplayTransport::new(different), |_| true)
+            .is_err());
+        let another = ctx();
+        let returning = capture(&another, &mut ReplayTransport::new(normal_steps()), |_| {
+            true
+        })
+        .unwrap();
+        assert!(flash().verify_return_session(returning).is_err());
     }
     #[test]
     fn faults_and_cancellation_at_every_read_boundary_leave_later_queries_unsent() {

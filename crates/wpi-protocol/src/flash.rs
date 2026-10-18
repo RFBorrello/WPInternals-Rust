@@ -113,6 +113,38 @@ pub fn check_status(response: &[u8], signature: &[u8]) -> Result<()> {
     }
     Ok(())
 }
+/// Spec A raw-sector command (NokiaFlashModel.FlashSectors in pinned 2.9.2).
+/// A pure builder; accepting these bytes is not a transport write permission.
+pub fn sectors_v1(start_sector: u32, payload: &[u8], progress: u8) -> Result<Vec<u8>> {
+    if payload.is_empty()
+        || !payload.len().is_multiple_of(512)
+        || payload.len() > 2 * 1024 * 1024
+        || progress > 100
+        || u64::from(start_sector) + payload.len() as u64 / 512 > u64::from(u32::MAX) + 1
+    {
+        return Err(ProtocolError::Invalid(
+            "Invalid Spec A sector write bounds".into(),
+        ));
+    }
+    let mut request = vec![0; 64 + payload.len()];
+    request[..4].copy_from_slice(b"NOKF");
+    request[11..15].copy_from_slice(&start_sector.to_be_bytes());
+    request[15..19].copy_from_slice(&(payload.len() as u32 / 512).to_be_bytes());
+    request[19] = progress;
+    request[64..].copy_from_slice(payload);
+    Ok(request)
+}
+/// Unlike upstream's unchecked raw return, require an exact status envelope.
+/// No echo/readback exists here, so acknowledgement cannot prove stored bytes.
+pub fn sectors_v1_status(response: &[u8]) -> Result<()> {
+    check_status(response, b"NOKF")?;
+    if response.len() != 8 {
+        return Err(ProtocolError::Invalid(
+            "Unexpected NOKF acknowledgement length".into(),
+        ));
+    }
+    Ok(())
+}
 /// Pure command builders: no public UI executes these until hardware evidence exists.
 pub fn context_request(mode: DeviceMode) -> Result<Vec<u8>> {
     Ok(match mode {

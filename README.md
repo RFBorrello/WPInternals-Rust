@@ -16,6 +16,10 @@ hardware validation.
 
 ## What works
 
+- Local [Spec A UEFI-variable/EFIESP finish-stage plans](docs/spec-a-finish-stages.md),
+  including installed-image second-pass reconstruction, failure-contained replay
+  and interruption-journal inspection. Physical unlock remains unimplemented.
+
 - Windows/macOS/Linux USB discovery with nusb, and browser WebUSB selection.
 - Read-only NOKV identification on vendor-specific Lumia flash interfaces; native
   and browser Nokia Care Suite model/firmware queries on normal-mode vendor

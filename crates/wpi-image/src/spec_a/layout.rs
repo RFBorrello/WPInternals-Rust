@@ -14,7 +14,7 @@ pub struct Layout {
     pub prepared: Gpt,
     pub swapped: Vec<String>,
 }
-fn parse(bytes: &[u8]) -> Result<Gpt> {
+pub(super) fn parse(bytes: &[u8]) -> Result<Gpt> {
     if bytes.len() != PRIMARY_SIZE
         || u32le(bytes, 512 + 12)? != 92
         || u64le(bytes, 512 + 24)? != 1
@@ -51,7 +51,7 @@ fn parse(bytes: &[u8]) -> Result<Gpt> {
     }
     Ok(gpt)
 }
-fn encode(original: &[u8], parts: &[Partition]) -> Result<Vec<u8>> {
+pub(super) fn encode(original: &[u8], parts: &[Partition]) -> Result<Vec<u8>> {
     if parts.len() > 128 {
         return Err(invalid("GPT has insufficient entry capacity"));
     }

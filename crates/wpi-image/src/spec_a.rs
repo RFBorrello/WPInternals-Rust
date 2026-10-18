@@ -11,6 +11,7 @@ use x509_cert::Certificate;
 mod archive;
 pub mod bcd;
 pub mod efiesp;
+pub mod finish_plan;
 pub mod layout;
 pub mod live_plan;
 pub mod package;

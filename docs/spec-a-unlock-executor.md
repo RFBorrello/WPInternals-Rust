@@ -123,6 +123,14 @@ see [the metadata-only record](../tests/fixtures/rm875-programmer-plan-validatio
 
 ## Remaining integration
 
+The subsequent [UEFI-variable and EFIESP stages](spec-a-finish-stages.md) now have
+immutable local plans, installed-image second-pass reconstruction and bounded
+NOKF replay with interruption-journal inspection. The [prepared native
+cycle](spec-a-session.md) also connects fresh identity checks across both modes
+and back to Windows. These additions do not supply a live emergency/programmer
+writer or a complete mass-storage continuation. The implementation gaps below
+remain relevant to physical execution, rather than missing payload composition.
+
 The [emergency-entry/upload replay](spec-a-emergency-replay.md) now models the
 entry writes, one loader, bounded reconnect observations and programmer handshake.
 The [joined replay journal](spec-a-joined-journal.md) now persists their handoff

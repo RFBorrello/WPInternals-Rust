@@ -1,5 +1,40 @@
 # Local validation — October 13–15, 2026
 
+## October 18: boot-integrity plans, interruption inspection and native session handoff
+
+The [finish-stage implementation](spec-a-finish-stages.md) now composes the
+UEFI-variable layout and two first-pass EFIESP slices, and reconstructs a second
+pass from a complete captured EFIESP. A concrete replay persists per-command
+intents/acknowledgements; a bounded inspector diagnoses incomplete or corrupt
+finish-stage logs without resuming them. The [prepared native cycle](spec-a-session.md)
+retains one artifact context through Normal/Flash/Normal checks. It is CLI-only
+and sends no GPT, firmware, programmer or partition-write commands.
+
+On Windows ARM64, 291 tests passed in the full core/image/protocol/transport/CLI
+run. Four subsequent regression additions passed in focused checks, for **295
+distinct passing tests** across these crates. The complete 77-test native
+transport suite passed after the final handle-lifetime and return-check changes.
+Strict all-target Clippy, formatting and WASM compilation passed. The CLI help
+subprocess test caught and verified a fix for another default-stack startup
+overflow; the new command's arguments are boxed rather than increasing the stack.
+
+The actual reference ZIP and saved live primary produced four first-pass
+transfers totaling 33,835,520 bytes. An independent Python translation matched
+their bytes, addresses, sizes, NV resource and rebuilt-primary digest; only
+[metadata evidence](../tests/fixtures/rm875-finish-plan-validation.json) is public.
+The 64 MiB image members exercise the new bounded image reader rather than the
+32 MiB metadata allocator. The second pass has synthetic evidence only.
+
+No phone command, mode cycle, upload or storage write was executed during this
+milestone. The prepared native cycle, complete native emergency writer,
+mass-storage continuation, installed originals/recovery policy and successful
+physical unlock remain unvalidated or unimplemented as documented. Existing
+Normal-only hardware records do not validate the new cycle. UI tests were not
+rerun because no UI or IPC implementation changed. Remote CI for this revision
+is pending.
+
+## Earlier validation
+
 Host: Windows ARM64 (`aarch64-pc-windows-msvc`), stable Rust 1.94, Node 24,
 headless Microsoft Edge. Native storage milestone `ed3e008` passed GitHub CI on all
 four native host targets and Chromium ([run `38675937109`](https://github.com/RFBorrello/WPInternals-Rust/actions/runs/38675937109)).

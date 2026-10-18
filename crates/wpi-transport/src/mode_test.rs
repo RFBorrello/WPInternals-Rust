@@ -147,6 +147,9 @@ pub enum ModeTestEvent {
     SpecAPreflight {
         report: Box<wpi_core::spec_a_preflight::Report>,
     },
+    PreparedSession {
+        report: Box<wpi_core::spec_a_session::Report>,
+    },
     BootGptCandidate {
         report: wpi_core::boot_gpt::Report,
     },

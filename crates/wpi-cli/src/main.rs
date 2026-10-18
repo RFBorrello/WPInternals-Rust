@@ -31,9 +31,32 @@ struct CheckSpecASessionArgs {
     expect_primary_sha256: String,
     #[arg(long)]
     expect_loader_sha256: String,
+    /// Run one correlated Normal/Flash/Normal read-only cycle after local checks.
+    #[arg(long,requires_all=["confirm","journal"])]
+    roundtrip: bool,
+    #[arg(long, requires = "roundtrip")]
+    confirm: Option<String>,
+    #[arg(long, requires = "roundtrip")]
+    journal: Option<PathBuf>,
+}
+#[derive(clap::Args)]
+struct PlanSpecAFinishArgs {
+    package: PathBuf,
+    primary: PathBuf,
+    output: PathBuf,
+    #[arg(long)]
+    disk_sectors: u64,
+    #[arg(long)]
+    expect_primary_sha256: String,
+    #[arg(long)]
+    expect_package_sha256: String,
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Inspect an interrupted finish-stage replay journal. Never resumes or contacts USB.
+    InspectSpecAFinishJournal { input: PathBuf },
+    /// Compose the missing UEFI-variable and EFIESP stages from pinned local inputs. No USB access.
+    PlanSpecAFinish(Box<PlanSpecAFinishArgs>),
     /// Bind pinned local unlock inputs to five read-only Normal-mode queries. No mode change or writes.
     CheckSpecASession(Box<CheckSpecASessionArgs>),
     /// Compose an advisory Spec A programmer-phase report from pinned local files. No USB access.
@@ -531,6 +554,12 @@ fn run() -> Result<(), Box<dyn Error>> {
             print(report)?;
         }
         Command::CheckSpecASession(args) => check_spec_a_session(*args)?,
+        Command::InspectSpecAFinishJournal { input } => {
+            print(wpi_core::spec_a_finish_recovery::inspect(
+                std::io::BufReader::new(artifacts::open_artifact(&input)?),
+            )?)?;
+        }
+        Command::PlanSpecAFinish(args) => plan_spec_a_finish(*args)?,
         Command::PlanSpecAProgrammer {
             package,
             primary,
@@ -1139,6 +1168,56 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
+fn plan_spec_a_finish(args: PlanSpecAFinishArgs) -> Result<(), Box<dyn Error>> {
+    let PlanSpecAFinishArgs {
+        package,
+        primary,
+        output,
+        disk_sectors,
+        expect_primary_sha256,
+        expect_package_sha256,
+    } = args;
+    use std::{
+        io::{Read, Write},
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
+    };
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let signal = cancelled.clone();
+    ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+    let mut zip = artifacts::open_artifact(&package)?;
+    let mut primary_bytes = Vec::new();
+    artifacts::open_artifact(&primary)?
+        .take(17409)
+        .read_to_end(&mut primary_bytes)?;
+    let mut last = std::time::Instant::now();
+    let mut progress = |stage: &str, d, t| {
+        if d == t || last.elapsed().as_millis() >= 250 {
+            eprintln!("{stage}: {d}/{t}");
+            last = std::time::Instant::now();
+        }
+        !cancelled.load(Ordering::Acquire)
+    };
+    let boot = wpi_image::spec_a::programmer_plan::build(
+        &mut zip,
+        &primary_bytes,
+        disk_sectors,
+        &expect_primary_sha256,
+        &expect_package_sha256,
+        &mut progress,
+    )?;
+    let plan = wpi_image::spec_a::finish_plan::build(&mut zip, &primary_bytes, &boot, progress)?;
+    artifacts::write_new(&output, |writer| {
+        serde_json::to_writer_pretty(&mut *writer, plan.report())
+            .map_err(|e| wpi_image::ImageError::Invalid(e.to_string()))?;
+        writer.write_all(b"\n")?;
+        Ok(())
+    })?;
+    print(plan.report())?;
+    Ok(())
+}
 fn check_spec_a_session(args: CheckSpecASessionArgs) -> Result<(), Box<dyn Error>> {
     let CheckSpecASessionArgs {
         source,
@@ -1151,7 +1230,19 @@ fn check_spec_a_session(args: CheckSpecASessionArgs) -> Result<(), Box<dyn Error
         expect_package_sha256,
         expect_primary_sha256,
         expect_loader_sha256,
+        roundtrip,
+        confirm,
+        journal,
     } = args;
+
+    if roundtrip
+        && confirm.as_deref() != Some(wpi_transport::mode_test::public_id::PREPARED_CONFIRMATION)
+    {
+        return Err(
+            "Prepared mode cycle requires the exact RM875-PREPARED-READONLY-ROUNDTRIP confirmation"
+                .into(),
+        );
+    }
 
     use std::{
         io::Read,
@@ -1205,6 +1296,66 @@ fn check_spec_a_session(args: CheckSpecASessionArgs) -> Result<(), Box<dyn Error
         },
     )?;
     let prepared = Prepared::new(entry, reference, loader, boot)?;
+    if roundtrip {
+        use std::io::Write;
+        let path = journal.ok_or("A new .jsonl journal is required")?;
+        if path.extension().is_none_or(|e| e != "jsonl") {
+            return Err("Prepared cycle journal must be a new .jsonl file".into());
+        }
+        let mut journal = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)?;
+        if !journal.metadata()?.is_file() {
+            return Err("Journal must be a new regular file".into());
+        }
+        writeln!(
+            journal,
+            "{}",
+            serde_json::json!({"kind":"experiment_header","experiment":wpi_transport::mode_test::public_id::PREPARED_EXPERIMENT,"artifacts":prepared.artifacts(),"firmware_or_partition_write_commands":false})
+        )?;
+        journal.flush()?;
+        journal.sync_all()?;
+        let mut save_error = None;
+        let started = std::time::Instant::now();
+        let result = wpi_transport::mode_test::public_id::run_prepared(
+            &device_id,
+            &prepared,
+            confirm.as_deref().unwrap(),
+            &cancelled,
+            |event| {
+                if save_error.is_some() {
+                    return false;
+                }
+                if let wpi_transport::mode_test::ModeTestEvent::Progress { event } = event {
+                    eprintln!("{:?}: {}", event.state, event.message);
+                }
+                let save = (|| -> Result<(), Box<dyn Error>> {
+                    let record = serde_json::json!({"elapsed_ms":started.elapsed().as_millis() as u64,"event":event});
+                    let line = serde_json::to_vec(&record)?;
+                    if line.len() > 65536 {
+                        return Err("Prepared cycle journal record exceeds limit".into());
+                    }
+                    journal.write_all(&line)?;
+                    journal.write_all(b"\n")?;
+                    journal.flush()?;
+                    journal.sync_all()?;
+                    Ok(())
+                })();
+                if let Err(error) = save {
+                    save_error = Some(error.to_string());
+                    false
+                } else {
+                    true
+                }
+            },
+        );
+        if let Some(error) = save_error {
+            return Err(format!("Prepared cycle journal failed: {error}; inspect phone state before further commands").into());
+        }
+        print(result?)?;
+        return Ok(());
+    }
     print(wpi_transport::spec_a_session::check_normal(
         &device_id,
         &prepared,

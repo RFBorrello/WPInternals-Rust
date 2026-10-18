@@ -40,6 +40,12 @@ only local validation metadata; no proprietary package contents are included.
 
 FFU/GPT images are generated with `python scripts/generate-fixtures.py`.
 
+`rm875-finish-plan-validation.json` records a local comparison of the UEFI-variable
+GPT change and first dual-EFIESP pass against `reference-spec-a-finish.py`. Only
+digests, transfer counts/sizes and scope are public. Source images, saved raw GPT,
+installed captures and identifiers are not included. This record is not evidence
+of a physical write, recovery, preserved installed data or successful unlock.
+
 `python scripts/make-spec-a-preflight-fixtures.py` generates
 `spec-a-preflight-locked.json` and `spec-a-preflight-primary.json` from the
 synthetic package FFU. Both contain invented Flash security responses and an
