@@ -1,4 +1,5 @@
 //! Qualcomm HDLC framing and Sahara packet validation. Never sends a programmer.
+pub mod dload;
 pub mod v1;
 use crate::{field, ProtocolError, Result};
 use serde::{Deserialize, Serialize};

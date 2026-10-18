@@ -98,6 +98,10 @@ live unlocking or establish preservation of installed data.
 pinned package and saved live-derived layout, with explicit GPT/SBL1/WINSECAPP
 length rules and checks excluding unrelated partition writes. Its report is
 metadata only; the immutable in-memory plan can feed the concrete replay phase.
+An [emergency-entry/upload rehearsal](docs/spec-a-emergency-replay.md) now covers
+the preceding storage-changing entry, one legacy DLOAD loader, split framed
+replies, root/port correlation and a returning programmer handshake. It uses
+concrete replay transports only and exposes no live execution control.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.

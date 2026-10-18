@@ -123,7 +123,9 @@ see [the metadata-only record](../tests/fixtures/rm875-programmer-plan-validatio
 
 ## Remaining integration
 
-Full execution also needs emergency-entry and programmer-upload state machines,
+The [emergency-entry/upload replay](spec-a-emergency-replay.md) now models the
+entry writes, one loader, bounded reconnect observations and programmer handshake.
+Full execution still needs native emergency/upload/arrival adapters,
 fresh identity/RRKH/port binding across modes, installed-layout and recovery
 policy, durable intent/acknowledgement checkpoints, and the subsequent UEFI/
 EFIESP boot-integrity stages. A full installed backup should be captured once

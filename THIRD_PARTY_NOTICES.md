@@ -21,6 +21,11 @@ deterministic for reproducibility; their generation is an independent choice.
 The V1 programmer command codecs and replay transfer phase additionally follow
 `Models/QualcommFlasher.cs` and `Models/QualcommSerial.cs` from that pinned release.
 The independent synthetic transcript generator uses its CRC lookup table.
+Legacy DLOAD codecs and emergency-entry/upload replay additionally follow
+`Models/QualcommDownload.cs` (byte-array overload) and
+`LumiaUnlockBootloaderViewModel.PerformSoftBrick/SendLoader`. Bounded framing,
+single-loader fail-stop behavior and stricter identity/arrival checks are local
+implementation choices; no upstream loader fallback/retry loop is reproduced.
 
 # Dependency licenses
 

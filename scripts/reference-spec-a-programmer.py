@@ -14,7 +14,7 @@ from pathlib import Path
 COMMIT = "d8fd0aa516b16dc094df0422a3adc525af005c29"
 
 
-def vectors(upstream):
+def frame_encoder(upstream):
     source = subprocess.run(
         ["git", "-C", str(upstream), "show", f"{COMMIT}:Models/QualcommSerial.cs"],
         check=True, capture_output=True, text=True,
@@ -34,6 +34,11 @@ def vectors(upstream):
         escaped.append(0x7E)
         return list(escaped)
 
+    return frame
+
+
+def vectors(upstream):
+    frame = frame_encoder(upstream)
     regions = [
         {"start_bytes": 0x200, "data": [(i * 17 + 0x7D) % 256 for i in range(2051)]},
         {"start_bytes": 0x1000, "data": [0x7E, 0x7D] * 256},

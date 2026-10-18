@@ -821,3 +821,36 @@ fresh identity, emergency entry/upload, journaled native execution and subsequen
 boot patches remain open; actual data preservation is unvalidated. See
 [the record](../tests/fixtures/rm875-programmer-plan-validation.json) and
 [the executor guide](spec-a-unlock-executor.md#package-bound-programmer-composition).
+
+## Spec A emergency entry and DLOAD upload replay — October 17
+
+The core now rehearses the storage-changing emergency-entry sequence, one
+fingerprinted V1 programmer upload and a returning programmer handshake. Pure
+DLOAD codecs follow the pinned upstream byte-array overload, with HDLC framing,
+big-endian memory addresses/lengths, actual short-tail lengths and bounded ACK/
+RKH validation. A poisoned single-frame decoder and concrete fragmented replay
+transport exercise partial replies, including split escapes and checksums.
+
+An immutable source plan pins the full FFU and captures its bounded header in
+that hashing pass, validates chunk hashes/GPT, and requires the explicit 128 KiB
+first-payload boundary-mapping/zero profile. Loader preparation pins one local
+HEX/MBN, V1 marker and reference certificate fingerprint. Bound Flash preflight,
+root comparison after entry, disconnect/arrival ordering, deadlines, mode and
+physical-port correlation precede later commands. Correlation is not authenticated
+unique identity; RKH fingerprints can be shared. No native execution grant exists.
+
+Ten new tests cover synthetic success, 195 per-command fault cases, all 44
+command/arrival cancellation boundaries, source public-ID changes at both
+bookends, download root changes, sixteen invalid arrival timelines, range/profile/
+import checks and every source-preparation cancellation callback. Sentinels prove
+no later command, retry or loader fallback occurs after uncertainty. Failed RAM
+replies do not advance acknowledged-byte counters. Independent Python vectors
+use the pinned C# CRC table and agree with all upload command bytes. The existing
+V1 reference vectors remain unchanged after the shared reference-helper refactor.
+
+All 96 core/protocol tests, strict core/protocol/CLI all-target Clippy, formatting
+and WASM compilation pass with compact local build settings. Image/UI suites
+were not rerun. This milestone used only synthetic inputs/transcripts and sent
+no phone commands, entry writes or programmer uploads. Durable phase journals,
+native adapters/arrival observation, recovery/preservation policy and later live
+boot-integrity stages remain unimplemented. See [the emergency rehearsal guide](spec-a-emergency-replay.md).
