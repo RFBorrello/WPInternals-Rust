@@ -135,6 +135,22 @@ enum Command {
         #[arg(long, value_parser = ["dload", "programmer-v1"])]
         protocol: String,
     },
+    /// Fixed read-only emergency queries through an explicitly selected USB serial port.
+    ProbeEmergencySerial {
+        port: String,
+        #[arg(long)]
+        usb_device_id: String,
+        #[arg(long, value_parser = ["dload", "programmer-v1"])]
+        protocol: String,
+    },
+    /// Observe disappearance and a stable arrival on the selected physical port. Sends no commands.
+    ObserveArrival {
+        id: String,
+        #[arg(long, value_parser = ["normal", "flash", "emergency"])]
+        expected: String,
+        #[arg(long, default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=30))]
+        timeout_seconds: u64,
+    },
     /// Read phone information and preview a mode change. Never sends a mode-change command.
     PrepareMode {
         id: String,
@@ -743,6 +759,53 @@ fn run() -> Result<(), Box<dyn Error>> {
                 _ => return Err("Select dload or programmer-v1 explicitly".into()),
             };
             print(wpi_transport::emergency_probe::run(&id, protocol)?)?;
+        }
+        Command::ProbeEmergencySerial {
+            port,
+            usb_device_id,
+            protocol,
+        } => {
+            let protocol = match protocol.as_str() {
+                "dload" => wpi_transport::emergency_probe::Protocol::Dload,
+                "programmer-v1" => wpi_transport::emergency_probe::Protocol::ProgrammerV1,
+                _ => return Err("Select dload or programmer-v1 explicitly".into()),
+            };
+            print(wpi_transport::serial_probe::run(
+                &port,
+                &usb_device_id,
+                protocol,
+            )?)?;
+        }
+        Command::ObserveArrival {
+            id,
+            expected,
+            timeout_seconds,
+        } => {
+            use std::sync::{
+                atomic::{AtomicBool, Ordering},
+                Arc,
+            };
+            let expected = match expected.as_str() {
+                "normal" => DeviceMode::Normal,
+                "flash" => DeviceMode::Flash,
+                "emergency" => DeviceMode::Emergency,
+                _ => return Err("Select a Normal/Flash/Emergency USB target".into()),
+            };
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let signal = cancelled.clone();
+            ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+            print(wpi_transport::arrival::run(
+                &id,
+                expected,
+                std::time::Duration::from_secs(timeout_seconds),
+                &cancelled,
+                |event| {
+                    eprintln!(
+                        "USB observation: {:?} ({} ms)",
+                        event.stage, event.elapsed_ms
+                    )
+                },
+            )?)?;
         }
         Command::ModeTest {
             id,

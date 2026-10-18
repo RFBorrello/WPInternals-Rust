@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "date": "2026-10-18",
+  "host": "windows_arm64",
+  "operation": "serial_probe_normal_refusal_and_discovery_only_observer_timeout",
+  "source_base_commit": "13fe444",
+  "source_changes": "Read-only native serial probes and bounded arrival observation",
+  "cli_sha256": "20e44b98a407135756dca4daa54952f845fe4cf43124ea7c972392c512cc171d",
+  "serial_refusals": [
+    { "protocol": "dload", "exit_code": 1, "rejected_before_open": true, "queries_sent": 0 },
+    { "protocol": "programmer_v1", "exit_code": 1, "rejected_before_open": true, "queries_sent": 0 }
+  ],
+  "observer": {
+    "outcome": "timed_out",
+    "expected_usb_mode": "emergency",
+    "source_disappearance_observed": false,
+    "arrival_confirmed_by_discovery": false,
+    "observations": 8,
+    "elapsed_ms": 2000,
+    "phone_queries_sent": false,
+    "mode_changes_sent": false,
+    "protocol_detected": false,
+    "identity_authenticated": false,
+    "phone_writes_enabled": false
+  },
+  "same_normal_usb_interface_present_after": true,
+  "serial_port_opened": false,
+  "emergency_serial_communication_validated": false,
+  "physical_arrival_validated": false,
+  "programmer_uploaded": false,
+  "firmware_or_partition_writes_sent": false,
+  "scope": "No phone queries or mode commands. The observer correctly timed out while the phone stayed connected in Normal mode. No serial, public ID, physical-port value or payload is published."
+}

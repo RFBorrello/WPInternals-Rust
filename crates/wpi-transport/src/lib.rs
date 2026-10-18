@@ -4,9 +4,12 @@ use serde::Serialize;
 use std::{sync::Mutex, time::Instant};
 use wpi_protocol::MessageTransport;
 use wpi_types::*;
+pub mod arrival;
+mod device_binding;
 pub mod emergency_probe;
 pub mod identity_probe;
 pub mod mode_test;
+pub mod serial_probe;
 pub mod spec_a_preflight;
 mod usb_session;
 static PHONE_ACCESS: Mutex<()> = Mutex::new(());
@@ -211,7 +214,7 @@ impl MessageTransport for UsbMessages {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SerialCandidate {
     pub port: String,
     pub vendor_id: u16,

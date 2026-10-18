@@ -934,3 +934,35 @@ includes the executable hash. No emergency hardware communication, mode change,
 upload, write or driver change occurred. Core/image/UI suites were not rerun.
 Cross-mode unlock admission, arrival handling, serial transport and preservation/
 recovery policy remain pending. See the [emergency probe guide](native-emergency-probe.md).
+
+## Native serial transport and discovery-only arrivals — October 18
+
+Read-only DLOAD/V1 queries now also have a serial CLI adapter. An explicitly selected
+enumerated port must uniquely match the selected emergency USB device's nonblank
+serial and VID/PID; fresh descriptors/physical port and both discovery sources are
+checked before each query and after completion. Missing/duplicate metadata cannot
+fall back to a port name or VID/PID alone. Native line settings use 115200 8N1 with
+no flow control and request DTR preservation; OS/library opening side effects remain
+unvalidated. Pending post-open input is rejected, partial writes are never retried,
+and failed sessions close rather than purge/reopen. The framed transaction policy
+is shared with USB. The minimum serialport API now matches the already locked 4.10.1.
+
+A separate observer discovers USB absence then confirms two identical arrivals at
+the original physical port, 250 ms apart. It retains unknown USB records, stops on
+changed/ambiguous/unexpected endpoints, and never opens interfaces, queries the
+phone or changes modes. One 1–30 second deadline covers all observations; late results
+cannot complete, and cancellation stops at a scan boundary. Reports are metadata
+only and cannot identify DLOAD versus programmer mode or authorize writes.
+
+All 73 transport tests pass, including twelve new serial/arrival tests with reference
+vectors, partial I/O and timeout failures, pending data, duplicate metadata, ordered
+arrival, wrong devices, unstable candidates, cancellation and deadlines. Strict
+transport/CLI all-target Clippy, formatting and CLI build pass. Option parsing checks
+explicit USB selection and timeout bounds. Both serial protocols rejected the
+connected Normal RM-875 before port open, and a two-second discovery-only observer
+timed out after eight scans with no disappearance/arrival or phone queries. The
+same Normal interface remained present. See the [sanitized hardware record](../tests/hardware/lumia-1020-rm875-serial-arrival-readiness.json).
+No serial port was opened on hardware, mode changes were sent, programmers uploaded
+or partitions written. Positive serial/arrival hardware behavior and other hosts
+remain unvalidated; core/image/UI suites were not rerun. The joined unlock executor
+is still replay-only. See [native serial and arrival behavior](native-serial-arrival.md).

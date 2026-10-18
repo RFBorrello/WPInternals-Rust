@@ -1,4 +1,4 @@
-//! Private USB transaction policy shared by native endpoints and fault tests.
+//! Private bounded transaction policy shared by USB/serial adapters and fault tests.
 //! A failed transaction retires the session; cancelled completions are never reused.
 use std::time::{Duration, Instant};
 use wpi_protocol::qualcomm::{dload::ReplyDecoder, v1::MAX_REPLY_FRAME};
@@ -27,7 +27,7 @@ impl<T: Io> Session<T> {
     fn check(&self, request: &[u8], deadline: Option<Instant>) -> Result<Instant> {
         if self.retired {
             return Err(ProtocolError::Transport(
-                "USB session retired after a failed transfer; inspect device state and reopen"
+                "Native session retired after a failed transfer; inspect device state and reopen"
                     .into(),
             ));
         }
@@ -45,7 +45,7 @@ impl<T: Io> Session<T> {
         let remaining = end.saturating_duration_since(self.io.now());
         if remaining.is_zero() {
             return Err(ProtocolError::Transport(
-                "USB transaction deadline expired".into(),
+                "Native transaction deadline expired".into(),
             ));
         }
         Ok(remaining)
@@ -61,7 +61,8 @@ impl<T: Io> Session<T> {
         let actual = self.io.write(request, self.remaining(end)?)?;
         if actual != request.len() {
             return Err(ProtocolError::Transport(
-                "Incomplete USB OUT transfer; delivery is uncertain and no retry was sent".into(),
+                "Incomplete native output transfer; delivery is uncertain and no retry was sent"
+                    .into(),
             ));
         }
         self.remaining(end)?;
@@ -105,7 +106,7 @@ impl<T: Io> Session<T> {
         self.finish(result)
     }
 
-    /// One request and one bounded HDLC reply assembled across USB completions.
+    /// One request and one bounded HDLC reply assembled across native reads.
     /// A short IN is a fragment, never a reason to retransmit OUT or reset time.
     pub(super) fn exchange_framed(
         &mut self,

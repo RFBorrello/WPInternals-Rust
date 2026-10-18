@@ -43,7 +43,9 @@ no mode changes, fault injection on hardware, programmer upload or writes occurr
 `UsbMessages` remains the single-message Normal/Flash adapter. A separate
 [read-only emergency probe](native-emergency-probe.md) now uses the same session
 policy to assemble bounded HDLC replies across multiple IN completions. Native
-serial communication beyond discovery, emergency/programmer arrival handling and
-fresh admission for an unlock session still need implementation and validation.
+[serial read-only probes and arrival observation](native-serial-arrival.md) also
+exist as separate research commands; the serial probe shares the private framed
+transaction policy and closes a failed handle. Fresh admission and arrival handling
+within a complete unlock session still need integration and validation.
 The joined unlock API continues to accept only concrete replay transports. No
 unlock, data-preservation or recovery capability is enabled by this change.

@@ -214,11 +214,13 @@ and set `WPI_BROWSER_CHANNEL=chromium`.
 - `wpi-image`: bounded firmware/GPT/filesystem parsing and offline patching.
 - `wpi-protocol`: OS-independent Lumia and Qualcomm codecs plus replay transport.
 - `wpi-core`: compatibility, inspection, atomic artifacts, and operation coordination.
-- `wpi-transport`: native USB and serial discovery; read-only USB probe.
+- `wpi-transport`: native USB/serial discovery and read-only probes.
   [Native USB transactions](docs/native-usb-transactions.md) retire uncertain sessions
   and share one bounded deadline across OUT/IN transfers.
   An explicit [emergency USB probe](docs/native-emergency-probe.md) handles fragmented
   DLOAD/V1 replies for already exposed endpoints; it cannot enter those modes or write.
+  Separate [serial probes and arrival observation](docs/native-serial-arrival.md)
+  add bounded native reads and discovery without enabling the unlock executor.
 - `wpi-cli`, `wpi-wasm`, `apps/desktop`, `apps/ui`: frontends and adapters.
 
 See the [agreed roadmap](docs/roadmap.md), [feature parity](docs/parity.md), [hardware validation](docs/hardware-validation.md),

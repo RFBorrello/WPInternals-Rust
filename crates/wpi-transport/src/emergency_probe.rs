@@ -1,15 +1,14 @@
 //! Explicit read-only queries for an ALREADY exposed Qualcomm emergency endpoint.
 //! USB descriptors/port correlate one session; they do not identify a Lumia or authorize writes.
 use super::{
-    identity,
-    mode_test::{physical_port, PhysicalPort},
+    device_binding::{self, Snapshot},
     usb_session, PHONE_ACCESS,
 };
 use nusb::MaybeFuture;
 use serde::Serialize;
 use std::time::{Duration, Instant};
 use wpi_protocol::qualcomm::{dload, v1};
-use wpi_types::{DeviceIdentity, DeviceMode};
+use wpi_types::DeviceMode;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,23 +36,7 @@ pub struct Report {
     pub data_preservation_validated: bool,
 }
 
-#[derive(Clone, PartialEq)]
-struct Snapshot {
-    descriptor: DeviceIdentity,
-    port: Option<PhysicalPort>,
-}
-impl Snapshot {
-    fn of(info: &nusb::DeviceInfo) -> Option<Self> {
-        Some(Self {
-            descriptor: identity(
-                info,
-                wpi_core::classify_usb(info.vendor_id(), info.product_id())?,
-            ),
-            port: physical_port(info),
-        })
-    }
-}
-fn admit(selected: &Snapshot) -> Result<(), String> {
+pub(super) fn admit(selected: &Snapshot) -> Result<(), String> {
     if selected.descriptor.mode != DeviceMode::Emergency
         || selected.descriptor.vendor_id != 0x05c6
         || !matches!(selected.descriptor.product_id, 0x9008 | 0xf006)
@@ -65,7 +48,7 @@ fn admit(selected: &Snapshot) -> Result<(), String> {
     }
     Ok(())
 }
-fn validate(selected: &Snapshot, current: &[Snapshot]) -> Result<(), String> {
+pub(super) fn validate(selected: &Snapshot, current: &[Snapshot]) -> Result<(), String> {
     admit(selected)?;
     let by_id: Vec<_> = current
         .iter()
@@ -80,12 +63,7 @@ fn validate(selected: &Snapshot, current: &[Snapshot]) -> Result<(), String> {
     Ok(())
 }
 fn validate_now(selected: &Snapshot) -> Result<(), String> {
-    let current: Vec<_> = nusb::list_devices()
-        .wait()
-        .map_err(|e| e.to_string())?
-        .filter_map(|d| Snapshot::of(&d))
-        .collect();
-    validate(selected, &current)
+    validate(selected, &device_binding::scan()?)
 }
 
 struct Interface {
@@ -133,7 +111,11 @@ fn select_interface(interfaces: &[Interface]) -> Result<(u8, u8, u8), String> {
 
 /// No protocol guessing/fallback. DLOAD sends alive + root query; V1 sends Hello only.
 /// Private query construction prevents arbitrary commands from reaching this adapter.
-fn queries<C, X>(protocol: Protocol, mut check: C, mut exchange: X) -> Result<(usize, bool), String>
+pub(super) fn queries<C, X>(
+    protocol: Protocol,
+    mut check: C,
+    mut exchange: X,
+) -> Result<(usize, bool), String>
 where
     C: FnMut() -> Result<(), String>,
     X: FnMut(&[u8]) -> wpi_protocol::Result<Vec<u8>>,
@@ -173,7 +155,7 @@ pub fn run(id: &str, protocol: Protocol) -> Result<Report, String> {
         return Err("Scan and explicitly select one connected emergency endpoint".into());
     }
     let info = &selected_infos[0];
-    let selected = Snapshot::of(info).ok_or("Unrecognized USB endpoint")?;
+    let selected = Snapshot::of(info);
     admit(&selected)?;
     validate_now(&selected)?;
     let device = info.open().wait().map_err(|_| "Cannot open selected emergency USB endpoint; check native WinUSB binding or USB permissions")?;
@@ -213,7 +195,20 @@ pub fn run(id: &str, protocol: Protocol) -> Result<Report, String> {
         || validate_now(&selected),
         |request| session.exchange_framed(request, v1::MAX_REPLY_FRAME, Some(deadline)),
     )?;
-    Ok(Report {
+    Ok(report(
+        &selected,
+        protocol,
+        requests_sent,
+        root_key_available,
+    ))
+}
+pub(super) fn report(
+    selected: &Snapshot,
+    protocol: Protocol,
+    requests_sent: usize,
+    root_key_available: bool,
+) -> Report {
+    Report {
         protocol,
         vendor_id: selected.descriptor.vendor_id,
         product_id: selected.descriptor.product_id,
@@ -229,14 +224,16 @@ pub fn run(id: &str, protocol: Protocol) -> Result<Report, String> {
         phone_writes_enabled: false,
         unlock_verified: false,
         data_preservation_validated: false,
-    })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mode_test::PhysicalPort;
     use std::{cell::Cell, collections::VecDeque};
     use wpi_protocol::{qualcomm::encode_hdlc, ProtocolError};
+    use wpi_types::DeviceIdentity;
     fn snapshot() -> Snapshot {
         let mut descriptor: DeviceIdentity = serde_json::from_value(serde_json::json!({
             "id":"selected", "vendor_id":0x05c6,"product_id":0x9008,

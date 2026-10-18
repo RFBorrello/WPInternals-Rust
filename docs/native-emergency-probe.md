@@ -30,7 +30,7 @@ protocol is running.
 
 The selected descriptor snapshot must have a physical-port binding. Fresh discovery
 checks require the same USB ID, descriptor fields and physical port, with exactly
-one selected record and no second recognized record on that port. Checks run before
+one selected record and no second USB record on that port. Checks run before
 opening/claiming, immediately before every query and after the last reply. Changes,
 missing endpoints or ambiguity stop the probe. The private snapshots cannot be
 serialized or imported as authorization. Discovery and query are separate OS calls;
@@ -41,7 +41,8 @@ interface containing one bulk IN and one bulk OUT is accepted. Multiple candidat
 or ambiguous endpoint pairs are rejected. The adapter does not select a USB
 configuration, detach a kernel driver or claim protected interface classes. Native
 WinUSB/OS permissions must already permit access. Serial-only exposure requires the
-separate serial adapter, which remains unimplemented.
+separate [serial probe](native-serial-arrival.md), with its stricter serial-to-USB
+metadata checks; there is no automatic transport fallback.
 
 ## Fragmented replies and failures
 
@@ -89,7 +90,8 @@ No emergency-mode hardware probe, programmer upload, write, mode change or drive
 change was performed. Physical fragmented replies, faults and reconnect behavior
 remain unvalidated on every host.
 
-Native serial transport, arrival observation, cross-mode public-ID/root correlation,
-fresh unlock admission and recovery/preservation policy remain separate work. The
+Read-only [serial transport and arrival observation](native-serial-arrival.md) now
+exist as separate research commands. Cross-mode public-ID/root correlation,
+fresh unlock admission and recovery/preservation policy still need integration. The
 joined Spec A executor still accepts concrete replay transports only; this command
 cannot connect its write phases to hardware.
