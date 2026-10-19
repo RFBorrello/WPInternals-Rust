@@ -1199,3 +1199,25 @@ installer, certificate import, driver binding, mode command or phone-storage
 write was performed. No matching installed-version UEFI/FlashApp artifact was
 found in the bounded follow-up search. The MTP backup excludes private app data,
 boot partitions and GPTs and does not admit an unlock or prove data preservation.
+
+## Unsigned native WinUSB binding (2026-10-19)
+
+The project [INF source](../resources/windows/emergency/README.md) uses in-box
+WinUSB for exactly `05c6:9008` on ARM64/x64 and registers one project interface
+GUID. Microsoft InfVerif 10.0.28000.2526 universal validation passed. Inf2Cat
+generated an unsigned catalog after signability checks for Windows 11 24H2/25H2
+ARM64 and x64 with no errors or warnings. Both PowerShell 7 and Windows PowerShell
+5.1 built fresh local packages successfully. Existing-output rejection preserved
+the original completed package. No WDK or driver installer was run: only pinned
+local validator tools executed. Microsoft tool binaries remain ignored, and CI
+publishes the generated unsigned package separately from desktop builds.
+Changing the source model from 9008 to F006 in a private test copy was rejected
+by the source pin before output creation or validator execution.
+
+While checking the nusb Windows backend, the readiness script's GUID check was
+corrected to follow first-plural-entry/singular-fallback behavior. New synthetic
+cases reject a valid later plural entry when the first is invalid, preserve the
+valid singular fallback, and reject a parsed empty plural GUID. Four Rust host
+readiness tests and the complete synthetic Windows inventory script passed.
+The controller's execution gates and all hardware/preservation evidence remain
+unchanged. See [metadata evidence](../tests/fixtures/windows-emergency-binding-validation.json).

@@ -51,10 +51,17 @@ $entries = @(foreach ($device in $devices) {
         $parameters = Get-ItemProperty -LiteralPath $parameterPath
         $guids = @($parameters.DeviceInterfaceGUIDs) + @($parameters.DeviceInterfaceGUID)
         if ($guids.Count -gt 64) { throw 'Device interface inventory exceeds bound' }
-        foreach ($candidate in $guids) {
-            $parsed = [guid]::Empty
-            if ([guid]::TryParse([string]$candidate, [ref]$parsed) -and $parsed -ne [guid]::Empty) {
-                $registered = $true
+        # nusb 0.2.7 parses the FIRST plural value, falling back to the singular
+        # property only if that parse fails. A later valid plural entry cannot
+        # rescue an unusable first entry. Match that behavior conservatively.
+        $plural = @($parameters.DeviceInterfaceGUIDs)
+        $parsed = [guid]::Empty
+        if ($plural.Count -gt 0 -and [guid]::TryParseExact([string]$plural[0], 'B', [ref]$parsed)) {
+            $registered = ($parsed -ne [guid]::Empty)
+        } else {
+            $singular = @($parameters.DeviceInterfaceGUID)
+            if ($singular.Count -gt 0 -and [guid]::TryParseExact([string]$singular[0], 'B', [ref]$parsed)) {
+                $registered = ($parsed -ne [guid]::Empty)
             }
         }
     }

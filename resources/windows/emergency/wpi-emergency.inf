@@ -1,0 +1,40 @@
+; Experimental binding to Microsoft's in-box WinUSB driver.
+; No vendor kernel binary or coinstaller is included.
+; USB\VID_05C6&PID_9008 is shared by non-Lumia Qualcomm devices.
+; Stage/install only after identifying the actual selected endpoint.
+
+[Version]
+Signature = "$Windows NT$"
+Class = USBDevice
+ClassGuid = {88BAE032-5A81-49f0-BC3D-A4FF138216D6}
+Provider = %ProviderName%
+DriverVer = 10/19/2026,0.1.0.0
+CatalogFile = wpi-emergency.cat
+PnpLockdown = 1
+
+[Manufacturer]
+%ProviderName% = Models,NTarm64.10.0,NTamd64.10.0
+
+[Models.NTarm64.10.0]
+%DeviceName% = Emergency,USB\VID_05C6&PID_9008
+
+[Models.NTamd64.10.0]
+%DeviceName% = Emergency,USB\VID_05C6&PID_9008
+
+[Emergency.NT]
+Include = winusb.inf
+Needs = WINUSB.NT
+
+[Emergency.NT.Services]
+Include = winusb.inf
+Needs = WINUSB.NT.Services
+
+[Emergency.NT.HW]
+AddReg = EmergencyInterface
+
+[EmergencyInterface]
+HKR,,DeviceInterfaceGUIDs,0x00010000,"{8F66C6E8-C607-4D4D-B107-7EC707A76620}"
+
+[Strings]
+ProviderName = "WPInternals Rust contributors"
+DeviceName = "Qualcomm Emergency USB (experimental WPInternals Rust)"

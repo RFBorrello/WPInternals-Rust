@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-19",
+  "scope": "offline_unsigned_package_validation_only",
+  "host": "windows-arm64",
+  "build": {
+    "schema": "wpi-emergency-driver-build-v1",
+    "generated_at_utc": "2026-10-19T21:43:10.6349270Z",
+    "inf_sha256": "7cbc413e8d74653a597531beabad26a4d3371199902d73ad70194cc668c1e3dd",
+    "readme_sha256": "0d304d9273a40a5690852289dbd4c48e500961ca68e44551d3258c2dbb9a8b64",
+    "catalog_sha256": "725edfeee8bb2980a44bdb81c200ba0774e8edf3df60e9c42a87537f3ce665e9",
+    "infverif_sha256": "ad25e2b18f95737accd8fcbb7abb85fbd8360859940b436c0a0a95fa535df726",
+    "inf2cat_sha256": "82c302fc9069783674b51665ce80e769f8500db7fc737a4b8a3773c521950b86",
+    "universal_inf_validation_passed": true,
+    "catalog_signability_passed": true,
+    "catalog_targets": [
+      "10_GE_ARM64",
+      "10_GE_X64",
+      "10_25H2_ARM64",
+      "10_25H2_X64"
+    ],
+    "catalog_signature_status": "NotSigned",
+    "model_hardware_id": "USB\\VID_05C6&PID_9008",
+    "interface_guid": "{8F66C6E8-C607-4D4D-B107-7EC707A76620}",
+    "shared_qualcomm_id_not_lumia_authentication": true,
+    "signed": false,
+    "installable_release": false,
+    "staged_or_installed": false,
+    "phone_contacted": false,
+    "driver_access_validated": false,
+    "unlock_authorized": false
+  },
+  "wdk_nuget": {
+    "package": "Microsoft.Windows.WDK.ARM64",
+    "version": "10.0.28000.2526",
+    "bytes": 49371679,
+    "sha256": "dcd83a77c83ee3163fa07b26421c0b132af0ea446d391bda2e63ac6664a261a5"
+  },
+  "scope_check_passed": true,
+  "existing_output_preserved": true,
+  "changed_9008_to_f006_source_rejected_before_output_or_validators": true,
+  "powershell_7_build_passed": true,
+  "windows_powershell_5_1_build_passed": true,
+  "synthetic_guid_selection_checks_passed": true,
+  "rust_readiness_tests_passed": 4,
+  "installed_flashapp_identified": false,
+  "data_preservation_validated": false,
+  "driver_installed": false,
+  "phone_writes_sent": false
+}

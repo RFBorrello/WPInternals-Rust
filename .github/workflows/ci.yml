@@ -41,6 +41,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: ./scripts/test-mtp-backup.ps1
+      - name: Emergency binding scope and unsigned WDK validation
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          python scripts/check-emergency-driver-scope.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Path .tools -ErrorAction SilentlyContinue | Out-Null
+          python scripts/fetch-wdk-validation-tools.py .tools/wdk-arm64-10.0.28000.2526
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/prepare-windows-emergency-driver.ps1 -OutputDirectory .tools/unsigned-emergency-package -InfVerifPath .tools/wdk-arm64-10.0.28000.2526/c/tools/10.0.28000.0/ARM64/infverif.exe -Inf2CatPath .tools/wdk-arm64-10.0.28000.2526/c/bin/10.0.28000.0/x86/Inf2Cat.exe
+      - name: Upload unsigned emergency binding validation
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-emergency-binding-validation
+          path: .tools/unsigned-emergency-package/
+          include-hidden-files: true
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo check --locked -p wpi-wasm --target wasm32-unknown-unknown
       - run: npm --prefix apps/ui ci
@@ -88,6 +105,9 @@ jobs:
             docs/spec-a-entry-code.md
             docs/spec-a-native-controller.md
             docs/windows-emergency-access.md
+            resources/windows/emergency/README.md
+            resources/windows/emergency/wpi-emergency.inf
+            scripts/prepare-windows-emergency-driver.ps1
             scripts/check-native-unlock-host.ps1
             scripts/backup-rm875-mtp.ps1
             docs/mtp-file-backup.md

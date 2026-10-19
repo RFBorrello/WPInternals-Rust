@@ -23,7 +23,7 @@ function Invoke-InventoryFixture {
     function Test-Path { param($LiteralPath) return $Fixture.RegistryExists }
     function Get-ItemProperty {
         param($LiteralPath)
-        [pscustomobject]@{ DeviceInterfaceGUIDs = $Fixture.Guids; DeviceInterfaceGUID = $null }
+        [pscustomobject]@{ DeviceInterfaceGUIDs = $Fixture.Guids; DeviceInterfaceGUID = $Fixture.SingularGuid }
     }
     (& $inventoryScript) | ConvertFrom-Json
 }
@@ -57,6 +57,12 @@ foreach ($guid in @('', 'not-a-guid', '{00000000-0000-0000-0000-000000000000}'))
     $f = $valid.Clone(); $f.Guids = @($guid)
     Assert-True (-not (Invoke-InventoryFixture $f).endpoints[0].interface_guid_registered) 'Invalid/empty interface GUID accepted'
 }
+$f = $valid.Clone(); $f.Guids = @('not-a-guid', $valid.Guids[0])
+Assert-True (-not (Invoke-InventoryFixture $f).endpoints[0].interface_guid_registered) 'Later plural GUID bypassed the nusb first-entry rule'
+$f.SingularGuid = $valid.Guids[0]
+Assert-True (Invoke-InventoryFixture $f).endpoints[0].interface_guid_registered 'Singular fallback was lost'
+$f.Guids = @('{00000000-0000-0000-0000-000000000000}')
+Assert-True (-not (Invoke-InventoryFixture $f).endpoints[0].interface_guid_registered) 'Parsed empty plural GUID incorrectly fell back to singular'
 $f = $valid.Clone(); $f.Empty = $true
 Assert-True ((Invoke-InventoryFixture $f).endpoints.Count -eq 0) 'Empty inventory shape changed'
 $f = $valid.Clone(); $f.Product = '90080'

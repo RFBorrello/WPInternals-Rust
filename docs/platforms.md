@@ -19,6 +19,8 @@ macOS builds need Xcode command-line tools.
   drivers. This repository does **not** ship signed driver bindings yet.
   See [Windows emergency access](windows-emergency-access.md) for the read-only
   host check, Administrator report helper and endpoint identification requirements.
+  An experimental ARM64/x64 INF now passes Microsoft universal/signability
+  checks; its generated catalog is unsigned and is not a public driver release.
 - Linux: install the narrowly scoped sample rules from `resources/linux/` with
   administrator privileges, reload udev rules, then reconnect. No global USB
   permission changes are needed. Review matching PIDs against captured descriptors.

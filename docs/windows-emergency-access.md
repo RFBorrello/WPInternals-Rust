@@ -12,6 +12,9 @@ WinUSB alone is insufficient: the setup class must be USBDevice, a nonempty
 device interface GUID must be registered, protected USB class metadata must be
 absent, and a present devnode must report problem code zero. Serial and HID
 bindings are reported separately and never satisfy this controller's USB gate.
+The GUID check follows nusb's first-entry selection: a later valid plural GUID
+cannot rescue an invalid first entry. The singular property is a fallback only
+when the plural parse fails; a parsed empty GUID remains unusable.
 Even an eligible historical binding is only availability evidence. It does not
 authenticate a Lumia, prove that the future endpoint will open, or validate an
 unlock. Actual arrival still needs port, descriptor, root and protocol checks.
@@ -94,3 +97,25 @@ binding or access test on this phone's future emergency endpoint. No certificate
 INF, driver or device setting was installed or modified. The
 [metadata audit](../tests/fixtures/nokia-emergency-driver-architecture-audit.json)
 contains hashes and declarations only; proprietary installer contents stay local.
+
+## New universal binding source
+
+The repository now includes a coinstaller-free
+[ARM64/x64 binding](../resources/windows/emergency/README.md) to Microsoft's
+in-box WinUSB driver. Its model list is limited to `05c6:9008` and registers one
+project interface GUID; F006/HID and generic USB-class matches are excluded.
+The ID is shared by non-Lumia Qualcomm devices, so the package is not model
+authentication and must not be staged broadly as a discovery technique.
+
+Microsoft InfVerif universal checks and Inf2Cat signability checks passed for
+Windows 11 24H2/25H2 ARM64 and x64 without errors or warnings. A new local package
+contains the INF, an **unsigned** catalog, README and hash manifest. CI repeats
+the build with a pinned Microsoft WDK NuGet package and publishes it separately
+as unsigned validation material. This is not a signed or installable release.
+No driver, certificate, signature policy, phone mode or storage state was changed.
+
+Production catalog signing and verification, actual endpoint identification,
+driver binding and physical emergency access remain unvalidated. The documented
+manual in-box setup remains a separate route once that actual endpoint is
+available; a custom package signature is not a universal prerequisite for it.
+Neither route clears the controller's live token/driver gates or validates entry.
