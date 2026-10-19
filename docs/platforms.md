@@ -17,6 +17,8 @@ macOS builds need Xcode command-line tools.
 - Windows nusb and WebUSB use WinUSB. A compatible binding must exist for each
   vendor-specific interface/mode. Windows ARM64 cannot load legacy x86/x64 kernel
   drivers. This repository does **not** ship signed driver bindings yet.
+  See [Windows emergency access](windows-emergency-access.md) for the read-only
+  host check, Administrator report helper and endpoint identification requirements.
 - Linux: install the narrowly scoped sample rules from `resources/linux/` with
   administrator privileges, reload udev rules, then reconnect. No global USB
   permission changes are needed. Review matching PIDs against captured descriptors.

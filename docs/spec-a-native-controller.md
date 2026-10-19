@@ -27,13 +27,18 @@ read-only mode test or a validated consumer unlock workflow.
 
 Run `wpi native-unlock-readiness` for a read-only Administrator/driver check.
 The controller refuses execution before any mode request if elevation is absent
-or no historical Qualcomm emergency endpoint has a WinUSB binding. A historical
+or no eligible historical Qualcomm emergency endpoint has a WinUSB binding and
+registered interface GUID. Protected/HID-class metadata, an incompatible setup
+class, or a present device error cannot satisfy this check. A historical
 binding is availability evidence only: actual arrival still needs strict port,
 endpoint, root and protocol checks. This check installs no driver and elevates
 no process. The initial host check found a non-elevated process, one historical
 matching VID/PID candidate and zero emergency WinUSB bindings. That historical
 candidate uses HidUsb and is not established as this phone's emergency endpoint;
 the readiness check does not treat its label or VID/PID as proof of identity.
+See [Windows emergency access](windows-emergency-access.md) for the sanitized
+per-endpoint report, read-only Administrator helper and endpoint-specific setup
+requirements. No driver-binding package or automatic rebind is installed.
 
 The browser/desktop capability matrix is unchanged. Native experiments do not
 establish general unlock support, browser support, Lumia 730 support or parity.

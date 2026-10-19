@@ -1,0 +1,56 @@
+{
+  "schema": "wpi-native-host-validation-v1",
+  "date": "2026-10-19",
+  "host": "windows-arm64",
+  "cli_sha256": "f49aefcb8ef21ac7765b9e071e2547bbaf90356f91e139d80a86bb4b1703ebe4",
+  "normal_read_only_probe": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "firmware": "3051.50009.1451.1003",
+    "usb_vendor_id": "0421",
+    "usb_product_id": "0661",
+    "mode": "normal",
+    "passed": true
+  },
+  "host_diagnostic": {
+    "unelevated_process_administrator_ready": false,
+    "separate_uac_elevated_process_administrator_ready": true,
+    "historical_candidates": 1,
+    "present_emergency_candidates": 0,
+    "winusb_service_bindings": 0,
+    "usable_winusb_bindings": 0,
+    "prerequisites_met": false,
+    "candidate": {
+      "vendor_id": "05c6",
+      "product_id": "f006",
+      "present": false,
+      "setup_class": "hid",
+      "service": "hidusb",
+      "protected_class": true,
+      "winusb_compatible_id": false,
+      "interface_guid_registered": false,
+      "authenticated_as_this_phone": false
+    },
+    "phone_contacted": false,
+    "driver_changes_sent": false
+  },
+  "verification": {
+    "transport_tests_passed": 92,
+    "cli_subprocess_tests_passed": 4,
+    "synthetic_windows_inventory_checks_passed": true,
+    "host_helper_hash_mismatch_rejected": true,
+    "host_helper_existing_output_preserved": true,
+    "strict_clippy_passed": true,
+    "rustfmt_passed": true,
+    "release_cli_built": true
+  },
+  "phone_mode_changes_sent": false,
+  "phone_storage_writes_sent": false,
+  "loader_uploaded": false,
+  "driver_binding_changed": false,
+  "disk_attributes_changed": false,
+  "emergency_access_hardware_validated": false,
+  "unlock_hardware_validated": false,
+  "data_preservation_validated": false,
+  "advisory_only": true
+}

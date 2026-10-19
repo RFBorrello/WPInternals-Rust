@@ -1130,3 +1130,31 @@ not driver or protocol validation. Installed FlashApp identity, exact physical
 entry behavior, loader acceptance, full data preservation, installed originals
 and physical recovery remain unverified. Software implementation and successful
 builds do not resolve those hardware-evidence requirements.
+
+## Emergency host diagnostics (2026-10-19)
+
+The connected RM-875 passed a fresh read-only Normal probe with firmware
+3051.50009.1451.1003. A separately launched UAC-elevated CLI successfully
+confirmed its Administrator token and collected a host report. This does not
+elevate the original process or authorize another run; the controller always
+checks its own token again. No phone mode or storage change was sent.
+
+The emergency inventory now emits bounded, sanitized endpoint metadata and
+distinguishes present devices from historical records. WinUSB service presence
+alone no longer satisfies admission: the setup class, protected class metadata,
+registered interface GUID and present-device problem code are checked. The
+development host has zero present emergency candidates and zero usable emergency
+WinUSB bindings. Its single absent F006 candidate has HID/protected-class
+metadata and is not established as this phone's endpoint. Its driver was left
+intact. No native unlock, loader upload, driver rebind or disk change occurred.
+
+All **92 transport tests and four CLI subprocess tests** passed. Synthetic
+Windows PowerShell tests exercise the actual inventory with mocked PnP/registry
+data, including vendor/HID classes, absent devices, invalid/empty GUIDs, missing
+metadata and a partial product-ID match. The report helper passed actual host
+collection, wrong-executable-digest rejection and existing-output preservation.
+Strict transport/CLI Clippy, formatting and the optimized CLI build passed.
+See the [sanitized evidence](../tests/hardware/lumia-1020-rm875-native-host-readiness.json)
+and [Windows access guide](windows-emergency-access.md). Emergency access,
+installed entry-code identity, data preservation and physical unlock remain
+unverified.
