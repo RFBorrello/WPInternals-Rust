@@ -108,3 +108,30 @@ fn invalid_fingerprint_is_rejected_before_any_platform_inventory_or_output() {
     }
     assert!(!output.exists());
 }
+#[test]
+fn setup_metadata_never_relaxes_raw_admission_or_identity_bounds() {
+    let usb = r"USB\VID_05C6&PID_9006\PRIVATE-USB";
+    let mut d = disk();
+    let cap = d.size.parse::<u64>().unwrap() / 512;
+    d.offline = false;
+    d.read_only = false;
+    assert!(policy::bound_metadata(std::slice::from_ref(&d), usb, cap)
+        .unwrap()
+        .is_some());
+    assert!(policy::bound_candidate(std::slice::from_ref(&d), usb, cap).is_err());
+    assert!(policy::bound_metadata(&[], usb, cap).unwrap().is_none());
+    assert!(policy::bound_metadata(&[d.clone(), d.clone()], usb, cap).is_err());
+    for kind in 0..7 {
+        let mut changed = d.clone();
+        match kind {
+            0 => changed.boot = true,
+            1 => changed.system = true,
+            2 => changed.bus_type = 0,
+            3 => changed.serial.clear(),
+            4 => changed.size = "512".into(),
+            5 => changed.sector_size = 4096,
+            _ => changed.ancestors.push(usb.into()),
+        }
+        assert!(policy::bound_metadata(&[changed], usb, cap).is_err());
+    }
+}

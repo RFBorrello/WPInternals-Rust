@@ -41,6 +41,16 @@ pub fn phone_pnp(id: &str) -> bool {
             || tokens.contains(&"VEN_MSFT") && tokens.contains(&"PROD_PHONE_MMC_STOR"))
 }
 pub fn blockers(d: &InventoryDisk) -> Vec<String> {
+    let mut b = identity_blockers(d);
+    if !d.offline {
+        b.push("Disk must already be offline; this app does not offline or unmount it".into());
+    }
+    if !d.read_only {
+        b.push("Disk must already be read-only; this app does not set disk attributes".into());
+    }
+    b
+}
+fn identity_blockers(d: &InventoryDisk) -> Vec<String> {
     let mut b = Vec::new();
     if !phone_pnp(&d.pnp_id) {
         b.push("Storage identity is not a recognized phone-storage candidate".into());
@@ -50,12 +60,6 @@ pub fn blockers(d: &InventoryDisk) -> Vec<String> {
     }
     if d.boot || d.system {
         b.push("Host boot/system disks cannot be opened".into());
-    }
-    if !d.offline {
-        b.push("Disk must already be offline; this app does not offline or unmount it".into());
-    }
-    if !d.read_only {
-        b.push("Disk must already be read-only; this app does not set disk attributes".into());
     }
     if d.sector_size != 512 {
         b.push("Only 512-byte logical sectors are supported by this Lumia GPT profile".into());
@@ -93,6 +97,21 @@ pub fn bound_candidate<'a>(
     usb_instance: &str,
     capacity: u64,
 ) -> Result<&'a InventoryDisk, &'static str> {
+    let disk = bound_metadata(disks, usb_instance, capacity)?
+        .ok_or("No admitted raw disk belongs to the selected USB device")?;
+    if !disk.offline || !disk.read_only {
+        return Err("USB-bound disk read-only/offline admission failed");
+    }
+    Ok(disk)
+}
+
+/// Discovery only: online/writable flags are reported, never raw-access grants.
+/// All identity, geometry, host-disk and ancestry checks still apply.
+pub fn bound_metadata<'a>(
+    disks: &'a [InventoryDisk],
+    usb_instance: &str,
+    capacity: u64,
+) -> Result<Option<&'a InventoryDisk>, &'static str> {
     let parts: Vec<_> = usb_instance.split('\\').collect();
     if parts.len() != 3
         || !parts[0].eq_ignore_ascii_case("USB")
@@ -132,11 +151,13 @@ pub fn bound_candidate<'a>(
             if selected.is_some() {
                 return Err("Multiple disks belong to the selected USB device");
             }
-            if !blockers(disk).is_empty() || disk.size.parse::<u64>().ok() != Some(capacity * 512) {
-                return Err("USB-bound disk geometry or read-only/offline admission failed");
+            if !identity_blockers(disk).is_empty()
+                || disk.size.parse::<u64>().ok() != Some(capacity * 512)
+            {
+                return Err("USB-bound disk identity or geometry admission failed");
             }
             selected = Some(disk);
         }
     }
-    selected.ok_or("No admitted raw disk belongs to the selected USB device")
+    Ok(selected)
 }

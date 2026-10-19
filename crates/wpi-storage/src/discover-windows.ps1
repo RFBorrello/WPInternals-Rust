@@ -2,8 +2,11 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $result = @(Get-CimInstance -ClassName Win32_DiskDrive | Where-Object {
     $_.PNPDeviceID -match '^(USBSTOR|SCSI)\\DISK&VEN_(QUALCOMM&PROD_MMC_STORAGE|MSFT&PROD_PHONE_MMC_STOR)&'
-} | Select-Object -First 64 | ForEach-Object {
+} | Select-Object -First 65 | ForEach-Object {
     $disk = Get-Disk -Number $_.Index -ErrorAction Stop
+    foreach ($property in @('IsBoot','IsSystem','IsOffline','IsReadOnly')) {
+        if ($disk.$property -isnot [bool]) { throw 'Disk state metadata is missing' }
+    }
     $ancestors = [System.Collections.Generic.List[string]]::new()
     $current = [string]$_.PNPDeviceID
     for ($depth = 0; $depth -lt 16; $depth++) {

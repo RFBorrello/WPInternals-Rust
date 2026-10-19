@@ -41,6 +41,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: ./scripts/test-mtp-backup.ps1
+      - name: Synthetic bound phone disk setup
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/test-bound-phone-disk.ps1
       - name: Emergency binding scope and unsigned WDK validation
         if: runner.os == 'Windows'
         shell: powershell
@@ -104,11 +108,14 @@ jobs:
             docs/spec-a-entry-preservation.md
             docs/spec-a-entry-code.md
             docs/spec-a-native-controller.md
+            docs/rm875-experimental-test.md
             docs/windows-emergency-access.md
             resources/windows/emergency/README.md
             resources/windows/emergency/wpi-emergency.inf
             scripts/prepare-windows-emergency-driver.ps1
             scripts/check-native-unlock-host.ps1
+            scripts/prepare-bound-phone-disk.ps1
+            crates/wpi-storage/src/discover-windows.ps1
             scripts/backup-rm875-mtp.ps1
             docs/mtp-file-backup.md
             tests/hardware/lumia-1020-rm875-mtp-file-backup.json

@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 mod driver_setup;
 pub mod journal;
 pub mod readiness;
+#[cfg(windows)]
+mod storage_setup;
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
@@ -94,6 +96,7 @@ pub struct Preview {
     pub emergency_access: EmergencyAccess,
     pub manual_setup_timeout_seconds_per_endpoint: Option<u64>,
     pub requires_offline_read_only_storage: bool,
+    pub manual_storage_setup_timeout_seconds: u64,
     pub installed_flashapp_binary_verified: bool,
     pub installed_originals_captured: bool,
     pub data_preservation_validated: bool,
@@ -162,7 +165,9 @@ impl<'a> Plan<'a> {
             requires_native_windows_arm64: true, requires_administrator: true,
             emergency_access: access,
             manual_setup_timeout_seconds_per_endpoint: (access == EmergencyAccess::ManualSetup).then_some(driver_setup::TIMEOUT_SECONDS),
-            requires_offline_read_only_storage: true, installed_flashapp_binary_verified: false,
+            requires_offline_read_only_storage: true,
+            manual_storage_setup_timeout_seconds: driver_setup::TIMEOUT_SECONDS,
+            installed_flashapp_binary_verified: false,
             installed_originals_captured: false, data_preservation_validated: false,
             hardware_validated: false, automatic_resume_allowed: false,
             actions: vec![
@@ -827,7 +832,7 @@ fn execute<F: FnMut(&str)>(
         b"NOKM",
     )?;
     progress("Capture USB-bound phone storage. It must already be offline/read-only; no host disk attributes are changed.");
-    let first = capture(plan, &storage, first_snapshot, cancelled)?;
+    let first = capture(plan, &storage, first_snapshot, sink, cancelled, progress)?;
     let mut snapshot = wpi_core::artifacts::open_artifact(first_snapshot).map_err(text)?;
     let installed_efiesp =
         entry_snapshot::read_efiesp(&mut snapshot, &first.archive_sha256).map_err(text)?;
@@ -868,7 +873,7 @@ fn execute<F: FnMut(&str)>(
         DeviceMode::MassStorage,
         b"NOKM",
     )?;
-    let final_capture = capture(plan, &storage, final_snapshot, cancelled)?;
+    let final_capture = capture(plan, &storage, final_snapshot, sink, cancelled, progress)?;
     let mut snapshot = wpi_core::artifacts::open_artifact(final_snapshot).map_err(text)?;
     if entry_snapshot::read_efiesp(&mut snapshot, &final_capture.archive_sha256).map_err(text)?
         != expected
@@ -1154,11 +1159,13 @@ fn write_sectors(
     }
     Ok(())
 }
-fn capture(
+fn capture<F: FnMut(&str)>(
     plan: &Plan<'_>,
     storage: &Snapshot,
     output: &Path,
+    sink: &mut Journal,
     cancelled: &AtomicBool,
+    progress: &mut F,
 ) -> Result<entry_snapshot::Report, String> {
     boundary(cancelled)?;
     validate(storage)?;
@@ -1179,6 +1186,14 @@ fn capture(
             .instance_id()
             .to_str()
             .ok_or("Unsupported USB instance encoding")?;
+        storage_setup::wait(
+            storage,
+            instance,
+            plan.capacity(),
+            sink,
+            cancelled,
+            progress,
+        )?;
         let report = wpi_storage::capture_spec_a_bound(
             instance,
             plan.capacity(),
@@ -1193,7 +1208,7 @@ fn capture(
     }
     #[cfg(not(windows))]
     {
-        let _ = (plan, output);
+        let _ = (plan, output, sink, progress);
         Err("Windows USB ancestry binding is required".into())
     }
 }

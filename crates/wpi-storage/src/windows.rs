@@ -123,6 +123,12 @@ fn inventory() -> Result<Vec<InventoryDisk>> {
     }
     Ok(disks)
 }
+pub(super) fn bound_metadata(usb: &str, capacity: u64) -> Result<Option<InventoryDisk>> {
+    let all = inventory()?;
+    Ok(policy::bound_metadata(&all, usb, capacity)
+        .map_err(bad)?
+        .cloned())
+}
 pub(super) fn discover() -> Result<Discovery> {
     let candidates = inventory()?.iter().map(policy::candidate).collect();
     Ok(Discovery{host_supported:true,hardware_validated:false,candidates,message:"Read-only Windows inventory only. A phone must already expose mass storage. No phone mode, mount state or disk attribute was changed; normal-mode MTP is not block access.".into()})

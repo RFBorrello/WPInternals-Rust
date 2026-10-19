@@ -81,9 +81,12 @@ The controller retains one native operation lock across all stages:
    and still rejects unlock markers in the entry footprint.
 6. Request NOKM mass storage. Bind the physical port, complete Windows USB
    instance ancestry, exact capacity, disk identity, paired GPT and exclusive
-   read-only raw handle. The disk must **already be offline and read-only**;
-   no host disk attribute, mount, drive letter or privilege is changed. Missing
-   admission stops here, before opening a raw disk. Native ARM64 WinUSB access
+   read-only raw handle. A ten-minute inventory-only window allows the operator
+   to prepare the exact bound disk using the separately invoked, guarded
+   `prepare-bound-phone-disk.ps1` helper. The disk must **already be offline and
+   read-only before raw access**; the controller changes no host disk attributes,
+   mount, drive letter or privilege. Missing admission stops before opening a
+   raw disk. Native ARM64 WinUSB access
    to emergency/programmer modes must be available before testing this route.
 7. Stream a targeted snapshot in 64 KiB reads, reread every range and verify
    the output archive. On a post-NV layout, capture BACKUP_BS_NV rather than
@@ -117,6 +120,10 @@ There is no automatic retry, cleanup write, reset, rollback or crash resume.
 Manual setup repeats only read-only inventory checks, never interface-open,
 protocol-query or command attempts. Its journal records `manual_setup_selected`
 and `awaiting_driver_setup`; neither authorizes importing or resuming a session.
+The disk window records `awaiting_storage_setup` with the same storage uncertainty
+and no resume authority. The separate operator helper can set host read-only and
+offline flags only with explicit `-Apply`; its default is preview. See the
+[reviewed experimental procedure](rm875-experimental-test.md).
 
 ```text
 wpi inspect-spec-a-native-journal interrupted-native.jsonl

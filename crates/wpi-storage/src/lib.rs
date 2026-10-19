@@ -61,6 +61,49 @@ pub fn inspect(disk_number: u32) -> Result<StorageInspection> {
     }
 }
 
+/// Process-local inventory snapshot for a manual disk-state checkpoint. Not
+/// serializable, not constructible from disk numbers/reports, never raw access.
+#[derive(Clone, Debug)]
+pub struct BoundDiskState(policy::InventoryDisk);
+impl BoundDiskState {
+    pub fn ready(&self) -> bool {
+        self.0.offline && self.0.read_only
+    }
+    pub fn same_device(&self, other: &Self) -> bool {
+        let mut left = self.0.clone();
+        let mut right = other.0.clone();
+        left.offline = true;
+        left.read_only = true;
+        right.offline = true;
+        right.read_only = true;
+        left == right
+    }
+    /// Private local console instructions only; identifiers are hashed and must
+    /// be checked against fresh inventory by the explicit operator helper.
+    pub fn setup_command(&self, usb_instance: &str) -> String {
+        use sha2::{Digest, Sha256};
+        let quote = |s: &str| format!("'{}'", s.replace('\'', "''"));
+        format!("& .\\scripts\\prepare-bound-phone-disk.ps1 -UsbInstance {} -ExpectedPnpSha256 '{:x}' -ExpectedSerialSha256 '{:x}' -CapacityBytes {} -Apply",
+            quote(usb_instance), Sha256::digest(self.0.pnp_id.as_bytes()),
+            Sha256::digest(self.0.serial.as_bytes()), self.0.size)
+    }
+    pub fn disk_number(&self) -> u32 {
+        self.0.number
+    }
+}
+/// PnP/CIM inventory only. No raw handle, host attribute or phone write.
+pub fn bound_disk_state(usb_instance: &str, capacity: u64) -> Result<Option<BoundDiskState>> {
+    #[cfg(windows)]
+    {
+        Ok(windows::bound_metadata(usb_instance, capacity)?.map(BoundDiskState))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (usb_instance, capacity);
+        Err(unsupported())
+    }
+}
+
 /// Read-only snapshot using a USB instance obtained from the active native
 /// session. Raw disk numbers and imported JSON cannot select this capture's
 /// source. Windows must already have the disk offline and read-only.
@@ -215,4 +258,46 @@ fn unsupported() -> ImageError {
         "Native read-only storage access is currently Windows-only; no raw device was opened"
             .into(),
     )
+}
+
+#[cfg(test)]
+mod bound_state_tests {
+    use super::*;
+    fn state() -> BoundDiskState {
+        BoundDiskState(
+            serde_json::from_value(serde_json::json!({
+                "number":3,"model":"Synthetic phone",
+                "pnp_id":"USBSTOR\\DISK&VEN_QUALCOMM&PROD_MMC_STORAGE\\private-disk",
+                "serial":"private-serial","size":"34359738368","sector_size":512,
+                "bus_type":7,"offline":false,"read_only":false,"boot":false,"system":false,
+                "ancestors":["USB\\VID_05C6&PID_9006\\private-usb"]
+            }))
+            .unwrap(),
+        )
+    }
+    #[test]
+    fn state_flags_can_change_but_disk_identity_cannot() {
+        let a = state();
+        let mut b = a.clone();
+        assert!(!a.ready());
+        b.0.offline = true;
+        b.0.read_only = true;
+        assert!(b.ready() && a.same_device(&b));
+        for kind in 0..6 {
+            let mut b = a.clone();
+            match kind {
+                0 => b.0.number += 1,
+                1 => b.0.serial.push('X'),
+                2 => b.0.pnp_id.push('X'),
+                3 => b.0.ancestors.clear(),
+                4 => b.0.size = "512".into(),
+                _ => b.0.model.push('X'),
+            }
+            assert!(!a.same_device(&b));
+        }
+        assert!(!format!("{a:?}").contains("private"));
+        let command = a.setup_command("USB\\VID_05C6&PID_9006\\operator's-device");
+        assert!(command.contains("operator''s-device"));
+        assert!(!command.contains("private-serial") && !command.contains("private-disk"));
+    }
 }

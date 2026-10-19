@@ -23,6 +23,10 @@ hardware validation.
   and interruption-journal inspection. A separate native controller now joins
   entry, programmer, mass-storage capture, both EFIESP passes and return checks;
   it has not been executed on a phone.
+- A reviewed [experimental RM-875 test procedure](docs/rm875-experimental-test.md),
+  with session-bound manual driver and disk-state checkpoints. The separate disk
+  helper previews by default; explicit operator use can set only a pinned phone
+  disk's read-only/offline flags. No physical unlock or recovery is validated.
 
 - Windows/macOS/Linux USB discovery with nusb, and browser WebUSB selection.
 - Read-only NOKV identification on vendor-specific Lumia flash interfaces; native

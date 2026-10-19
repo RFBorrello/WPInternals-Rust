@@ -139,6 +139,7 @@ pub fn inspect<R: Read>(input: R) -> Result<Inspection, String> {
             | "verified"
             | "manual_setup_selected"
             | "awaiting_driver_setup"
+            | "awaiting_storage_setup"
             | "awaiting_manual_restart"
             | "completed"
             | "recovery_required" => {
@@ -198,6 +199,9 @@ mod tests {
         journal.storage = true;
         journal
             .append("awaiting_driver_setup", "observed target", None)
+            .unwrap();
+        journal
+            .append("awaiting_storage_setup", "bound disk state pending", None)
             .unwrap();
         let bytes = std::fs::read(&path).unwrap();
         let report = inspect(bytes.as_slice()).unwrap();

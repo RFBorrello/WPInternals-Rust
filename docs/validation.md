@@ -1284,3 +1284,39 @@ contains no Windows instance paths, public IDs or firmware contents. No phone
 query, mode command, storage write, loader upload or driver change was performed.
 Physical first-time setup, installed entry behavior, recovery and data preservation
 remain unvalidated; this closes a software workflow gap, not those evidence gaps.
+
+## Experimental test preparation and host-disk handoff (2026-10-19)
+
+The owner selected preparation of an experimental test accepting possible data
+loss; the choice did not start or authorize an unlock invocation. The
+[test procedure](rm875-experimental-test.md) records the complete intended
+sequence, pre-entry backup limits, manual setup steps, interruption decisions
+and the absence of a validated rollback. Prior revision `a60b847` passed all five
+CI jobs: Windows ARM64, macOS ARM64, Linux x86-64/ARM64 and browser. Those builds
+do not establish physical emergency entry, preservation or recovery.
+
+A new inventory-only mass-storage checkpoint waits up to ten minutes at each
+capture, holding the original USB session and one pinned disk identity. A separate
+operator helper previews by default, verifies full USB ancestry, separate PnP and
+serial hashes, geometry, host-disk exclusions and the current CIM ObjectId, then
+can explicitly set read-only and offline in two separately verified calls. It
+does not initialize/format, open a raw disk, change global mount policy, clear
+flags or retry a failed mutation. Metadata readiness does not relax the existing
+exclusive raw-handle, attribute, identity, paired GPT or readback requirements.
+Missing Boolean metadata and over-limit inventory also fail closed.
+
+All **117 affected Rust tests** passed (13 storage, 100 transport and four CLI),
+including state-flag changes versus identity changes, rejected raw access for
+online/writable setup candidates and checkpoint journal uncertainty. Strict
+Clippy and formatting passed. The operator helper's mocked tests passed in
+PowerShell 7 and Windows PowerShell 5.1, including wrong ancestors/pins, duplicate,
+boot/system, wrong bus/capacity, missing metadata, replaced CIM objects, uncertain
+state changes and non-administrator cases. No actual Set-Disk call occurred.
+
+A private launcher pins the optimized CLI and disk-setup assets, binds the phone
+by its reviewed serial digest and defaults to a complete offline preview. Its
+PowerShell 7 and Windows PowerShell previews passed against the actual pinned firmware inputs
+without creating the live run directory or enumerating USB. Private paths,
+baselines and launch artifacts remain ignored. No emergency entry, programmer,
+boot/GPT write, driver install or actual disk-flag change was performed during
+this preparation. Hardware validation and data preservation remain false.

@@ -64,7 +64,7 @@ fn present(selected: &Snapshot, current: &[Snapshot]) -> Result<bool, String> {
 /// Two consecutive ready observations. Metadata-only polling is repeatable;
 /// opening USB and protocol queries are deliberately outside this loop.
 #[cfg(any(windows, test))]
-fn poll<N, P, S>(
+pub(super) fn poll<N, P, S>(
     cancelled: &AtomicBool,
     mut elapsed: N,
     mut probe: P,
@@ -80,12 +80,12 @@ where
     loop {
         boundary(cancelled)?;
         if elapsed() >= limit {
-            return Err("Manual emergency driver setup timed out; no upload, retry or reset was sent by the checkpoint".into());
+            return Err("Manual setup checkpoint timed out; no upload, retry or reset was sent by the checkpoint".into());
         }
         let observed = probe()?;
         boundary(cancelled)?;
         if elapsed() >= limit {
-            return Err("Emergency driver metadata arrived after the setup deadline".into());
+            return Err("Manual setup metadata arrived after the checkpoint deadline".into());
         }
         ready = if observed { ready + 1 } else { 0 };
         if ready == 2 {
