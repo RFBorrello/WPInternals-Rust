@@ -46,6 +46,12 @@ digests, transfer counts/sizes and scope are public. Source images, saved raw GP
 installed captures and identifiers are not included. This record is not evidence
 of a physical write, recovery, preserved installed data or successful unlock.
 
+`rm875-entry-impact-model.json` is a separately labelled conservative model of
+whole begin/end chunks on the saved layout. Its 223-sector Data-tail intersection
+is not an observed device write, damage or knowledge of file allocation. The
+source entry profile was verified during the read-only prepared hardware cycle;
+the device-side write interpretation and original affected bytes remain unknown.
+
 `python scripts/make-spec-a-preflight-fixtures.py` generates
 `spec-a-preflight-locked.json` and `spec-a-preflight-primary.json` from the
 synthetic package FFU. Both contain invented Flash security responses and an

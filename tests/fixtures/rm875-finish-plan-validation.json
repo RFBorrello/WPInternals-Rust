@@ -18,5 +18,5 @@
   "host": "windows_arm64",
   "upstream_revision": "d8fd0aa516b16dc094df0422a3adc525af005c29",
   "second_pass_evidence": "synthetic_only",
-  "native_cycle_evidence": "not_run_in_this_milestone"
+  "native_cycle_evidence": "separate_read_only_record_lumia-1020-rm875-prepared-cycle.json"
 }

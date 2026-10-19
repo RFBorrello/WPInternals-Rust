@@ -16,6 +16,7 @@ pub mod recovery_journal;
 pub mod recovery_prepare;
 pub mod recovery_replay;
 pub mod spec_a_emergency_replay;
+pub mod spec_a_entry_impact;
 pub mod spec_a_finish_recovery;
 pub mod spec_a_finish_replay;
 pub mod spec_a_journal;

@@ -1,0 +1,33 @@
+{
+  "host": "windows_arm64",
+  "variant": "RM-875",
+  "model": "Lumia 1020",
+  "firmware": "3051.50009.1451.1003",
+  "source_commit": "729f6ab",
+  "cli_sha256": "08aa36a35a3ddcf05b88080141a1891fbce41d42f09490e6cb036fe600807c89",
+  "scope": "one_artifact_bound_read_only_normal_flash_normal_cycle",
+  "result": "read_only_preflight_roundtrip_observed",
+  "mode_commands_attempted": 2,
+  "cycle_elapsed_ms": 57503,
+  "normal_flash_normal_public_id_matches": true,
+  "flash_root_and_security_checked": true,
+  "flash_capacity_matches_saved_layout": true,
+  "source_ffu_integrity_checked": true,
+  "source_sbl1_and_loader_root_bound": true,
+  "artifacts": {
+    "source_ffu_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "package_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+    "saved_primary_sha256": "cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec",
+    "candidate_primary_sha256": "8bd4ecb71c8599300dafc897b2647ad9749faeddcc738130d071783d690c0f50",
+    "loader_input_sha256": "8eea1d5d5edace177d7dee502c9b3bb70f85e623f5b38bbcc0a6b64e0b97aa41",
+    "loader_decoded_sha256": "d30979f362a740e9e8ea79e02583abbba2a8bbb33b9efc512c2bfefca5714f37"
+  },
+  "returned_normal_usb_confirmed": true,
+  "firmware_or_partition_writes_sent": false,
+  "programmer_uploaded": false,
+  "gpt_queried": false,
+  "identity_authenticated": false,
+  "data_preservation_validated": false,
+  "unlock_verified": false,
+  "automatic_resume_allowed": false
+}

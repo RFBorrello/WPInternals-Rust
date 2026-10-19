@@ -116,10 +116,18 @@ session only if the original public ID and the exact prepared context agree.
 The CLI synchronizes a new JSONL journal before any mode command and at each
 mode-harness event. Reports are redacted and keep storage writes, hardware unlock
 validation and automatic resume false. No saved report or journal reconstructs a
-session. This new cycle has unit/transport regression coverage but has **not**
-been run physically in this milestone; the earlier five-query hardware record
-is not evidence for the new cycle. A failure can require manual phone restart.
+session. One [Windows ARM64 hardware cycle](../tests/hardware/lumia-1020-rm875-prepared-cycle.json)
+now passed: two mode commands, correlated identity in both modes and on return,
+source-root/security/capacity checks, and confirmed Normal USB. The measured
+cycle was 57,503 ms, excluding local input preparation. This does not validate
+entry, uploads, storage writes or unlock. A failure can require manual restart.
 Keep browser phone controls idle during an explicitly selected native cycle.
+
+The [entry preservation audit](spec-a-entry-preservation.md) now models the
+begin/end zero chunks against the same prepared layout. Its separately labeled
+conservative Data-tail intersection is not an observed write or damage. The
+audit is included in Normal-only reports and subsequent cycle headers; it was
+added after the recorded cycle and changes no phone request.
 
 ### Earlier Normal-only evidence
 

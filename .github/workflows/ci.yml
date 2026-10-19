@@ -76,6 +76,7 @@ jobs:
             docs/spec-a-joined-journal.md
             docs/spec-a-session.md
             docs/spec-a-finish-stages.md
+            docs/spec-a-entry-preservation.md
             docs/native-usb-transactions.md
             docs/native-emergency-probe.md
             docs/native-serial-arrival.md
@@ -89,6 +90,7 @@ jobs:
             tests/fixtures/rm875-live-layout-validation.json
             tests/fixtures/rm875-programmer-plan-validation.json
             tests/fixtures/rm875-finish-plan-validation.json
+            tests/fixtures/rm875-entry-impact-model.json
             tests/fixtures/rm875-recovery-audit-validation.json
             docs/rm875-firmware-search.md
             tests/hardware/windows-arm64-storage-discovery.json
@@ -98,6 +100,7 @@ jobs:
             tests/hardware/lumia-1020-rm875-emergency-probe-normal-refusal.json
             tests/hardware/lumia-1020-rm875-serial-arrival-readiness.json
             tests/hardware/lumia-1020-rm875-session-check.json
+            tests/hardware/lumia-1020-rm875-prepared-cycle.json
             resources/licenses/*
           if-no-files-found: error
   browser:

@@ -16,7 +16,7 @@ use wpi_protocol::{
 use wpi_types::{Operation, OperationEvent, OperationState};
 
 const DEADLINE_MS: u32 = 30_000;
-const ENTRY_CHUNK: usize = 0x20000;
+pub(crate) const ENTRY_CHUNK: usize = 0x20000;
 fn invalid(message: &str) -> ImageError {
     ImageError::Invalid(message.into())
 }

@@ -112,8 +112,11 @@ first boot-transfer phase. Save failures stop before the next command; journal
 files cannot authorize execution or automatic resume.
 A separate [artifact-bound session check](docs/spec-a-session.md) joins pinned FFU,
 package, GPT and loader inputs with fresh Normal identity bookends. Its native CLI
-performs five read-only queries; Flash correlation is tested through replay and
-phone writes remain disabled.
+can also run one explicit read-only Normal/Flash/Normal cycle; one Windows ARM64
+cycle passed source-root/security/capacity and returning identity checks. Storage
+writes remain disabled. The [entry preservation audit](docs/spec-a-entry-preservation.md)
+identifies a potential Data-tail intersection in a conservative end-chunk model;
+actual write behavior and affected-byte recovery remain unresolved.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.

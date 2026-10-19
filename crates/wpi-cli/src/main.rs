@@ -1312,7 +1312,7 @@ fn check_spec_a_session(args: CheckSpecASessionArgs) -> Result<(), Box<dyn Error
         writeln!(
             journal,
             "{}",
-            serde_json::json!({"kind":"experiment_header","experiment":wpi_transport::mode_test::public_id::PREPARED_EXPERIMENT,"artifacts":prepared.artifacts(),"firmware_or_partition_write_commands":false})
+            serde_json::json!({"kind":"experiment_header","experiment":wpi_transport::mode_test::public_id::PREPARED_EXPERIMENT,"artifacts":prepared.artifacts(),"entry_impact":wpi_core::spec_a_entry_impact::assess(&prepared)?,"firmware_or_partition_write_commands":false})
         )?;
         journal.flush()?;
         journal.sync_all()?;

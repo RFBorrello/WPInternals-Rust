@@ -1,0 +1,57 @@
+# Spec A entry preservation: unresolved end-relative write impact
+
+The boot-component programmer plan excludes MainOS, Data and EFIESP, but that
+does not establish preservation through the **earlier emergency entry**. The
+entry profile's first zero payload has both begin-relative and end-relative
+128 KiB mappings. `EntryPlan` verifies that profile before a prepared session can
+be constructed. The pinned upstream
+[FFU parser](https://github.com/ReneLergner/WPinternals/blob/d8fd0aa516b16dc094df0422a3adc525af005c29/Models/FFU.cs)
+labels access method 2 as relative to the end and ignores it for source extraction.
+That extraction behavior is not evidence of how the phone applies the payload.
+
+## Conservative model, not observed damage
+
+The new `spec_a_entry_impact::assess` models complete first/last chunks against
+the saved installed partition ranges in the same opaque prepared bundle. It
+requires a bounded capacity aligned to the known 128 KiB chunk size. Unknown
+geometry fails rather than producing a clear assessment. It exports names,
+ranges and intersections, never disk GUIDs, serials or partition contents.
+
+For the saved RM-875 layout, the modeled final chunk intersects **223 sectors
+(114,176 bytes)** of the Data partition, in addition to the disk's trailing
+metadata. An independent Python calculation on the saved GPT agrees with the
+[local model record](../tests/fixtures/rm875-entry-impact-model.json).
+This is an exposure under a conservative whole-chunk interpretation. It does
+**not** establish that this FlashApp would write all those sectors, that the
+sectors contain allocated files, or that any data has been damaged.
+
+No entry header or payload has been sent to the test phone. The subsequent
+[prepared hardware cycle](../tests/hardware/lumia-1020-rm875-prepared-cycle.json)
+was read-only apart from two mode commands and returned successfully to Normal.
+It did not test this write interpretation.
+
+The saved primary GPT and stock reference ZIP cannot reconstruct original user
+bytes from that end range. No capture of those installed bytes is available.
+The new impact report therefore leaves physical write interpretation, affected
+byte capture, preservation and write capability false. It accompanies native
+Normal session reports and future prepared-cycle journal headers. It cannot
+authorize execution or be imported to clear a gate.
+
+## Work needed before physical entry
+
+Determine the actual device-side end-mapping behavior or establish a mode-entry
+route that avoids the zero payload. Then bind any required installed-range
+captures to the selected device and define restoration after partial entry.
+This can involve targeted affected-range backups; a universal requirement for a
+complete raw device backup is not implied. The separate native emergency writer,
+mass-storage continuation and full recovery validation are also unfinished.
+
+Pinned `SwitchModeViewModel` contains the non-payload `NOKXCBE` emergency command,
+but describes the route as available on newer Lumias. It is a research candidate,
+not verified support for the RM-875. It has not been sent in this milestone and
+must not become an automatic fallback or an assumed recovery mechanism.
+
+Tests cover the 223-sector boundary intersection, a shorter Data partition that
+does not intersect, reserved ranges, invalid bounds, capacity overflow and
+unknown alignment. The calculation models potential exposure; resolving its
+physical meaning is still required before a data-preserving unlock can be claimed.

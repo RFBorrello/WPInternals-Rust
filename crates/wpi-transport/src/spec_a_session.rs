@@ -16,6 +16,7 @@ use wpi_types::DeviceMode;
 #[derive(Debug, Serialize)]
 pub struct Report {
     pub session: session::Report,
+    pub entry_impact: wpi_core::spec_a_entry_impact::Report,
     pub transport: &'static str,
     pub usb_descriptor_bookends_match: bool,
     pub physical_port_matches: bool,
@@ -117,6 +118,7 @@ pub fn check_normal<F: FnMut(&str)>(
     let (baseline, count) = capture_normal_bound(id, prepared, cancelled, progress)?;
     Ok(Report {
         session: baseline.report(),
+        entry_impact: wpi_core::spec_a_entry_impact::assess(prepared)?,
         transport: "native_usb",
         usb_descriptor_bookends_match: true,
         physical_port_matches: true,

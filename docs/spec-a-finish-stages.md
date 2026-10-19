@@ -105,10 +105,12 @@ only; an installed capture is not available. See the
 [metadata record](../tests/fixtures/rm875-finish-plan-validation.json).
 
 The [artifact-bound native mode cycle](spec-a-session.md) now connects Normal,
-Flash and returning-Normal identity checks, but has not been run on hardware in
-this milestone. Remaining work includes the complete native emergency-entry/
+Flash and returning-Normal identity checks and passed once on Windows ARM64.
+The [entry impact audit](spec-a-entry-preservation.md) also identified an unresolved
+potential Data-tail intersection under a conservative end-chunk interpretation.
+Remaining work includes resolving that exposure and the complete native emergency-entry/
 loader/programmer writer, subsequent mode/storage continuation, physical disk
 capture binding, recovery decisions after each uncertain phase, and successful
 physical unlock/return-to-Windows validation. Those are implementation and
 validation gaps; another approval or a changed capability flag cannot fill them.
-No phone command was sent while validating this milestone's local calculations.
+No storage write was sent in this milestone. Its local calculations did not contact a phone.

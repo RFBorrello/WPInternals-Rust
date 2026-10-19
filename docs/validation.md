@@ -1,4 +1,4 @@
-# Local validation — October 13–15, 2026
+# Local validation — October 13–18, 2026
 
 ## October 18: boot-integrity plans, interruption inspection and native session handoff
 
@@ -11,7 +11,7 @@ retains one artifact context through Normal/Flash/Normal checks. It is CLI-only
 and sends no GPT, firmware, programmer or partition-write commands.
 
 On Windows ARM64, 291 tests passed in the full core/image/protocol/transport/CLI
-run. Four subsequent regression additions passed in focused checks, for **295
+run. Six subsequent regression additions passed in focused checks, for **297
 distinct passing tests** across these crates. The complete 77-test native
 transport suite passed after the final handle-lifetime and return-check changes.
 Strict all-target Clippy, formatting and WASM compilation passed. The CLI help
@@ -25,11 +25,15 @@ their bytes, addresses, sizes, NV resource and rebuilt-primary digest; only
 The 64 MiB image members exercise the new bounded image reader rather than the
 32 MiB metadata allocator. The second pass has synthetic evidence only.
 
-No phone command, mode cycle, upload or storage write was executed during this
-milestone. The prepared native cycle, complete native emergency writer,
-mass-storage continuation, installed originals/recovery policy and successful
-physical unlock remain unvalidated or unimplemented as documented. Existing
-Normal-only hardware records do not validate the new cycle. UI tests were not
+After those local checks, the [prepared native hardware cycle](../tests/hardware/lumia-1020-rm875-prepared-cycle.json)
+passed once on Windows ARM64 using commit `729f6ab`: two mode commands, matching
+Normal/Flash/Normal IDs, source-root/security/capacity checks and returning Normal
+USB, in 57,503 ms excluding local preparation. No entry, upload, GPT query or
+storage write was sent. The complete native emergency writer, mass-storage
+continuation, installed originals/recovery policy and successful physical unlock
+remain unvalidated or unimplemented. The subsequent [entry impact model](spec-a-entry-preservation.md)
+flags a potential 223-sector Data-tail intersection; actual write behavior and
+preservation remain unverified. UI tests were not
 rerun because no UI or IPC implementation changed. Remote CI for this revision
 is pending.
 

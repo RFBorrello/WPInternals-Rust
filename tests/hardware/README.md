@@ -25,3 +25,11 @@ on the exact recorded combination, not repeatability or production write support
 
 See `docs/hardware-validation.md` for the first read-only sessions and evidence
 requirements. Personal phone identifiers must be redacted before publication.
+
+`lumia-1020-rm875-prepared-cycle.json` records one artifact-bound read-only cycle
+using source commit `729f6ab` and the exact CLI digest. The pinned source/package/
+loader/layout context, fresh root/security/capacity checks and identity on return
+passed; two mode commands took 57,503 ms, excluding local preparation. No entry,
+programmer, GPT query or storage write was sent. It does not validate unlock or
+preservation. The separately labelled conservative entry-impact model is a local
+calculation, not hardware evidence or observed damage.
