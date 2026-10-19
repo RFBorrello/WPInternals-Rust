@@ -41,8 +41,11 @@ the readiness check does not treat its label or VID/PID as proof of identity.
 See [Windows emergency access](windows-emergency-access.md) for the sanitized
 per-endpoint report, read-only Administrator helper and endpoint-specific setup
 requirements. No driver-binding package or automatic rebind is installed.
-First-time setup without an eligible historical binding is not yet implemented;
-see the [setup limitation](windows-emergency-access.md#first-time-setup-limitation).
+An optional first-time checkpoint is now available with
+`--manual-emergency-driver-setup`. It uses a distinct execution confirmation,
+retains the live phone session and waits for manually configured access after
+entry. Default execution still requires the historical binding. See the
+[first-time workflow](windows-emergency-access.md#first-time-setup-checkpoint).
 
 The browser/desktop capability matrix is unchanged. Native experiments do not
 establish general unlock support, browser support, Lumia 730 support or parity.
@@ -62,6 +65,11 @@ The controller retains one native operation lock across all stages:
    upload exactly one pinned loader in bounded RAM transfers and start it.
    Require a new arrival and validate the V1 programmer handshake. No alternate
    loader, protocol guessing or serial fallback is attempted.
+   With manual setup selected, pause before opening the DLOAD endpoint and again
+   before opening the returning programmer endpoint. Each checkpoint is limited
+   to a directly bound `05c6:9008` device with one vendor bulk interface; F006,
+   HID, serial and composite setups are excluded. An already healthy binding
+   needs no operator change. See the workflow for polling and interruption limits.
 4. Send the ten immutable programmer regions, close and reboot. The returning
    BootManager may receive one version-checked NOKS. Revalidate the original
    Flash identity/root/capacity and require the candidate primary twice before
@@ -106,6 +114,9 @@ Write records identify byte addresses and lengths; request bytes and public IDs
 are not logged. A journal failure, short OUT, timeout, wrong reply, disconnect,
 cancellation, readback mismatch or identity change stops with no further command.
 There is no automatic retry, cleanup write, reset, rollback or crash resume.
+Manual setup repeats only read-only inventory checks, never interface-open,
+protocol-query or command attempts. Its journal records `manual_setup_selected`
+and `awaiting_driver_setup`; neither authorizes importing or resuming a session.
 
 ```text
 wpi inspect-spec-a-native-journal interrupted-native.jsonl

@@ -80,6 +80,11 @@ struct NativeUnlockArgs {
     /// Run the reviewed experimental controller. Default is local preview only.
     #[arg(long, requires_all=["device_id", "confirm", "journal", "first_snapshot", "final_snapshot"])]
     execute: bool,
+    /// Permit entry before a historical driver binding exists, then wait up to
+    /// ten minutes per emergency endpoint for manual setup. Changes storage
+    /// when executed; requires a distinct confirmation. Preview stays offline.
+    #[arg(long)]
+    manual_emergency_driver_setup: bool,
     #[arg(long, requires = "execute")]
     device_id: Option<String>,
     #[arg(long, requires = "execute")]
@@ -1300,7 +1305,12 @@ fn native_unlock(args: NativeUnlockArgs) -> Result<(), Box<dyn Error>> {
         spec_a_emergency_replay::{EntryPlan, Loader},
         spec_a_session::Prepared,
     };
-    if args.execute && args.confirm.as_deref() != Some(wpi_transport::spec_a_native::CONFIRMATION) {
+    let access = if args.manual_emergency_driver_setup {
+        wpi_transport::spec_a_native::EmergencyAccess::ManualSetup
+    } else {
+        wpi_transport::spec_a_native::EmergencyAccess::ExistingBinding
+    };
+    if args.execute && args.confirm.as_deref() != Some(access.confirmation()) {
         return Err("Execution requires the exact experimental unlock confirmation; no file or device was opened".into());
     }
     let cancelled = Arc::new(AtomicBool::new(false));
@@ -1351,6 +1361,7 @@ fn native_unlock(args: NativeUnlockArgs) -> Result<(), Box<dyn Error>> {
                 .ok_or("Device selection required")?,
             &plan,
             args.confirm.as_deref().ok_or("Confirmation required")?,
+            access,
             args.journal.as_deref().ok_or("New journal required")?,
             args.first_snapshot
                 .as_deref()
@@ -1363,7 +1374,7 @@ fn native_unlock(args: NativeUnlockArgs) -> Result<(), Box<dyn Error>> {
         )?;
         print(report)?;
     } else {
-        print(plan.preview())?;
+        print(plan.preview_with_access(access))?;
     }
     Ok(())
 }

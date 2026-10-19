@@ -145,6 +145,37 @@ where
 pub(super) fn open_bound(
     selected: &Snapshot,
 ) -> Result<usb_session::Session<usb_session::NativeIo>, String> {
+    let (device, interfaces) = describe_bound(selected)?;
+    let (number, input, output) = select_interface(&interfaces)?;
+    validate_now(selected)?;
+    let interface = device
+        .claim_interface(number)
+        .wait()
+        .map_err(|_| "Cannot claim selected emergency bulk interface; no probe was sent")?;
+    let io = usb_session::NativeIo::new(interface, input, output)
+        .map_err(|_| "Cannot open emergency bulk endpoints; no probe was sent")?;
+    validate_now(selected)?;
+    Ok(usb_session::Session::new(io))
+}
+
+/// Descriptor-only first-time setup admission. No interface is claimed and no
+/// protocol query is sent. Windows reads these descriptors through the USB hub.
+#[cfg(windows)]
+pub(super) fn check_setup_descriptors(selected: &Snapshot) -> Result<(), String> {
+    let (device, interfaces) = describe_bound(selected)?;
+    if !matches!(device.device_descriptor().class(), 0 | 0xff) {
+        return Err("First-time setup refuses a protected USB device class".into());
+    }
+    setup_interface(&interfaces)
+}
+#[cfg(any(windows, test))]
+fn setup_interface(interfaces: &[Interface]) -> Result<(), String> {
+    if interfaces.len() != 1 || interfaces[0].endpoints.len() != 2 {
+        return Err("First-time setup requires a single vendor-specific bulk interface with exactly two endpoints".into());
+    }
+    select_interface(interfaces).map(|_| ())
+}
+fn describe_bound(selected: &Snapshot) -> Result<(nusb::Device, Vec<Interface>), String> {
     admit(selected)?;
     validate_now(selected)?;
     let selected_infos: Vec<_> = nusb::list_devices()
@@ -181,16 +212,8 @@ pub(super) fn open_bound(
                 .collect(),
         })
         .collect();
-    let (number, input, output) = select_interface(&interfaces)?;
     validate_now(selected)?;
-    let interface = device
-        .claim_interface(number)
-        .wait()
-        .map_err(|_| "Cannot claim selected emergency bulk interface; no probe was sent")?;
-    let io = usb_session::NativeIo::new(interface, input, output)
-        .map_err(|_| "Cannot open emergency bulk endpoints; no probe was sent")?;
-    validate_now(selected)?;
-    Ok(usb_session::Session::new(io))
+    Ok((device, interfaces))
 }
 
 pub fn run(id: &str, protocol: Protocol) -> Result<Report, String> {
@@ -327,6 +350,26 @@ mod tests {
         let mut i = interface(1);
         i.endpoints[0].0 = 0x80;
         assert!(select_interface(&[i]).is_err());
+    }
+    #[test]
+    fn first_time_setup_excludes_composite_alternates_and_extra_nonbulk_endpoints() {
+        assert!(setup_interface(&[interface(0)]).is_ok());
+        assert!(setup_interface(&[]).is_err());
+        assert!(setup_interface(&[interface(0), interface(1)]).is_err());
+        let mut i = interface(0);
+        i.endpoints.push((0x82, false));
+        assert!(setup_interface(&[i]).is_err());
+        for class in [3, 8, 0x0a] {
+            let mut i = interface(0);
+            i.class = class;
+            assert!(setup_interface(&[i]).is_err());
+        }
+        let mut i = interface(0);
+        i.alternate = 1;
+        assert!(setup_interface(&[i]).is_err());
+        let mut i = interface(0);
+        i.endpoints[0].1 = false;
+        assert!(setup_interface(&[i]).is_err());
     }
     fn replies() -> VecDeque<wpi_protocol::Result<Vec<u8>>> {
         let mut root = vec![0x18, 1, 0];

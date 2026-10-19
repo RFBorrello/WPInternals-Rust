@@ -130,6 +130,7 @@ jobs:
             tests/fixtures/rm875-entry-impact-model.json
             tests/fixtures/rm875-entry-code-validation.json
             tests/fixtures/rm875-native-controller-preview.json
+            tests/fixtures/rm875-manual-driver-setup-validation.json
             tests/fixtures/rm875-recovery-audit-validation.json
             docs/rm875-firmware-search.md
             tests/hardware/windows-arm64-storage-discovery.json

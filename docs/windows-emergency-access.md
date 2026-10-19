@@ -131,14 +131,63 @@ manual in-box setup remains a separate route once that actual endpoint is
 available; a custom package signature is not a universal prerequisite for it.
 Neither route clears the controller's live token/driver gates or validates entry.
 
-## First-time setup limitation
+## First-time setup checkpoint
 
-The current controller requires an eligible historical binding **before** entry.
-On a first-time host with no such record, it stops before any phone command. It
-does not yet retain a live session across a manual first-time driver setup after
-emergency arrival. Do not create a fake historical record or rebind the unrelated
-HID candidate to satisfy that check. A future setup checkpoint must retain the
-Normal/Flash identity and physical port, observe the actual endpoint, and repeat
-descriptor and DLOAD-root checks before any loader upload. Entering emergency
-mode to reach that checkpoint still changes storage with the current route; the
-unsigned INF and a corrected GUID check do not establish data preservation.
+Default execution still requires an eligible historical binding **before**
+entry. The explicit `--manual-emergency-driver-setup` alternative removes only
+that historical-binding prerequisite, retaining the Windows ARM64, Administrator,
+artifact, identity, GPT and output-file checks. Add this option to the normal
+offline preview command first; it does not enumerate USB. The preview reports
+`emergency_access: "manual_setup"` and a 600-second limit per emergency endpoint.
+Execution requires the distinct confirmation
+`RM875-EXPERIMENTAL-ENTRY-BEFORE-DRIVER-SETUP-WITHOUT-FULL-BACKUP`, together with
+the existing `--execute`, device and new journal/snapshot arguments. The ordinary
+unlock confirmation cannot enable manual setup.
+
+This alternative sends the same storage-changing header/zero entry **before**
+emergency driver availability has been established. It is an unvalidated native
+experiment, not a read-only discovery test. A setup failure can leave the phone
+in emergency mode with GPT/boot state already changed; cancellation does not
+restore those bytes. It does not resolve the missing installed FlashApp identity,
+pre-entry boot originals, full app-data backup or physical recovery validation.
+Do not run entry solely to install a driver on a phone whose data must be safe.
+
+The checkpoint retains the original Normal/Flash proof, prepared artifacts,
+operation lock and physical port in the same running process. It admits only the
+observed whole-device `05c6:9008` endpoint, a device class of 0/FF and exactly one
+vendor interface with two bulk endpoints and alternate zero. An unconfigured
+endpoint must have no service, an unknown/USBDevice setup class and Windows
+problem code 28. HID, serial, composite, F006, protected class metadata, existing
+incompatible drivers and other present-device errors stop the experiment. The
+script does not advise replacing any of those drivers.
+
+The local console shows the **exact Windows instance target** for Device Manager
+selection. Match its Details → Device instance path before using the reviewed
+in-box WinUSB route. If the target is not available or does not match, stop and
+inspect. Do not use a VID/PID label to choose another node. This private instance
+path is not written to the JSON journal or reports; keep captured console logs
+private. The program does not install/stage a package, write a registry value,
+elevate a process or change signature policy. The unsigned project INF remains
+development material, not an installation instruction.
+
+During the fixed ten-minute window, only nusb discovery and exact-instance PnP
+metadata are polled. A temporary absence during manual binding resets the ready
+count. A different descriptor/identity on the bound port, movement to another
+port, an ambiguous target or an inventory error stops immediately. Two successive
+ready observations require the selected node to be present, USBDevice/WinUSB and
+problem-free. A historical or unrelated node cannot satisfy that check.
+
+The process continues automatically after readiness and fresh descriptor checks;
+it opens the bulk interface once. DLOAD alive/root checks must match the prepared
+root before any loader upload, and the programmer arrival has a separate setup
+window followed by its existing V1 handshake before boot writes. There is no
+interface-open retry, alternate loader, protocol fallback or automatic reset.
+The deadline is checked after metadata and descriptor work; individual Windows
+inventory subprocesses also have their existing 20-second timeout.
+
+Ctrl+C stops at a safe boundary. Keep the process and cable connected while
+configuring the exact node; do not restart the unlock command as a continuation.
+`awaiting_driver_setup` in an interrupted journal requires inspection of actual
+phone state. Imported journal records cannot restore the process-local identity
+proof or authorize a resume. Neither software tests nor this option establish
+physical emergency access or data-preserving entry on the test 1020.

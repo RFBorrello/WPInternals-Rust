@@ -63,7 +63,7 @@ pub enum Service {
     None,
 }
 impl Endpoint {
-    fn usable_binding(&self) -> bool {
+    pub(super) fn usable_binding(&self) -> bool {
         self.service == Service::Winusb
             && self.setup_class == SetupClass::UsbDevice
             && !self.protected_class
@@ -93,7 +93,7 @@ fn parse(bytes: &[u8]) -> Result<Bindings, String> {
 pub fn inspect() -> Result<Readiness, String> {
     let supported = cfg!(all(target_os = "windows", target_arch = "aarch64"));
     let admin = wpi_storage::raw_access_prerequisite().is_ok();
-    let bindings = bindings()?;
+    let bindings = bindings(None)?;
     Ok(report(supported, admin, bindings))
 }
 fn report(supported: bool, admin: bool, bindings: Bindings) -> Readiness {
@@ -155,13 +155,13 @@ fn report(supported: bool, admin: bool, bindings: Bindings) -> Readiness {
     }
 }
 #[cfg(not(windows))]
-fn bindings() -> Result<Bindings, String> {
+fn bindings(_selected_instance: Option<&str>) -> Result<Bindings, String> {
     Ok(Bindings {
         endpoints: Vec::new(),
     })
 }
 #[cfg(windows)]
-fn bindings() -> Result<Bindings, String> {
+fn bindings(selected_instance: Option<&str>) -> Result<Bindings, String> {
     use std::{
         io::Read,
         os::windows::process::CommandExt,
@@ -187,6 +187,12 @@ fn bindings() -> Result<Bindings, String> {
             "-Command",
             script,
         ])
+        // Environment data is never interpolated into PowerShell source. An
+        // inherited caller value must not narrow the ordinary host inventory.
+        .env(
+            "WPI_EMERGENCY_SETUP_INSTANCE",
+            selected_instance.unwrap_or(""),
+        )
         .creation_flags(0x08000000)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -221,9 +227,20 @@ fn bindings() -> Result<Bindings, String> {
         .map_err(|_| "Driver readiness reader failed")?
         .map_err(super::text)?;
     if !result?.success() || bytes.len() > 65536 {
-        return Err("Emergency driver readiness failed; no phone command was sent".into());
+        return Err("Emergency driver readiness metadata collection failed".into());
     }
     parse(&bytes)
+}
+#[cfg(windows)]
+pub(super) fn selected_binding(instance: &str) -> Result<Option<Endpoint>, String> {
+    if instance.is_empty() || instance.len() > 512 || instance.chars().any(char::is_control) {
+        return Err("Invalid selected Windows instance metadata".into());
+    }
+    let mut selected = bindings(Some(instance))?.endpoints;
+    if selected.len() > 1 {
+        return Err("Ambiguous selected emergency binding".into());
+    }
+    Ok(selected.pop())
 }
 #[cfg(test)]
 mod tests {

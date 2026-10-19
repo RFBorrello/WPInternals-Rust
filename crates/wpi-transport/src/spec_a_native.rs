@@ -11,6 +11,7 @@ use nusb::hotplug::HotplugEvent;
 #[cfg(windows)]
 use nusb::MaybeFuture;
 use serde::{Deserialize, Serialize};
+mod driver_setup;
 pub mod journal;
 pub mod readiness;
 use sha2::{Digest, Sha256};
@@ -34,6 +35,32 @@ use wpi_protocol::{
 use wpi_types::{BootloaderFamily, DeviceMode};
 
 pub const CONFIRMATION: &str = "RM875-EXPERIMENTAL-UNLOCK-WITHOUT-FULL-BACKUP";
+pub const SETUP_CONFIRMATION: &str =
+    "RM875-EXPERIMENTAL-ENTRY-BEFORE-DRIVER-SETUP-WITHOUT-FULL-BACKUP";
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum EmergencyAccess {
+    #[default]
+    ExistingBinding,
+    ManualSetup,
+}
+impl EmergencyAccess {
+    pub fn confirmation(self) -> &'static str {
+        match self {
+            Self::ExistingBinding => CONFIRMATION,
+            Self::ManualSetup => SETUP_CONFIRMATION,
+        }
+    }
+    fn admit(self, host: &readiness::Readiness) -> Result<(), String> {
+        if !host.supported_experiment_host
+            || !host.administrator_ready
+            || (self == Self::ExistingBinding && !host.prerequisites_met)
+        {
+            return Err("Native unlock access prerequisites are missing; run native-unlock-readiness. No phone command was sent.".into());
+        }
+        Ok(())
+    }
+}
 fn hash(b: &[u8]) -> String {
     format!("{:x}", Sha256::digest(b))
 }
@@ -64,6 +91,8 @@ pub struct Preview {
     pub secondary_gpt_start_sector: u64,
     pub requires_native_windows_arm64: bool,
     pub requires_administrator: bool,
+    pub emergency_access: EmergencyAccess,
+    pub manual_setup_timeout_seconds_per_endpoint: Option<u64>,
     pub requires_offline_read_only_storage: bool,
     pub installed_flashapp_binary_verified: bool,
     pub installed_originals_captured: bool,
@@ -118,6 +147,9 @@ impl<'a> Plan<'a> {
             .recorded_capacity_sectors
     }
     pub fn preview(&self) -> Preview {
+        self.preview_with_access(EmergencyAccess::ExistingBinding)
+    }
+    pub fn preview_with_access(&self, access: EmergencyAccess) -> Preview {
         Preview {
             preview_only: true, phone_contacted: false, phone_writes_enabled: false,
             profile: "Lumia 1020 / RM-875 / 059T909 / 3051.50009.1451.1003 / experimental",
@@ -128,6 +160,8 @@ impl<'a> Plan<'a> {
                 .map(|r| r.bytes().len() as u64).sum(),
             secondary_gpt_bytes: self.secondary.len(), secondary_gpt_start_sector: self.capacity() - 33,
             requires_native_windows_arm64: true, requires_administrator: true,
+            emergency_access: access,
+            manual_setup_timeout_seconds_per_endpoint: (access == EmergencyAccess::ManualSetup).then_some(driver_setup::TIMEOUT_SECONDS),
             requires_offline_read_only_storage: true, installed_flashapp_binary_verified: false,
             installed_originals_captured: false, data_preservation_validated: false,
             hardware_validated: false, automatic_resume_allowed: false,
@@ -150,6 +184,7 @@ impl<'a> Plan<'a> {
                 "Qualcomm USB WinUSB binding, loader acceptance, NOKF acknowledgements and engineering-SBL3 storage behavior require hardware validation.",
                 "Mass-storage disks must already be offline and read-only. This controller never changes host disk attributes or assigns drive letters.",
                 "Optional upstream MainOS patching is not implemented; failure to boot ends in recovery-required state.",
+                "Manual setup mode, if selected, permits storage-changing emergency entry before a historical binding exists. It waits for manual WinUSB setup on the observed 9008 endpoint, then continues after descriptor and protocol checks. No driver is installed automatically.",
             ],
         }
     }
@@ -302,22 +337,21 @@ pub fn run<F: FnMut(&str)>(
     id: &str,
     plan: &Plan<'_>,
     confirmation: &str,
+    emergency_access: EmergencyAccess,
     journal: &Path,
     first_snapshot: &Path,
     final_snapshot: &Path,
     cancelled: &AtomicBool,
     mut progress: F,
 ) -> Result<Report, String> {
-    if confirmation != CONFIRMATION {
+    if confirmation != emergency_access.confirmation() {
         return Err("Explicit experimental unlock confirmation is required".into());
     }
     if !cfg!(all(target_os = "windows", target_arch = "aarch64")) {
         return Err("This initial native unlock experiment supports Windows ARM64 only".into());
     }
     wpi_storage::raw_access_prerequisite().map_err(text)?;
-    if !readiness::inspect()?.prerequisites_met {
-        return Err("Native unlock access prerequisites are missing; run native-unlock-readiness. No phone command was sent.".into());
-    }
+    emergency_access.admit(&readiness::inspect()?)?;
     validate_outputs([journal, first_snapshot, final_snapshot])?;
     // Test local output permissions before a USB interface or mode is touched.
     for output in [first_snapshot, final_snapshot] {
@@ -346,9 +380,17 @@ pub fn run<F: FnMut(&str)>(
         "Experimental native plan; evidence flags remain unverified",
         None,
     )?;
+    if emergency_access == EmergencyAccess::ManualSetup {
+        sink.append(
+            "manual_setup_selected",
+            "Explicit first-time setup policy; entry before driver availability was acknowledged",
+            None,
+        )?;
+    }
     let result = execute(
         id,
         plan,
+        emergency_access,
         &mut sink,
         first_snapshot,
         final_snapshot,
@@ -672,6 +714,7 @@ fn enter_flash<'a>(
 fn execute<F: FnMut(&str)>(
     id: &str,
     plan: &Plan<'_>,
+    emergency_access: EmergencyAccess,
     sink: &mut Journal,
     first_snapshot: &Path,
     final_snapshot: &Path,
@@ -742,7 +785,15 @@ fn execute<F: FnMut(&str)>(
     let (flash, proof) = enter_flash(&returning, returned, &port, sink, cancelled)?;
     check_flash(&proof, &flash, None, plan.capacity(), cancelled)?;
     progress("Entering emergency mode with the pinned header and zero chunk");
-    let flash = emergency(plan, &flash, &port, sink, cancelled, progress)?;
+    let flash = emergency(
+        plan,
+        &flash,
+        &port,
+        sink,
+        cancelled,
+        progress,
+        emergency_access,
+    )?;
     check_flash(
         &proof,
         &flash,
@@ -871,6 +922,7 @@ fn execute<F: FnMut(&str)>(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn emergency<F: FnMut(&str)>(
     plan: &Plan<'_>,
     source: &Snapshot,
@@ -878,6 +930,7 @@ fn emergency<F: FnMut(&str)>(
     sink: &mut Journal,
     cancelled: &AtomicBool,
     progress: &mut F,
+    emergency_access: EmergencyAccess,
 ) -> Result<Snapshot, String> {
     let mut channel = Channel::open(source)?;
     let header = flash::ffu_header_v1(plan.prepared.entry().header_bytes()).map_err(text)?;
@@ -901,6 +954,9 @@ fn emergency<F: FnMut(&str)>(
     let download = watch.wait(source, port, DeviceMode::Emergency, cancelled, |_, _| {
         Ok(true)
     })?;
+    if emergency_access == EmergencyAccess::ManualSetup {
+        driver_setup::wait(&download, sink, cancelled, progress)?;
+    }
     let mut io = super::emergency_probe::open_bound(&download)?;
     let framed = |io: &mut usb_session::Session<usb_session::NativeIo>,
                   selected: &Snapshot,
@@ -944,6 +1000,9 @@ fn emergency<F: FnMut(&str)>(
     let programmer = watch.wait(&download, port, DeviceMode::Emergency, cancelled, |_, _| {
         Ok(true)
     })?;
+    if emergency_access == EmergencyAccess::ManualSetup {
+        driver_setup::wait(&programmer, sink, cancelled, progress)?;
+    }
     let mut io = super::emergency_probe::open_bound(&programmer)?;
     progress("Send immutable programmer regions; stop on any invalid or missing acknowledgement");
     for (stage, request, ack) in [
@@ -1169,6 +1228,32 @@ fn overlay(
 mod tests {
     use super::*;
     use std::{cell::Cell, sync::atomic::AtomicBool};
+    #[test]
+    fn manual_setup_changes_only_historical_binding_admission_and_confirmation() {
+        let mut host = readiness::Readiness {
+            supported_experiment_host: true,
+            administrator_ready: true,
+            known_emergency_endpoint_count: 0,
+            known_winusb_bindings: 0,
+            usable_winusb_bindings: 0,
+            present_emergency_endpoint_count: 0,
+            endpoints: vec![],
+            prerequisites_met: false,
+            phone_contacted: false,
+            driver_changes_sent: false,
+            hardware_validated: false,
+            messages: vec![],
+        };
+        assert_eq!(EmergencyAccess::default(), EmergencyAccess::ExistingBinding);
+        assert!(EmergencyAccess::ExistingBinding.admit(&host).is_err());
+        assert!(EmergencyAccess::ManualSetup.admit(&host).is_ok());
+        assert_ne!(EmergencyAccess::ManualSetup.confirmation(), CONFIRMATION);
+        host.administrator_ready = false;
+        assert!(EmergencyAccess::ManualSetup.admit(&host).is_err());
+        host.administrator_ready = true;
+        host.supported_experiment_host = false;
+        assert!(EmergencyAccess::ManualSetup.admit(&host).is_err());
+    }
     pub(super) fn binding() -> Binding {
         Binding {
             source_ffu_sha256: hash(b"ffu"),

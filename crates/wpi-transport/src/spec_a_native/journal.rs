@@ -137,6 +137,8 @@ pub fn inspect<R: Read>(input: R) -> Result<Inspection, String> {
             }
             "prepared"
             | "verified"
+            | "manual_setup_selected"
+            | "awaiting_driver_setup"
             | "awaiting_manual_restart"
             | "completed"
             | "recovery_required" => {
@@ -183,6 +185,39 @@ mod tests {
             .append("completed", "returned Normal", None)
             .unwrap();
         std::fs::read(path).unwrap()
+    }
+    #[test]
+    fn manual_setup_checkpoint_retains_storage_uncertainty_without_resume_authority() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("setup.jsonl");
+        let mut journal = Journal::create(&path, binding()).unwrap();
+        journal.append("prepared", "pinned", None).unwrap();
+        journal
+            .append("manual_setup_selected", "explicit policy", None)
+            .unwrap();
+        journal.storage = true;
+        journal
+            .append("awaiting_driver_setup", "observed target", None)
+            .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let report = inspect(bytes.as_slice()).unwrap();
+        assert!(report.storage_may_have_changed && report.state_inspection_required);
+        assert!(!report.completion_reported && !report.automatic_resume_allowed);
+        journal
+            .append("recovery_required", "setup expired", None)
+            .unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(inspect(bytes.as_slice()).unwrap().state_inspection_required);
+        // A setup marker cannot erase an unresolved storage-command intent.
+        let path = dir.path().join("pending.jsonl");
+        let mut journal = Journal::create(&path, binding()).unwrap();
+        journal.append("prepared", "pinned", None).unwrap();
+        journal.storage = true;
+        journal.append("intent", "entry", Some(b"payload")).unwrap();
+        journal
+            .append("awaiting_driver_setup", "invalid transition", None)
+            .unwrap();
+        assert!(inspect(std::fs::read(&path).unwrap().as_slice()).is_err());
     }
     #[test]
     fn every_torn_line_and_unmatched_intent_remain_uncertain_and_never_admit_resume() {

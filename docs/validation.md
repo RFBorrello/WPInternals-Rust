@@ -1248,3 +1248,39 @@ HID record, zero present emergency endpoints and zero usable WinUSB bindings.
 The current process was not Administrator. The new whole-device classification
 does not admit that HID record; phone contact and driver-change flags stayed
 false.
+
+## First-time emergency driver setup checkpoint (2026-10-19)
+
+The optional native `--manual-emergency-driver-setup` mode retains the prepared
+plan, original Normal/Flash proof and operation lock across manual binding of an
+observed whole-device 9008 endpoint. Default execution retains its historical
+binding prerequisite. The setup alternative has a distinct execution confirmation
+because storage-changing entry precedes established emergency USB access. Preview
+remains offline; no application write capability or compatibility status changed.
+
+The checkpoint admits only an unconfigured or healthy WinUSB target with exact
+instance and physical-port correlation, vendor descriptors and a single bulk
+pair. It polls discovery/PnP metadata for at most ten minutes per endpoint, allows
+temporary absence during manual setup and requires two ready observations before
+fresh descriptor checks and one interface-open attempt. DLOAD root verification
+still precedes loader upload, and the returning programmer has its own checkpoint
+and existing V1 handshake. Nothing installs or rebinds a driver automatically.
+Interruption retains storage uncertainty and does not permit journal-based resume.
+
+All **100 transport tests and four CLI subprocess tests** passed, covering
+explicit policy/confirmation admission, protected/composite/serial targets,
+changed/absent/ambiguous devices, readiness stability, cancellation, late metadata,
+timeouts, descriptor shape and journal interruption. Exact-instance inventory
+fixtures passed in PowerShell 7 and Windows PowerShell 5.1, including unrelated
+records, partial matches and code-like strings treated as data. Strict Clippy,
+formatting and the optimized CLI build passed.
+
+The optimized CLI successfully composed a manual-setup preview from the actual
+pinned RM-875 FFU, reference package, saved GPT, loader and donor: 7,529,371
+programmer bytes, 33,835,520 first-pass bytes, and a 600-second setup window per
+endpoint. It enumerated no USB and enabled no writes. The
+[metadata record](../tests/fixtures/rm875-manual-driver-setup-validation.json)
+contains no Windows instance paths, public IDs or firmware contents. No phone
+query, mode command, storage write, loader upload or driver change was performed.
+Physical first-time setup, installed entry behavior, recovery and data preservation
+remain unvalidated; this closes a software workflow gap, not those evidence gaps.

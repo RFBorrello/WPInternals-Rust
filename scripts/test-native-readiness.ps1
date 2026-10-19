@@ -7,6 +7,7 @@ function Invoke-InventoryFixture {
     function Get-PnpDevice {
         if ($Fixture.Empty) { return }
         [pscustomobject]@{ InstanceId = ('USB\VID_05C6&PID_' + $Fixture.Product + $Fixture.Suffix + '\PRIVATE-SERIAL') }
+        foreach ($other in $Fixture.OtherInstances) { [pscustomobject]@{ InstanceId = $other } }
     }
     function Get-PnpDeviceProperty {
         param($InstanceId, $KeyName)
@@ -25,7 +26,11 @@ function Invoke-InventoryFixture {
         param($LiteralPath)
         [pscustomobject]@{ DeviceInterfaceGUIDs = $Fixture.Guids; DeviceInterfaceGUID = $Fixture.SingularGuid }
     }
-    (& $inventoryScript) | ConvertFrom-Json
+    $previous = $env:WPI_EMERGENCY_SETUP_INSTANCE
+    try {
+        $env:WPI_EMERGENCY_SETUP_INSTANCE = $Fixture.SelectedInstance
+        (& $inventoryScript) | ConvertFrom-Json
+    } finally { $env:WPI_EMERGENCY_SETUP_INSTANCE = $previous }
 }
 function Assert-True { param($Value, $Message) if (-not $Value) { throw $Message } }
 $valid = @{
@@ -41,6 +46,15 @@ Assert-True ($e.present -and $e.problem_code -eq 0 -and -not $e.protected_class)
 Assert-True ($e.interface_guid_registered -and $e.winusb_compatible_id) 'WinUSB discovery metadata missing'
 Assert-True ($e.binding_target -eq 'whole_device') 'Whole-device WinUSB path was misclassified'
 Assert-True (($result | ConvertTo-Json -Depth 5) -notmatch 'PRIVATE-SERIAL|134e20e8') 'Private metadata leaked'
+$f = $valid.Clone()
+$f.OtherInstances = @('USB\VID_05C6&PID_9008\UNRELATED', 'USB\VID_05C6&PID_F006\OTHER')
+Assert-True ((Invoke-InventoryFixture $f).endpoints.Count -eq 3) 'Unfiltered inventory was narrowed'
+$f.SelectedInstance = 'usb\vid_05c6&pid_9008\private-serial'
+Assert-True ((Invoke-InventoryFixture $f).endpoints.Count -eq 1) 'Exact selected instance did not exclude unrelated bindings'
+$f.SelectedInstance = 'USB\VID_05C6&PID_9008\PRIVATE'
+Assert-True ((Invoke-InventoryFixture $f).endpoints.Count -eq 0) 'Instance prefix became selected-device authority'
+$f.SelectedInstance = "USB\VID_05C6&PID_9008\PRIVATE-SERIAL'; throw 'injected'"
+Assert-True ((Invoke-InventoryFixture $f).endpoints.Count -eq 0) 'Selected instance was interpreted as PowerShell code'
 foreach ($suffix in @('&MI_00', '&mi_0a', '&REV_0100&MI_00')) {
     $f = $valid.Clone(); $f.Suffix = $suffix
     Assert-True ((Invoke-InventoryFixture $f).endpoints[0].binding_target -eq 'composite_interface') 'Composite WinUSB interface was misclassified'

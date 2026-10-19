@@ -2,7 +2,9 @@
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $devices = @(Get-PnpDevice | Where-Object {
-    $_.InstanceId -match '^USB\\VID_05C6&PID_(9008|F006)($|&|\\)'
+    $_.InstanceId -match '^USB\\VID_05C6&PID_(9008|F006)($|&|\\)' -and
+        ([string]::IsNullOrEmpty($env:WPI_EMERGENCY_SETUP_INSTANCE) -or
+            $_.InstanceId -eq $env:WPI_EMERGENCY_SETUP_INSTANCE)
 } | Select-Object -First 65)
 if ($devices.Count -gt 64) { throw 'Emergency device inventory exceeds bound' }
 $entries = @(foreach ($device in $devices) {

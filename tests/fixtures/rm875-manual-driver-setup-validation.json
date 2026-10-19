@@ -1,0 +1,39 @@
+{
+  "schema": "wpi-spec-a-manual-driver-setup-validation-v1",
+  "date": "2026-10-19",
+  "host": "windows-arm64",
+  "advisory_only": true,
+  "software_checks": {
+    "transport_tests_passed": 100,
+    "cli_subprocess_tests_passed": 4,
+    "powershell_7_synthetic_inventory_passed": true,
+    "windows_powershell_5_1_synthetic_inventory_passed": true,
+    "strict_clippy_passed": true,
+    "formatting_passed": true,
+    "optimized_cli_built": true,
+    "distinct_execution_confirmation_checked": true,
+    "default_historical_binding_gate_retained": true,
+    "exact_instance_filter_excludes_unrelated_and_prefix_matches": true,
+    "instance_filter_treats_input_as_data": true,
+    "checkpoint_journal_cannot_authorize_resume": true
+  },
+  "actual_offline_preview": {
+    "emergency_access": "manual_setup",
+    "manual_setup_timeout_seconds_per_endpoint": 600,
+    "source_ffu_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+    "package_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+    "programmer_bytes": 7529371,
+    "first_pass_bytes": 33835520,
+    "preview_only": true,
+    "phone_contacted": false,
+    "phone_writes_enabled": false
+  },
+  "driver_installed_or_rebound": false,
+  "phone_contacted": false,
+  "phone_mode_or_storage_commands_sent": false,
+  "loader_uploaded": false,
+  "manual_checkpoint_hardware_validated": false,
+  "installed_flashapp_binary_verified": false,
+  "data_preservation_validated": false,
+  "hardware_validated": false
+}

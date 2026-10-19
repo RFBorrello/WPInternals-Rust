@@ -88,6 +88,34 @@ fn native_unlock_defaults_to_preview_and_requires_explicit_execution_arguments()
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stderr).contains("no file or device was opened"));
+    for (manual, confirmation) in [
+        (true, "RM875-EXPERIMENTAL-UNLOCK-WITHOUT-FULL-BACKUP"),
+        (
+            false,
+            "RM875-EXPERIMENTAL-ENTRY-BEFORE-DRIVER-SETUP-WITHOUT-FULL-BACKUP",
+        ),
+    ] {
+        let mut command = Command::new(executable);
+        command.args(args).args([
+            "--execute",
+            "--device-id",
+            "not-a-device",
+            "--confirm",
+            confirmation,
+            "--journal",
+            "unused.jsonl",
+            "--first-snapshot",
+            "unused-1.zip",
+            "--final-snapshot",
+            "unused-2.zip",
+        ]);
+        if manual {
+            command.arg("--manual-emergency-driver-setup");
+        }
+        let output = command.output().unwrap();
+        assert_eq!(output.status.code(), Some(1));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("no file or device was opened"));
+    }
 }
 
 #[test]
