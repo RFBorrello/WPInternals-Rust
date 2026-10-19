@@ -1,5 +1,48 @@
 # Local validation — October 13–18, 2026
 
+## October 18: entry-code interpretation and targeted recovery material
+
+The [reference FlashApp audit](spec-a-entry-code.md) adds bounded executable
+extraction and an exact-hash static profile. ARM disassembly shows that binary
+skipping end-relative payload locations and separately clearing the final 33 GPT
+sectors after successful header import. The installed binary was not read, and
+no phone command was sent in this milestone. The conservative exposure model is
+retained alongside the conditional reference interpretation.
+
+A local GPT recovery ZIP preserves the previously captured primary and a clearly
+marked reconstructed secondary. Both CRCs, ZIP contents, hashes and reciprocal
+geometry passed independent Python verification. The private capsule is 36,250
+bytes; only [metadata evidence](../tests/fixtures/rm875-entry-code-validation.json)
+is public. This is not a capture of the original secondary or a full rollback.
+
+The new native read-only targeted snapshot path uses an already exposed exclusive
+Windows phone disk, two GPT pins, 64 KiB source reads, double reads of every range,
+source/GPT bookends, archive readback and atomic publication. It does not change
+phone mode, disk attributes or disk bytes. The saved real layout requires
+77,172,736 bytes (73.6 MiB), below its 128 MiB cap. No such installed snapshot has
+been captured. A later capture is not evidence of pre-unlock originals.
+
+The full affected core/image/protocol/transport/storage/CLI run passed **314 tests**.
+Two subsequent regression additions (corrupt snapshot output and invalid native
+capture pins) passed with the complete affected snapshot and CLI startup suites,
+for **316 distinct passing tests**. Those focused reruns also cover the final
+64 KiB read bound. Strict all-target Clippy and WASM compilation passed. The CLI
+subprocess checks caught and verified a fix for a default-stack overflow by
+moving command handlers out of the main dispatch frame. Formatting passed.
+UI/IPC code did not change. Remote CI for this revision is pending.
+
+An optimized CLI build also completed full pinned FFU, package, saved-GPT and
+loader preparation in 11,193 ms, then rejected an intentionally invalid device
+selection. It opened no phone interface. The slow debug attempt was stopped and
+was not counted as a completed validation. The previous remote revision failed
+Rust 1.99 Clippy's new constant-`chunks_exact` lint; those comparisons now use
+`as_chunks` without suppressing warnings. Their five recovery-audit and twelve
+recovery-replay tests passed locally after the change.
+
+The physical native unlock controller, post-write storage correlation and return
+continuation remain unfinished; the installed FlashApp identity, installed backup
+and hardware recovery evidence are still absent. Live unlocking remains disabled.
+
 ## October 18: boot-integrity plans, interruption inspection and native session handoff
 
 The [finish-stage implementation](spec-a-finish-stages.md) now composes the

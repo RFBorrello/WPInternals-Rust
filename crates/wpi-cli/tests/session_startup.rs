@@ -9,9 +9,14 @@ fn session_help_and_required_pins_work_on_the_process_default_stack() {
         vec!["check-spec-a-session", "--help"],
         vec!["plan-spec-a-finish", "--help"],
         vec!["inspect-spec-a-finish-journal", "--help"],
+        vec!["inspect-spec-a-entry-code", "--help"],
+        vec!["prepare-spec-a-entry-recovery", "--help"],
+        vec!["storage", "capture-spec-a", "--help"],
     ] {
         let expected = if args.len() == 1 {
             "check-spec-a-session"
+        } else if args.len() == 3 {
+            "capture-spec-a"
         } else {
             args[0]
         };
@@ -67,4 +72,22 @@ fn unreviewed_roundtrip_confirmation_fails_before_opening_artifacts_or_usb() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("exact RM875-PREPARED-READONLY-ROUNDTRIP")
     );
+}
+#[test]
+fn targeted_capture_bad_pins_fail_before_disk_access() {
+    let output = Command::new(env!("CARGO_BIN_EXE_wpi"))
+        .args([
+            "storage",
+            "capture-spec-a",
+            "4294967295",
+            "no-disk-opened.zip",
+            "--expect-gpt",
+            "invalid",
+            "--expect-primary-sha256",
+            "invalid",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("required before opening a disk"));
 }

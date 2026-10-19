@@ -48,6 +48,56 @@ pub fn inspect(disk_number: u32) -> Result<StorageInspection> {
         Err(unsupported())
     }
 }
+/// Capture only boot, variable and disk-boundary regions from an ALREADY exposed
+/// phone disk. No mode change or disk attribute change; never a write grant.
+pub fn capture_spec_a_recovery<F: FnMut(&str, u64, u64) -> bool>(
+    disk_number: u32,
+    expected_gpt: &str,
+    expected_primary: &str,
+    output: &Path,
+    progress: F,
+) -> Result<wpi_image::spec_a::entry_snapshot::Report> {
+    for pin in [expected_gpt, expected_primary] {
+        if pin.len() != 64 || !pin.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(ImageError::Invalid(
+                "Complete storage and primary GPT SHA-256 pins are required before opening a disk"
+                    .into(),
+            ));
+        }
+    }
+    #[cfg(windows)]
+    {
+        use wpi_core::backup::ReadOnlySource;
+        let mut disk = windows::Disk::open(disk_number)?;
+        let inspection = layout::inspect(&mut disk)?;
+        if !inspection.gpt_sha256.eq_ignore_ascii_case(expected_gpt) {
+            return Err(ImageError::Invalid(
+                "Selected storage GPT differs from its pin".into(),
+            ));
+        }
+        disk.bind_layout(inspection.gpt_sha256);
+        disk.validate()?;
+        let mut primary = vec![0; 34 * 512];
+        disk.read_at(0, &mut primary)?;
+        let plan = wpi_image::spec_a::entry_snapshot::Plan::new(
+            &primary,
+            disk.geometry().size / 512,
+            expected_primary,
+        )?;
+        let mut report = None;
+        wpi_core::artifacts::write_new(output, |writer| {
+            report = Some(plan.capture(writer, |at, bytes| disk.read_at(at, bytes), progress)?);
+            disk.validate()?;
+            Ok(())
+        })?;
+        report.ok_or_else(|| ImageError::Invalid("Snapshot did not complete".into()))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (disk_number, output, progress);
+        Err(unsupported())
+    }
+}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StorageBackup {
     pub experimental: bool,

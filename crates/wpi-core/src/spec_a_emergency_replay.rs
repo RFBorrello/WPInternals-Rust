@@ -36,6 +36,7 @@ pub struct EntryPlan {
     platform: String,
     sha256: String,
     total_size: u64,
+    entry_code: Option<spec_a::entry_code::Report>,
 }
 impl EntryPlan {
     /// Reconstruct bounded reference metadata using the retained hash table and
@@ -52,6 +53,9 @@ impl EntryPlan {
     }
     pub(crate) fn source(&self) -> (&str, &str) {
         (&self.sha256, &self.platform)
+    }
+    pub(crate) fn entry_code(&self) -> Option<&spec_a::entry_code::Report> {
+        self.entry_code.as_ref()
     }
     pub fn read<R: Read + Seek, F: FnMut(u64, u64) -> bool>(
         source: &mut R,
@@ -124,7 +128,17 @@ impl EntryPlan {
         })?;
         let mut checked =
             crate::spec_a_source::Source::new(source, &header.bytes, initial.total_size, true)?;
-        ffu.gpt(&mut checked)?;
+        let gpt = ffu.gpt(&mut checked)?;
+        let entry_code = if sha256 == spec_a::entry_code::SOURCE_FFU {
+            let (start, size) = gpt.partition("UEFI")?.byte_range()?;
+            if size > spec_a::MAX_BOOT_IMAGE as u64 {
+                return Err(invalid("Reference UEFI exceeds the inspection bound"));
+            }
+            let uefi = ffu.read_disk(&mut checked, start, size as usize)?;
+            Some(spec_a::entry_code::inspect_uefi(&uefi)?)
+        } else {
+            None
+        };
         checked.seek(SeekFrom::Start(ffu.header_size))?;
         let mut first = vec![0; ENTRY_CHUNK];
         checked.read_exact(&mut first)?;
@@ -141,6 +155,7 @@ impl EntryPlan {
             platform: ffu.platform_id,
             sha256,
             total_size: initial.total_size,
+            entry_code,
         })
     }
 }

@@ -114,9 +114,11 @@ A separate [artifact-bound session check](docs/spec-a-session.md) joins pinned F
 package, GPT and loader inputs with fresh Normal identity bookends. Its native CLI
 can also run one explicit read-only Normal/Flash/Normal cycle; one Windows ARM64
 cycle passed source-root/security/capacity and returning identity checks. Storage
-writes remain disabled. The [entry preservation audit](docs/spec-a-entry-preservation.md)
-identifies a potential Data-tail intersection in a conservative end-chunk model;
-actual write behavior and affected-byte recovery remain unresolved.
+writes remain disabled. The [reference FlashApp audit](docs/spec-a-entry-code.md)
+distinguishes the conservative Data-tail exposure bound from that exact binary's
+33-sector backup-GPT clear. Local GPT recovery capsules and a bounded, read-only
+targeted storage snapshot are implemented; installed binary verification and the
+complete native unlock/recovery continuation remain outstanding.
 The separate [return-boot GPT experiment](docs/boot-gpt-capture.md) can preserve
 the live primary GPT after verified return to Normal. It uses a bounded read
 window and retains the same blocked phone-write capabilities.

@@ -545,6 +545,78 @@ fn inner_section(bytes: &[u8]) -> Result<Section<'_>> {
     }
     Ok(section)
 }
+/// Extract exactly one named PE32 section for offline inspection. The same
+/// bounded FV/FFS/LZMA parsers used by rebuilding validate every enclosing layer.
+/// This neither patches the image nor authenticates its firmware signature.
+pub fn extract_executable(bytes: &[u8], name: &str) -> Result<Vec<u8>> {
+    if name.is_empty() || name.len() > 128 || !name.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return Err(invalid("Invalid EFI executable name"));
+    }
+    let image = super::parse(bytes, 0)?;
+    let outer = volume(slice(bytes, image.image_offset, image.code_size)?)?;
+    let containers = files(&outer)?;
+    let mut candidates = containers.iter().filter(|f| f.kind == 11);
+    let container = candidates
+        .next()
+        .ok_or_else(|| invalid("Missing FV image"))?;
+    if candidates.next().is_some() {
+        return Err(invalid("Ambiguous FV image"));
+    }
+    let compressed = compression_section(container.bytes)?;
+    let at = word(compressed.bytes, 20)? as usize;
+    let decoded = decompress(slice(
+        compressed.bytes,
+        at,
+        compressed
+            .bytes
+            .len()
+            .checked_sub(at)
+            .ok_or_else(|| invalid("Invalid compression offset"))?,
+    )?)?;
+    let section = inner_section(&decoded)?;
+    let inner = volume(&section.bytes[4..])?;
+    let mut found = None;
+    for file in files(&inner)?.iter().filter(|f| f.kind != 0xf0) {
+        let list = sections(&file.bytes[24..])?;
+        let names: Vec<_> = list.iter().filter(|s| s.kind == 0x15).collect();
+        if names.len() > 1 {
+            return Err(invalid("Ambiguous EFI UI description"));
+        }
+        let Some(description) = names.first() else {
+            continue;
+        };
+        let text = &description.bytes[4..];
+        if text.len() > 512 || !text.len().is_multiple_of(2) {
+            return Err(invalid("Invalid EFI UI description"));
+        }
+        let units: Vec<_> = text
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|b| u16::from_le_bytes(*b))
+            .collect();
+        let text = String::from_utf16(&units).map_err(|_| invalid("Invalid EFI UI encoding"))?;
+        if !text
+            .trim_end_matches(['\0', ' '])
+            .eq_ignore_ascii_case(name)
+        {
+            continue;
+        }
+        let mut binaries = list.iter().filter(|s| s.kind == 0x10);
+        let exe = binaries
+            .next()
+            .ok_or_else(|| invalid("Missing target PE32 section"))?;
+        if binaries.next().is_some() || found.is_some() {
+            return Err(invalid("Ambiguous target executable"));
+        }
+        let exe = &exe.bytes[4..];
+        if slice(exe, 0, 2)? != b"MZ" || slice(exe, u32le(exe, 60)? as usize, 4)? != b"PE\0\0" {
+            return Err(invalid("Target EFI executable is not PE"));
+        }
+        found = Some(exe.to_vec());
+    }
+    found.ok_or_else(|| invalid("Named EFI executable not found"))
+}
 /// Rebuilds an unsigned local partition copy. This is an intermediate artifact,
 /// not a flashable FFU, signature verification, or permission to write a phone.
 pub fn rebuild(bytes: &[u8]) -> Result<(Vec<u8>, RebuildReport)> {
@@ -693,6 +765,22 @@ pub fn rebuild(bytes: &[u8]) -> Result<(Vec<u8>, RebuildReport)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn executable_extraction_matches_independent_fixture_and_rejects_bad_enclosures() {
+        let image = include_bytes!("../../../../tests/fixtures/spec-a/uefi.synthetic.bin");
+        let expected =
+            include_bytes!("../../../../tests/fixtures/spec-a/SecurityDxe.synthetic.efi");
+        assert_eq!(extract_executable(image, "SecurityDxe").unwrap(), expected);
+        assert_eq!(extract_executable(image, "securitydxe").unwrap(), expected);
+        assert!(extract_executable(image, "NokiaFlashApp").is_err());
+        assert!(extract_executable(image, "../SecurityDxe").is_err());
+        for n in [0, 40, 128, image.len() - 1] {
+            assert!(extract_executable(&image[..n], "SecurityDxe").is_err());
+        }
+        let mut bad = image.to_vec();
+        bad[40 + 50] ^= 1;
+        assert!(extract_executable(&bad, "SecurityDxe").is_err());
+    }
     #[test]
     fn rebuild_preserves_source_clears_signature_and_changes_only_reviewed_bytes() {
         let original = include_bytes!("../../../../tests/fixtures/spec-a/uefi.synthetic.bin");

@@ -315,8 +315,10 @@ pub fn analyze<R: Read + Seek, F: FnMut(&str, u64, u64) -> bool>(
                     // infer how FlashApp applies those bits. Other differences are
                     // outside this narrow audit profile and still fail closed.
                     for (a, b) in source_primary[1024..]
-                        .chunks_exact(128)
-                        .zip(table.chunks_exact(128))
+                        .as_chunks::<128>()
+                        .0
+                        .iter()
+                        .zip(table.as_chunks::<128>().0.iter())
                     {
                         if a[..48] != b[..48]
                             || a[56..] != b[56..]

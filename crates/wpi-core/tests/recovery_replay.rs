@@ -317,7 +317,7 @@ fn journal_binds_image_records_intent_before_ack_and_never_grants_resume() {
             assert!(!e.automatic_resume_allowed && !e.phone_writes_enabled);
             last = e.acknowledged_payload_bytes;
         }
-        for pair in records[3..records.len() - 1].chunks_exact(2) {
+        for pair in records[3..records.len() - 1].as_chunks::<2>().0.iter() {
             assert_eq!(pair[0].kind, Kind::PayloadIntent);
             assert_eq!(pair[1].kind, Kind::PayloadAcknowledged);
             assert_eq!(pair[0].acknowledged_payload_bytes, pair[0].payload_offset);

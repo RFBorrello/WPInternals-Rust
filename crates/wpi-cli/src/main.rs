@@ -51,8 +51,21 @@ struct PlanSpecAFinishArgs {
     #[arg(long)]
     expect_package_sha256: String,
 }
+#[derive(clap::Args)]
+struct EntryRecoveryArgs {
+    primary: PathBuf,
+    output: PathBuf,
+    #[arg(long)]
+    disk_sectors: u64,
+    #[arg(long)]
+    expect_primary_sha256: String,
+}
 #[derive(Subcommand)]
 enum Command {
+    /// Inspect the exact known reference FlashApp inside a local UEFI partition. No USB access.
+    InspectSpecAEntryCode { input: PathBuf },
+    /// Save captured primary and reconstructed secondary GPT into a NEW local ZIP. No USB access.
+    PrepareSpecAEntryRecovery(Box<EntryRecoveryArgs>),
     /// Inspect an interrupted finish-stage replay journal. Never resumes or contacts USB.
     InspectSpecAFinishJournal { input: PathBuf },
     /// Compose the missing UEFI-variable and EFIESP stages from pinned local inputs. No USB access.
@@ -310,6 +323,8 @@ enum Command {
 }
 #[derive(Subcommand)]
 enum StorageCommand {
+    /// Capture boot, variable and boundary ranges from an ALREADY exposed phone disk. Read only.
+    CaptureSpecA(Box<StorageCaptureArgs>),
     /// List recognized phone-storage candidates without opening raw disks.
     List,
     /// Inspect an already offline/read-only phone disk under exclusive access.
@@ -326,6 +341,15 @@ enum StorageCommand {
         full: bool,
         output: PathBuf,
     },
+}
+#[derive(clap::Args)]
+struct StorageCaptureArgs {
+    disk: u32,
+    output: PathBuf,
+    #[arg(long)]
+    expect_gpt: String,
+    #[arg(long)]
+    expect_primary_sha256: String,
 }
 fn parse_operation(s: &str) -> Result<Operation, String> {
     serde_json::from_value(serde_json::Value::String(s.into())).map_err(|_| {
@@ -459,6 +483,8 @@ fn execute_experiment<T: serde::Serialize>(
 }
 fn run() -> Result<(), Box<dyn Error>> {
     match Cli::parse().command {
+        Command::InspectSpecAEntryCode { input } => inspect_spec_a_entry_code(input)?,
+        Command::PrepareSpecAEntryRecovery(args) => prepare_spec_a_entry_recovery(*args)?,
         Command::ReplayRecovery {
             input,
             scenario,
@@ -764,41 +790,7 @@ fn run() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-        Command::Storage { action } => {
-            let coordinator = wpi_core::operations::OperationCoordinator::default();
-            let session = coordinator.reserve_storage_read()?;
-            match action {
-                StorageCommand::List => print(wpi_storage::discover()?)?,
-                StorageCommand::Inspect { disk } => print(wpi_storage::inspect(disk)?)?,
-                StorageCommand::Backup {
-                    disk,
-                    expect_gpt,
-                    partition,
-                    full: _,
-                    output,
-                } => {
-                    let token = session.cancellation();
-                    ctrlc::set_handler(move || {
-                        token.store(true, std::sync::atomic::Ordering::Release)
-                    })?;
-                    let mut last = std::time::Instant::now();
-                    let result = wpi_storage::backup(
-                        disk,
-                        &expect_gpt,
-                        partition.as_deref(),
-                        &output,
-                        |done, total| {
-                            if done == 0 || done == total || last.elapsed().as_millis() >= 250 {
-                                eprintln!("Backing up: {done}/{total} bytes");
-                                last = std::time::Instant::now();
-                            }
-                            session.safe_boundary()
-                        },
-                    )?;
-                    print(result)?;
-                }
-            }
-        }
+        Command::Storage { action } => storage(action)?,
         Command::Devices { serial: true } => print(wpi_transport::serial_candidates()?)?,
         Command::Devices { serial: false } => print(wpi_transport::enumerate()?)?,
         Command::Probe { id } => print(wpi_transport::probe(&id)?)?,
@@ -1168,6 +1160,34 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
+fn inspect_spec_a_entry_code(input: PathBuf) -> Result<(), Box<dyn Error>> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    artifacts::open_artifact(&input)?
+        .take(wpi_image::spec_a::MAX_BOOT_IMAGE as u64 + 1)
+        .read_to_end(&mut bytes)?;
+    print(wpi_image::spec_a::entry_code::inspect_uefi(&bytes)?)?;
+    Ok(())
+}
+fn prepare_spec_a_entry_recovery(args: EntryRecoveryArgs) -> Result<(), Box<dyn Error>> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    artifacts::open_artifact(&args.primary)?
+        .take(17409)
+        .read_to_end(&mut bytes)?;
+    let capsule = wpi_image::spec_a::entry_recovery::Capsule::build(
+        &bytes,
+        args.disk_sectors,
+        &args.expect_primary_sha256,
+    )?;
+    match wpi_image::spec_a::entry_snapshot::Plan::new(&bytes, args.disk_sectors, &args.expect_primary_sha256) {
+        Ok(plan) => eprintln!("Targeted snapshot would capture {} bytes; no installed ranges have been read by this offline command.", plan.captured_bytes()),
+        Err(error) => eprintln!("Targeted snapshot layout is unavailable: {error}"),
+    }
+    artifacts::write_new(&args.output, |writer| capsule.write_zip(writer))?;
+    print(capsule.report())?;
+    Ok(())
+}
 fn plan_spec_a_finish(args: PlanSpecAFinishArgs) -> Result<(), Box<dyn Error>> {
     let PlanSpecAFinishArgs {
         package,
@@ -1369,4 +1389,58 @@ fn main() {
         eprintln!("{error}");
         std::process::exit(1);
     }
+}
+
+fn storage(action: StorageCommand) -> Result<(), Box<dyn Error>> {
+    let coordinator = wpi_core::operations::OperationCoordinator::default();
+    let session = coordinator.reserve_storage_read()?;
+    match action {
+        StorageCommand::CaptureSpecA(args) => {
+            let cancel = session.cancellation();
+            ctrlc::set_handler(move || cancel.store(true, std::sync::atomic::Ordering::Release))?;
+            let mut last = std::time::Instant::now();
+            print(wpi_storage::capture_spec_a_recovery(
+                args.disk,
+                &args.expect_gpt,
+                &args.expect_primary_sha256,
+                &args.output,
+                |stage, done, total| {
+                    if done == 0 || done == total || last.elapsed().as_millis() >= 250 {
+                        eprintln!("{stage}: {done}/{total} bytes");
+                        last = std::time::Instant::now();
+                    }
+                    session.safe_boundary()
+                },
+            )?)?;
+        }
+        StorageCommand::List => print(wpi_storage::discover()?)?,
+        StorageCommand::Inspect { disk } => print(wpi_storage::inspect(disk)?)?,
+        StorageCommand::Backup {
+            disk,
+            expect_gpt,
+            partition,
+            full: _,
+            output,
+        } => {
+            let token = session.cancellation();
+            ctrlc::set_handler(move || token.store(true, std::sync::atomic::Ordering::Release))?;
+            let mut last = std::time::Instant::now();
+            let result = wpi_storage::backup(
+                disk,
+                &expect_gpt,
+                partition.as_deref(),
+                &output,
+                |done, total| {
+                    if done == 0 || done == total || last.elapsed().as_millis() >= 250 {
+                        eprintln!("Backing up: {done}/{total} bytes");
+                        last = std::time::Instant::now();
+                    }
+                    session.safe_boundary()
+                },
+            )?;
+            print(result)?;
+        }
+    }
+
+    Ok(())
 }

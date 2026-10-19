@@ -1,4 +1,10 @@
-# Spec A entry preservation: unresolved end-relative write impact
+# Spec A entry preservation: conservative bound and reference-code interpretation
+
+**Update:** [Exact reference FlashApp analysis](spec-a-entry-code.md) now shows
+that binary skipping end-relative payload locations and separately clearing only
+the last 33 GPT sectors on header import. The installed binary remains unverified.
+The bound below is retained for unknown implementations; it is not the inferred
+footprint for that exact reference binary. Native reports now show both models.
 
 The boot-component programmer plan excludes MainOS, Data and EFIESP, but that
 does not establish preservation through the **earlier emergency entry**. The
@@ -54,4 +60,7 @@ must not become an automatic fallback or an assumed recovery mechanism.
 Tests cover the 223-sector boundary intersection, a shorter Data partition that
 does not intersect, reserved ranges, invalid bounds, capacity overflow and
 unknown alignment. The calculation models potential exposure; resolving its
-physical meaning is still required before a data-preserving unlock can be claimed.
+physical meaning on the installed firmware is still required before a
+data-preserving unlock can be claimed. A new offline GPT recovery capsule and
+bounded native targeted-capture path are described in the linked analysis; no
+installed snapshot or successful physical recovery has been recorded.

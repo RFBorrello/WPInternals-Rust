@@ -1,0 +1,29 @@
+{
+  "comparison": "matches",
+  "scope": "offline_reference_binary_and_historical_gpt_only",
+  "code": {
+    "reference_uefi_sha256": "9497815e89f9359e8a7f4f181564cb7a62dcf949e6e41588547ec1e491fb7e4d",
+    "reference_flash_app_sha256": "503578ed1bb90406e19067664235f974a19216e25ff4c33565bdda9365b8a1e2",
+    "reference_firmware": "3051.50009.1424.0002",
+    "evidence": "offline ARM disassembly; see docs/spec-a-entry-code.md",
+    "end_relative_descriptors_skipped_in_payload_loop": true,
+    "header_import_clears_backup_gpt_sectors": 33,
+    "backup_clear_failure_propagated_in_header_reply": false,
+    "installed_binary_identity_verified": false,
+    "physical_write_interpretation_validated": false,
+    "phone_writes_enabled": false
+  },
+  "capacity_sectors": 61071360,
+  "primary_sha256": "cf5cb926cf149d15f4090c54caa65cd1edbaa8de20090b6898f185b9727afeec",
+  "reconstructed_secondary_sha256": "35081151f513c5729c62e9cf726a59fc26a400c690cf97618004f7c79e3b6d36",
+  "capsule_sha256": "3a41bb6968040e38afa74beb82e8368620996fe1a3e964c9ed30bedfb2594cac",
+  "capsule_bytes": 36250,
+  "conservative_end_chunk_data_overlap_sectors": 223,
+  "reference_header_clear_data_overlap_sectors": 0,
+  "targeted_snapshot_planned_bytes": 77172736,
+  "targeted_snapshot_created": false,
+  "installed_binary_verified": false,
+  "phone_contacted": false,
+  "phone_writes_enabled": false,
+  "data_preservation_validated": false
+}
