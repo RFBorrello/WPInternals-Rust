@@ -17,6 +17,41 @@ use wpi_core::backup::{Geometry, ReadOnlySource};
 fn bad(s: &str) -> ImageError {
     ImageError::Invalid(s.into())
 }
+pub(super) fn raw_access_prerequisite() -> Result<()> {
+    use windows_sys::Win32::{
+        Foundation::CloseHandle,
+        Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY},
+        System::Threading::{GetCurrentProcess, OpenProcessToken},
+    };
+    let mut token = std::ptr::null_mut();
+    // SAFETY: a valid pseudo process handle and writable output handle are used.
+    if unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) } == 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
+    let mut returned = 0;
+    // SAFETY: the buffer exactly fits TOKEN_ELEVATION; the owned token is closed
+    // on both success and failure. No privilege is enabled by this query.
+    let result = unsafe {
+        GetTokenInformation(
+            token,
+            TokenElevation,
+            (&mut elevation as *mut TOKEN_ELEVATION).cast(),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut returned,
+        )
+    };
+    unsafe {
+        CloseHandle(token);
+    }
+    if result == 0
+        || returned as usize != std::mem::size_of::<TOKEN_ELEVATION>()
+        || elevation.TokenIsElevated == 0
+    {
+        return Err(bad("Native unlock requires an elevated process for exclusive read-only recovery capture. Restart the CLI as Administrator before any mode test; no privilege was changed."));
+    }
+    Ok(())
+}
 fn inventory() -> Result<Vec<InventoryDisk>> {
     let mut directory = [0u16; 32768];
     // SAFETY: output buffer is valid for the supplied element count.
@@ -224,6 +259,7 @@ pub(super) struct Disk {
     file: File,
     expected: Snapshot,
     gpt: Option<String>,
+    ancestry: Option<(InventoryDisk, String, u64)>,
 }
 impl Disk {
     pub(super) fn open(number: u32) -> Result<Self> {
@@ -260,7 +296,21 @@ impl Disk {
             file,
             expected,
             gpt: None,
+            ancestry: None,
         })
+    }
+    pub(super) fn open_bound(usb_instance: &str, capacity: u64) -> Result<Self> {
+        let before = inventory()?;
+        let selected = policy::bound_candidate(&before, usb_instance, capacity)
+            .map_err(bad)?
+            .clone();
+        let mut disk = Self::open(selected.number)?;
+        let after = inventory()?;
+        if policy::bound_candidate(&after, usb_instance, capacity).map_err(bad)? != &selected {
+            return Err(bad("USB disk ancestry changed while opening"));
+        }
+        disk.ancestry = Some((selected, usb_instance.into(), capacity));
+        Ok(disk)
     }
     pub(super) fn bind_layout(&mut self, hash: String) {
         self.gpt = Some(hash);
@@ -281,6 +331,12 @@ impl ReadOnlySource for Disk {
     }
     fn validate(&mut self) -> Result<()> {
         self.check()?;
+        if let Some((selected, usb, capacity)) = &self.ancestry {
+            let current = inventory()?;
+            if policy::bound_candidate(&current, usb, *capacity).map_err(bad)? != selected {
+                return Err(bad("USB disk ancestry changed during capture"));
+            }
+        }
         if let Some(expected) = self.gpt.clone() {
             if layout::inspect(self)?.gpt_sha256 != expected {
                 return Err(bad("Storage GPT changed during backup"));

@@ -142,22 +142,23 @@ where
     Ok(result)
 }
 
-pub fn run(id: &str, protocol: Protocol) -> Result<Report, String> {
-    let _access = PHONE_ACCESS
-        .try_lock()
-        .map_err(|_| "Another native phone operation is active")?;
+pub(super) fn open_bound(
+    selected: &Snapshot,
+) -> Result<usb_session::Session<usb_session::NativeIo>, String> {
+    admit(selected)?;
+    validate_now(selected)?;
     let selected_infos: Vec<_> = nusb::list_devices()
         .wait()
         .map_err(|e| e.to_string())?
-        .filter(|d| format!("{:?}", d.id()) == id)
+        .filter(|d| format!("{:?}", d.id()) == selected.descriptor.id)
         .collect();
     if selected_infos.len() != 1 {
         return Err("Scan and explicitly select one connected emergency endpoint".into());
     }
     let info = &selected_infos[0];
-    let selected = Snapshot::of(info);
-    admit(&selected)?;
-    validate_now(&selected)?;
+    if Snapshot::of(info) != *selected {
+        return Err("Emergency USB identity changed before opening".into());
+    }
     let device = info.open().wait().map_err(|_| "Cannot open selected emergency USB endpoint; check native WinUSB binding or USB permissions")?;
     // Read descriptors only; do not set a configuration, alternate setting or kernel driver.
     let configuration = device.active_configuration().map_err(|_| {
@@ -181,14 +182,23 @@ pub fn run(id: &str, protocol: Protocol) -> Result<Report, String> {
         })
         .collect();
     let (number, input, output) = select_interface(&interfaces)?;
-    validate_now(&selected)?;
+    validate_now(selected)?;
     let interface = device
         .claim_interface(number)
         .wait()
         .map_err(|_| "Cannot claim selected emergency bulk interface; no probe was sent")?;
     let io = usb_session::NativeIo::new(interface, input, output)
         .map_err(|_| "Cannot open emergency bulk endpoints; no probe was sent")?;
-    let mut session = usb_session::Session::new(io);
+    validate_now(selected)?;
+    Ok(usb_session::Session::new(io))
+}
+
+pub fn run(id: &str, protocol: Protocol) -> Result<Report, String> {
+    let _access = PHONE_ACCESS
+        .try_lock()
+        .map_err(|_| "Another native phone operation is active")?;
+    let selected = device_binding::selected(id)?;
+    let mut session = open_bound(&selected)?;
     let deadline = Instant::now() + Duration::from_secs(15);
     let (requests_sent, root_key_available) = queries(
         protocol,

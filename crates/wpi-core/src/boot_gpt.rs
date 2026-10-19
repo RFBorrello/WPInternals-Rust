@@ -141,6 +141,9 @@ pub fn read<T: MessageTransport, F: FnMut(&str) -> bool>(
     })
 }
 impl Capture {
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
     /// Local integrity result only. The caller supplies Normal identity/port
     /// verification; this object carries no phone execution authority.
     pub fn report(&self, reference_sha256: &str) -> Report {

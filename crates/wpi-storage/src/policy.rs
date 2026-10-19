@@ -14,6 +14,9 @@ pub struct InventoryDisk {
     pub read_only: bool,
     pub boot: bool,
     pub system: bool,
+    /// Private Windows PnP ancestry, ordered from the disk's immediate parent.
+    #[serde(default)]
+    pub ancestors: Vec<String>,
 }
 impl std::fmt::Debug for InventoryDisk {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -81,4 +84,59 @@ pub fn candidate(d: &InventoryDisk) -> StorageCandidate {
         read_only: d.read_only,
         blockers: blockers(d),
     }
+}
+
+/// Exact, bounded ancestry matching. A disk label, USB VID/PID, serial substring,
+/// or a common hub is never sufficient to bind a raw disk to a selected phone.
+pub fn bound_candidate<'a>(
+    disks: &'a [InventoryDisk],
+    usb_instance: &str,
+    capacity: u64,
+) -> Result<&'a InventoryDisk, &'static str> {
+    let parts: Vec<_> = usb_instance.split('\\').collect();
+    if parts.len() != 3
+        || !parts[0].eq_ignore_ascii_case("USB")
+        || !parts[1].to_ascii_uppercase().starts_with("VID_")
+        || !parts[1].to_ascii_uppercase().contains("&PID_")
+        || parts[2].is_empty()
+        || usb_instance.len() > 1024
+        || !usb_instance.bytes().all(|b| (0x20..=0x7e).contains(&b))
+        || capacity == 0
+        || capacity > u64::from(u32::MAX)
+    {
+        return Err("A complete USB device instance and bounded capacity are required");
+    }
+    let mut selected = None;
+    for disk in disks {
+        if disk.ancestors.len() > 16
+            || disk
+                .ancestors
+                .iter()
+                .any(|s| s.is_empty() || s.len() > 1024)
+        {
+            return Err("Invalid or oversized disk ancestry");
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        if disk
+            .ancestors
+            .iter()
+            .any(|s| !seen.insert(s.to_ascii_uppercase()))
+        {
+            return Err("Cyclic or duplicate disk ancestry");
+        }
+        if disk
+            .ancestors
+            .iter()
+            .any(|s| s.eq_ignore_ascii_case(usb_instance))
+        {
+            if selected.is_some() {
+                return Err("Multiple disks belong to the selected USB device");
+            }
+            if !blockers(disk).is_empty() || disk.size.parse::<u64>().ok() != Some(capacity * 512) {
+                return Err("USB-bound disk geometry or read-only/offline admission failed");
+            }
+            selected = Some(disk);
+        }
+    }
+    selected.ok_or("No admitted raw disk belongs to the selected USB device")
 }

@@ -11,8 +11,13 @@ nusb.workspace = true
 wpi-types.workspace = true
 wpi-core.workspace = true
 wpi-protocol.workspace = true
+wpi-image.workspace = true
+wpi-storage = { path = "../wpi-storage" }
+serde_json.workspace = true
+sha2.workspace = true
+tempfile = "3"
 futures-core = "0.3"
 serialport = { version = "4.10.1", default-features = false }
 
-[dev-dependencies]
-serde_json.workspace = true
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = ["Win32_System_SystemInformation"] }

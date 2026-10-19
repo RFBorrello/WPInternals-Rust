@@ -4,8 +4,10 @@ A local Lumia workbench with a Rust engine, a browser UI, native desktop apps,
 and a CLI. Public project code is MIT licensed; upstream attribution is retained.
 
 **This is a development implementation, not full WPInternals parity.**
-Device flashing, unlocking, relocking, phone backup/restore, and root installation
-are blocked. No physical device, firmware, host, or transport combination has
+Production device flashing, unlocking, relocking, restore and root installation
+remain blocked. A CLI-only [experimental native RM-875 unlock controller](docs/spec-a-native-controller.md)
+is implemented with an offline preview by default; its physical execution and
+data preservation are unvalidated. No physical device, firmware, host, or transport combination has
 been comprehensively hardware-validated. A native normal-mode identification
 session has succeeded on a Lumia 1020 RM-875 / firmware `3051.50009.1451.1003`
 using Windows ARM64 and Microsoft WinUSB. The user also reported a successful
@@ -18,7 +20,9 @@ hardware validation.
 
 - Local [Spec A UEFI-variable/EFIESP finish-stage plans](docs/spec-a-finish-stages.md),
   including installed-image second-pass reconstruction, failure-contained replay
-  and interruption-journal inspection. Physical unlock remains unimplemented.
+  and interruption-journal inspection. A separate native controller now joins
+  entry, programmer, mass-storage capture, both EFIESP passes and return checks;
+  it has not been executed on a phone.
 
 - Windows/macOS/Linux USB discovery with nusb, and browser WebUSB selection.
 - Read-only NOKV identification on vendor-specific Lumia flash interfaces; native

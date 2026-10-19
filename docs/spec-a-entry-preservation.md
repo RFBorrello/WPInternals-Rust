@@ -45,6 +45,11 @@ authorize execution or be imported to clear a gate.
 
 ## Work needed before physical entry
 
+The [experimental native controller](spec-a-native-controller.md) is now
+implemented; the installed FlashApp binary, entry interpretation and data
+preservation still require physical evidence. Its preview states those limits
+and does not turn the reference interpretation into installed-binary proof.
+
 Determine the actual device-side end-mapping behavior or establish a mode-entry
 route that avoids the zero payload. Then bind any required installed-range
 captures to the selected device and define restoration after partial entry.

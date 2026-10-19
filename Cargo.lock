@@ -5221,9 +5221,14 @@ dependencies = [
  "serde",
  "serde_json",
  "serialport",
+ "sha2",
+ "tempfile",
  "thiserror 2.0.21",
+ "windows-sys 0.61.2",
  "wpi-core",
+ "wpi-image",
  "wpi-protocol",
+ "wpi-storage",
  "wpi-types",
 ]
 

@@ -42,6 +42,42 @@ pub struct Capsule {
 fn sha(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
+/// Construct a reciprocal secondary from a CRC-checked primary. This accepts
+/// transformed layouts (including the sector-64 unlock marker), but never a
+/// partition in either GPT table. These are derived bytes, not a disk capture.
+pub fn secondary_from_primary(primary: &[u8], capacity: u64) -> Result<Vec<u8>> {
+    let gpt = layout::parse(primary)?;
+    if !(512..=u64::from(u32::MAX)).contains(&capacity)
+        || gpt.backup_lba != capacity - 1
+        || gpt.first_usable_sector < 34
+        || gpt.last_usable_sector >= capacity - 33
+        || gpt
+            .partitions
+            .iter()
+            .any(|p| p.first_sector < 34 || p.last_sector >= capacity - 33)
+    {
+        return Err(invalid("Unsupported reciprocal GPT geometry"));
+    }
+    Gpt::from_parts(&primary[512..1024], &primary[1024..], Some(capacity * 512))?;
+    let mut secondary = primary[1024..].to_vec();
+    let mut header = primary[512..1024].to_vec();
+    header[24..32].copy_from_slice(&(capacity - 1).to_le_bytes());
+    header[32..40].copy_from_slice(&1u64.to_le_bytes());
+    header[72..80].copy_from_slice(&(capacity - 33).to_le_bytes());
+    header[16..20].fill(0);
+    let crc = crc32fast::hash(&header[..92]);
+    header[16..20].copy_from_slice(&crc.to_le_bytes());
+    let backup = Gpt::from_parts(&header, &secondary, Some(capacity * 512))?;
+    if backup.disk_guid != gpt.disk_guid
+        || backup.current_lba != capacity - 1
+        || backup.backup_lba != 1
+        || u64le(&header, 72)? != capacity - 33
+    {
+        return Err(invalid("Reconstructed GPT geometry differs"));
+    }
+    secondary.extend_from_slice(&header);
+    Ok(secondary)
+}
 impl Capsule {
     pub fn build(primary: &[u8], capacity: u64, expected_sha256: &str) -> Result<Self> {
         if expected_sha256.len() != 64
@@ -65,24 +101,7 @@ impl Capsule {
             ));
         }
         // A saved primary is historical evidence, not fresh device identification.
-        Gpt::from_parts(&primary[512..1024], &primary[1024..], Some(capacity * 512))?;
-        let mut secondary = primary[1024..].to_vec();
-        let mut header = primary[512..1024].to_vec();
-        header[24..32].copy_from_slice(&(capacity - 1).to_le_bytes());
-        header[32..40].copy_from_slice(&1u64.to_le_bytes());
-        header[72..80].copy_from_slice(&(capacity - 33).to_le_bytes());
-        header[16..20].fill(0);
-        let crc = crc32fast::hash(&header[..92]);
-        header[16..20].copy_from_slice(&crc.to_le_bytes());
-        let backup = Gpt::from_parts(&header, &secondary, Some(capacity * 512))?;
-        if backup.disk_guid != gpt.disk_guid
-            || backup.current_lba != capacity - 1
-            || backup.backup_lba != 1
-            || u64le(&header, 72)? != capacity - 33
-        {
-            return Err(invalid("Reconstructed GPT geometry differs"));
-        }
-        secondary.extend_from_slice(&header);
+        let secondary = secondary_from_primary(primary, capacity)?;
         let report = Report {
             schema: 1, kind: "spec_a_entry_gpt_recovery_capsule",
             recorded_capacity_sectors: capacity,
@@ -145,6 +164,26 @@ mod tests {
         // The compact package fixture did not reserve trailing GPT space.
         p[560..568].copy_from_slice(&(capacity - 34).to_le_bytes());
         layout::encode(&p, &gpt.partitions).unwrap()
+    }
+    #[test]
+    fn secondary_accepts_transformed_marker_but_stock_capsule_does_not() {
+        let p = primary();
+        let cap = layout::parse(&p).unwrap().backup_lba + 1;
+        let mut parts = layout::parse(&p).unwrap().partitions;
+        let mut marker = parts[0].clone();
+        marker.name = "IS_UNLOCKED_SBL3".into();
+        marker.guid = uuid::Uuid::from_u128(999);
+        marker.first_sector = 64;
+        marker.last_sector = 64;
+        parts.push(marker);
+        let p = layout::encode(&p, &parts).unwrap();
+        let secondary = secondary_from_primary(&p, cap).unwrap();
+        assert_eq!(&secondary[..16384], &p[1024..]);
+        assert!(Capsule::build(&p, cap, &sha(&p)).is_err());
+        assert!(secondary_from_primary(&p, cap + 1).is_err());
+        let mut bad = p.clone();
+        bad[528] ^= 1;
+        assert!(secondary_from_primary(&bad, cap).is_err());
     }
     #[test]
     fn capsule_preserves_original_and_reconstructs_reciprocal_secondary() {

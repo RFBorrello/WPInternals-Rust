@@ -79,6 +79,9 @@ pub struct Plan {
     report: Report,
 }
 impl Plan {
+    pub fn primary(&self) -> &[u8] {
+        &self.primary
+    }
     pub fn stage_binding(&self, variables: bool) -> StageBinding {
         StageBinding {
             source_ffu_sha256: self.report.source_ffu_sha256.clone(),

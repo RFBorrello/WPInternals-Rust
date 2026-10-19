@@ -174,11 +174,9 @@ fn run_parts<F: FnMut(&OperationEvent) -> bool, J: FnMut(&Checkpoint) -> std::io
                 }
                 let start = u64::from(region.0) + index as u64 * 4096;
                 let start = u32::try_from(start).map_err(|_| "Sector address overflow")?;
-                let percent = if total == 0 {
-                    0
-                } else {
-                    (point.acknowledged_bytes * 100 / total) as u8
-                };
+                let percent = (point.acknowledged_bytes * 100)
+                    .checked_div(total)
+                    .unwrap_or(0) as u8;
                 let request =
                     flash::sectors_v1(start, bytes, percent).map_err(|e| e.to_string())?;
                 point.sequence += 1;

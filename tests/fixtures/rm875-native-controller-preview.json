@@ -1,0 +1,41 @@
+{
+  "preview_only": true,
+  "phone_contacted": false,
+  "phone_writes_enabled": false,
+  "profile": "Lumia 1020 / RM-875 / 059T909 / 3051.50009.1451.1003 / experimental",
+  "source_ffu_sha256": "ce4724a1e4225f629ee4092400715dcd85d160470e1173c71c8065527e73e8c4",
+  "package_sha256": "2dd482d7b6ba7fe72ad045e3191d3a4a30aa8988fc211e6d57009fa3caeb1a58",
+  "donor_sha256": "a3afb9b63ede88a73621705b9124413d4c0a85e3839ae9361a7c9841eb368d2f",
+  "programmer_bytes": 7529371,
+  "first_pass_bytes": 33835520,
+  "secondary_gpt_bytes": 16896,
+  "secondary_gpt_start_sector": 61071327,
+  "requires_native_windows_arm64": true,
+  "requires_administrator": true,
+  "requires_offline_read_only_storage": true,
+  "installed_flashapp_binary_verified": false,
+  "installed_originals_captured": false,
+  "data_preservation_validated": false,
+  "hardware_validated": false,
+  "automatic_resume_allowed": false,
+  "actions": [
+    "Correlate Normal and Flash identities; read the installed primary GPT twice during return through BootManager; verify returning Normal.",
+    "Re-enter Flash once and recheck identity, root fingerprint, capacity and protocol before emergency entry.",
+    "Send one pinned FFU header and zero chunk, reboot, verify DLOAD root, upload one pinned programmer to RAM and start it.",
+    "Write the ten immutable programmer regions, close and reboot; correlate the returning Flash identity and candidate GPT.",
+    "Write the NV and first EFIESP pass, then reconstruct the reciprocal secondary GPT cleared by entry.",
+    "Enter mass storage; require the same physical USB port, exact PnP ancestry, capacity, offline/read-only state and exclusive disk access.",
+    "Save and reread a targeted current-state snapshot; prepare the second EFIESP pass from that installed capture.",
+    "Request a manual restart; capture returning BootManager and select Flash with NOKS; recheck identity and GPT.",
+    "Write the second EFIESP pass; capture mass storage again and require exact EFIESP readback.",
+    "Request a manual restart; verify Flash identity, GPT and unlocked security evidence; reboot and verify the original Normal identity."
+  ],
+  "limitations": [
+    "This experiment may leave the phone in emergency or recovery mode. No automatic retry or rollback is performed.",
+    "The installed FlashApp binary and entry footprint have not been physically verified. A targeted snapshot after entry is not a pre-unlock or full userdata backup.",
+    "No reset, full stock flash, MainOS patch, filesystem mounting or Data-partition write is planned. This does not guarantee data preservation.",
+    "Qualcomm USB WinUSB binding, loader acceptance, NOKF acknowledgements and engineering-SBL3 storage behavior require hardware validation.",
+    "Mass-storage disks must already be offline and read-only. This controller never changes host disk attributes or assigns drive letters.",
+    "Optional upstream MainOS patching is not implemented; failure to boot ends in recovery-required state."
+  ]
+}

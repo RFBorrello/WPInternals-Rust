@@ -9,6 +9,18 @@ pub mod policy;
 mod windows;
 pub use layout::StorageInspection;
 
+/// Query current process token only; never prompts, elevates or changes a disk.
+pub fn raw_access_prerequisite() -> Result<()> {
+    #[cfg(windows)]
+    {
+        windows::raw_access_prerequisite()
+    }
+    #[cfg(not(windows))]
+    {
+        Err(unsupported())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageCandidate {
     pub disk_number: u32,
@@ -45,6 +57,54 @@ pub fn inspect(disk_number: u32) -> Result<StorageInspection> {
     #[cfg(not(windows))]
     {
         let _ = disk_number;
+        Err(unsupported())
+    }
+}
+
+/// Read-only snapshot using a USB instance obtained from the active native
+/// session. Raw disk numbers and imported JSON cannot select this capture's
+/// source. Windows must already have the disk offline and read-only.
+/// `primary` must be the controller's expected in-memory stage layout.
+pub fn capture_spec_a_bound<F: FnMut(&str, u64, u64) -> bool>(
+    usb_instance: &str,
+    capacity: u64,
+    primary: &[u8],
+    after_nv: bool,
+    output: &Path,
+    progress: F,
+) -> Result<wpi_image::spec_a::entry_snapshot::Report> {
+    use sha2::{Digest, Sha256};
+    let pin = hex::encode(Sha256::digest(primary));
+    let plan = if after_nv {
+        wpi_image::spec_a::entry_snapshot::Plan::after_nv(primary, capacity, &pin)?
+    } else {
+        wpi_image::spec_a::entry_snapshot::Plan::new(primary, capacity, &pin)?
+    };
+    #[cfg(windows)]
+    {
+        use wpi_core::backup::ReadOnlySource;
+        let mut disk = windows::Disk::open_bound(usb_instance, capacity)?;
+        let inspection = layout::inspect(&mut disk)?;
+        disk.bind_layout(inspection.gpt_sha256);
+        disk.validate()?;
+        let mut actual = vec![0; 34 * 512];
+        disk.read_at(0, &mut actual)?;
+        if actual != primary {
+            return Err(ImageError::Invalid(
+                "USB-bound disk layout differs from the active stage".into(),
+            ));
+        }
+        let mut report = None;
+        wpi_core::artifacts::write_new(output, |writer| {
+            report = Some(plan.capture(writer, |at, b| disk.read_at(at, b), progress)?);
+            disk.validate()?;
+            Ok(())
+        })?;
+        report.ok_or_else(|| ImageError::Invalid("Bound snapshot did not complete".into()))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (usb_instance, plan, output, progress);
         Err(unsupported())
     }
 }

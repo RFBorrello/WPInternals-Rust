@@ -10,6 +10,7 @@ pub mod emergency_probe;
 pub mod identity_probe;
 pub mod mode_test;
 pub mod serial_probe;
+pub mod spec_a_native;
 pub mod spec_a_preflight;
 pub mod spec_a_session;
 mod usb_session;

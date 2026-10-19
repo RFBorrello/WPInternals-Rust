@@ -13,7 +13,7 @@ wpi-core.workspace = true
 wpi-image.workspace = true
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_SystemInformation"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_SystemInformation"] }
 
 [dev-dependencies]
 tempfile = "3"

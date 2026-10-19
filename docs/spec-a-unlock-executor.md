@@ -123,6 +123,12 @@ see [the metadata-only record](../tests/fixtures/rm875-programmer-plan-validatio
 
 ## Remaining integration
 
+Update: the [experimental native controller](spec-a-native-controller.md) now
+implements the native sequence discussed below, including bound storage capture
+and final readback. The earlier replay milestones below remain historical
+context. Physical acceptance, installed entry-binary identity and data
+preservation remain unvalidated; the browser capability gate is unchanged.
+
 The subsequent [UEFI-variable and EFIESP stages](spec-a-finish-stages.md) now have
 immutable local plans, installed-image second-pass reconstruction and bounded
 NOKF replay with interruption-journal inspection. The [prepared native

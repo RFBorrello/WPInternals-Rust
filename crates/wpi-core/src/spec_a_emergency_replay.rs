@@ -39,6 +39,9 @@ pub struct EntryPlan {
     entry_code: Option<spec_a::entry_code::Report>,
 }
 impl EntryPlan {
+    pub fn header_bytes(&self) -> &[u8] {
+        &self.header
+    }
     /// Reconstruct bounded reference metadata using the retained hash table and
     /// verified copies of each payload chunk. No later file header is trusted.
     pub fn reference<R: Read + Seek>(
@@ -167,6 +170,9 @@ pub struct Loader {
     decoded_sha256: String,
 }
 impl Loader {
+    pub fn decoded_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
     pub(crate) fn matches_root(&self, root: &RootKeyHash) -> bool {
         self.root == *root
     }

@@ -11,6 +11,9 @@ fn session_help_and_required_pins_work_on_the_process_default_stack() {
         vec!["inspect-spec-a-finish-journal", "--help"],
         vec!["inspect-spec-a-entry-code", "--help"],
         vec!["prepare-spec-a-entry-recovery", "--help"],
+        vec!["unlock-spec-a", "--help"],
+        vec!["inspect-spec-a-native-journal", "--help"],
+        vec!["native-unlock-readiness", "--help"],
         vec!["storage", "capture-spec-a", "--help"],
     ] {
         let expected = if args.len() == 1 {
@@ -37,6 +40,54 @@ fn session_help_and_required_pins_work_on_the_process_default_stack() {
         .unwrap();
     assert_eq!(output.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&output.stderr).contains("required"));
+}
+#[test]
+fn native_unlock_defaults_to_preview_and_requires_explicit_execution_arguments() {
+    let executable = env!("CARGO_BIN_EXE_wpi");
+    let args = [
+        "unlock-spec-a",
+        "missing-source",
+        "missing-package",
+        "missing-primary",
+        "missing-loader",
+        "missing-donor",
+        "--disk-sectors",
+        "1",
+        "--expect-source-sha256",
+        "bad",
+        "--expect-package-sha256",
+        "bad",
+        "--expect-primary-sha256",
+        "bad",
+        "--expect-loader-sha256",
+        "bad",
+    ];
+    let output = Command::new(executable)
+        .args(args)
+        .arg("--execute")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("--journal"));
+    let output = Command::new(executable)
+        .args(args)
+        .args([
+            "--execute",
+            "--device-id",
+            "not-a-device",
+            "--confirm",
+            "unreviewed",
+            "--journal",
+            "unused.jsonl",
+            "--first-snapshot",
+            "unused-1.zip",
+            "--final-snapshot",
+            "unused-2.zip",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("no file or device was opened"));
 }
 
 #[test]

@@ -12,6 +12,42 @@ fn disk() -> InventoryDisk {
         read_only: true,
         boot: false,
         system: false,
+        ancestors: vec![r"USB\VID_05C6&PID_9006\PRIVATE-USB".into()],
+    }
+}
+#[test]
+fn binding_requires_one_exact_device_ancestor_and_matching_admitted_geometry() {
+    let d = disk();
+    let usb = r"USB\VID_05C6&PID_9006\PRIVATE-USB";
+    let cap = d.size.parse::<u64>().unwrap() / 512;
+    assert_eq!(
+        policy::bound_candidate(std::slice::from_ref(&d), usb, cap)
+            .unwrap()
+            .number,
+        3
+    );
+    assert!(policy::bound_candidate(&[d.clone(), d.clone()], usb, cap).is_err());
+    for wrong in [
+        "",
+        "9006",
+        r"USB\VID_05C6&PID_9006",
+        r"USB\VID_05C6&PID_9006\PRIVATE",
+        r"USB\ROOT_HUB30\PRIVATE-USB",
+    ] {
+        assert!(policy::bound_candidate(std::slice::from_ref(&d), wrong, cap).is_err());
+    }
+    for kind in 0..7 {
+        let mut changed = d.clone();
+        match kind {
+            0 => changed.ancestors.clear(),
+            1 => changed.ancestors.push(usb.into()),
+            2 => changed.size = (cap * 512 - 512).to_string(),
+            3 => changed.offline = false,
+            4 => changed.read_only = false,
+            5 => changed.system = true,
+            _ => changed.ancestors[0].push('X'),
+        }
+        assert!(policy::bound_candidate(&[changed], usb, cap).is_err());
     }
 }
 #[test]

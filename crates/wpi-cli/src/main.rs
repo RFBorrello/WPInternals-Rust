@@ -60,8 +60,45 @@ struct EntryRecoveryArgs {
     #[arg(long)]
     expect_primary_sha256: String,
 }
+#[derive(clap::Args)]
+struct NativeUnlockArgs {
+    source: PathBuf,
+    package: PathBuf,
+    primary: PathBuf,
+    loader: PathBuf,
+    donor_boot: PathBuf,
+    #[arg(long)]
+    disk_sectors: u64,
+    #[arg(long)]
+    expect_source_sha256: String,
+    #[arg(long)]
+    expect_package_sha256: String,
+    #[arg(long)]
+    expect_primary_sha256: String,
+    #[arg(long)]
+    expect_loader_sha256: String,
+    /// Run the reviewed experimental controller. Default is local preview only.
+    #[arg(long, requires_all=["device_id", "confirm", "journal", "first_snapshot", "final_snapshot"])]
+    execute: bool,
+    #[arg(long, requires = "execute")]
+    device_id: Option<String>,
+    #[arg(long, requires = "execute")]
+    confirm: Option<String>,
+    #[arg(long, requires = "execute")]
+    journal: Option<PathBuf>,
+    #[arg(long, requires = "execute")]
+    first_snapshot: Option<PathBuf>,
+    #[arg(long, requires = "execute")]
+    final_snapshot: Option<PathBuf>,
+}
 #[derive(Subcommand)]
 enum Command {
+    /// Read Administrator/WinUSB prerequisites without phone access or configuration changes.
+    NativeUnlockReadiness,
+    /// Inspect a native unlock journal. Advisory only; never executes or resumes.
+    InspectSpecANativeJournal { input: PathBuf },
+    /// Preview the native RM-875 unlock controller; explicit experimental execution is separate.
+    UnlockSpecA(Box<NativeUnlockArgs>),
     /// Inspect the exact known reference FlashApp inside a local UEFI partition. No USB access.
     InspectSpecAEntryCode { input: PathBuf },
     /// Save captured primary and reconstructed secondary GPT into a NEW local ZIP. No USB access.
@@ -482,7 +519,19 @@ fn execute_experiment<T: serde::Serialize>(
     Ok(())
 }
 fn run() -> Result<(), Box<dyn Error>> {
-    match Cli::parse().command {
+    // Keep clap's generated parser off the large operation-dispatch frame.
+    // Windows ARM64 starts the main thread with a 1 MiB stack in debug builds.
+    dispatch(Cli::parse().command)
+}
+#[inline(never)]
+fn dispatch(command: Command) -> Result<(), Box<dyn Error>> {
+    match command {
+        Command::NativeUnlockReadiness => {
+            print(wpi_transport::spec_a_native::readiness::inspect()?)?
+        }
+        Command::InspectSpecANativeJournal { input } => print(
+            wpi_transport::spec_a_native::journal::inspect(artifacts::open_artifact(&input)?)?,
+        )?,
         Command::InspectSpecAEntryCode { input } => inspect_spec_a_entry_code(input)?,
         Command::PrepareSpecAEntryRecovery(args) => prepare_spec_a_entry_recovery(*args)?,
         Command::ReplayRecovery {
@@ -580,6 +629,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             print(report)?;
         }
         Command::CheckSpecASession(args) => check_spec_a_session(*args)?,
+        Command::UnlockSpecA(args) => native_unlock(*args)?,
         Command::InspectSpecAFinishJournal { input } => {
             print(wpi_core::spec_a_finish_recovery::inspect(
                 std::io::BufReader::new(artifacts::open_artifact(&input)?),
@@ -1238,6 +1288,86 @@ fn plan_spec_a_finish(args: PlanSpecAFinishArgs) -> Result<(), Box<dyn Error>> {
     print(plan.report())?;
     Ok(())
 }
+fn native_unlock(args: NativeUnlockArgs) -> Result<(), Box<dyn Error>> {
+    use std::{
+        io::Read,
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
+    };
+    use wpi_core::{
+        spec_a_emergency_replay::{EntryPlan, Loader},
+        spec_a_session::Prepared,
+    };
+    if args.execute && args.confirm.as_deref() != Some(wpi_transport::spec_a_native::CONFIRMATION) {
+        return Err("Execution requires the exact experimental unlock confirmation; no file or device was opened".into());
+    }
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let signal = cancelled.clone();
+    ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
+    let mut source = artifacts::open_artifact(&args.source)?;
+    let mut last = std::time::Instant::now();
+    let entry = EntryPlan::read(&mut source, &args.expect_source_sha256, |d, t| {
+        if last.elapsed().as_millis() >= 500 || d == t {
+            eprintln!("Pin source FFU: {d}/{t}");
+            last = std::time::Instant::now();
+        }
+        !cancelled.load(Ordering::Acquire)
+    })?;
+    let reference = entry.reference(&mut source)?;
+    let mut loader = Vec::new();
+    artifacts::open_artifact(&args.loader)?
+        .take(wpi_image::spec_a::MAX_LOADER_FILE as u64 + 1)
+        .read_to_end(&mut loader)?;
+    let loader = Loader::prepare(&loader, &args.expect_loader_sha256, reference.root())?;
+    let mut primary = Vec::new();
+    artifacts::open_artifact(&args.primary)?
+        .take(17409)
+        .read_to_end(&mut primary)?;
+    let mut package = artifacts::open_artifact(&args.package)?;
+    let boot = wpi_image::spec_a::programmer_plan::build(
+        &mut package,
+        &primary,
+        args.disk_sectors,
+        &args.expect_primary_sha256,
+        &args.expect_package_sha256,
+        |_, _, _| !cancelled.load(Ordering::Acquire),
+    )?;
+    let finish =
+        wpi_image::spec_a::finish_plan::build(&mut package, &primary, &boot, |_, _, _| {
+            !cancelled.load(Ordering::Acquire)
+        })?;
+    let prepared = Prepared::new(entry, reference, loader, boot)?;
+    let mut donor = Vec::new();
+    artifacts::open_artifact(&args.donor_boot)?
+        .take(4 * 1024 * 1024 + 1)
+        .read_to_end(&mut donor)?;
+    let plan = wpi_transport::spec_a_native::Plan::new(&prepared, &finish, &donor)?;
+    if args.execute {
+        let report = wpi_transport::spec_a_native::run(
+            args.device_id
+                .as_deref()
+                .ok_or("Device selection required")?,
+            &plan,
+            args.confirm.as_deref().ok_or("Confirmation required")?,
+            args.journal.as_deref().ok_or("New journal required")?,
+            args.first_snapshot
+                .as_deref()
+                .ok_or("New first snapshot required")?,
+            args.final_snapshot
+                .as_deref()
+                .ok_or("New final snapshot required")?,
+            &cancelled,
+            |stage| eprintln!("{stage}"),
+        )?;
+        print(report)?;
+    } else {
+        print(plan.preview())?;
+    }
+    Ok(())
+}
+
 fn check_spec_a_session(args: CheckSpecASessionArgs) -> Result<(), Box<dyn Error>> {
     let CheckSpecASessionArgs {
         source,

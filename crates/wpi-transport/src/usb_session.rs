@@ -25,13 +25,21 @@ impl<T: Io> Session<T> {
         Self { io, retired: false }
     }
     fn check(&self, request: &[u8], deadline: Option<Instant>) -> Result<Instant> {
+        self.check_bound(request, deadline, 65536)
+    }
+    fn check_bound(
+        &self,
+        request: &[u8],
+        deadline: Option<Instant>,
+        bound: usize,
+    ) -> Result<Instant> {
         if self.retired {
             return Err(ProtocolError::Transport(
                 "Native session retired after a failed transfer; inspect device state and reopen"
                     .into(),
             ));
         }
-        if request.is_empty() || request.len() > 65536 {
+        if request.is_empty() || request.len() > bound {
             return Err(ProtocolError::Invalid(
                 "invalid native request bound".into(),
             ));
@@ -81,6 +89,45 @@ impl<T: Io> Session<T> {
         deadline: Option<Instant>,
     ) -> Result<Vec<u8>> {
         let end = self.check(request, deadline)?;
+        self.exchange_checked(request, maximum_response, end)
+    }
+    /// Only canonical bounded Spec A FFU-v1/NOKF packets may use the larger OUT
+    /// path. Read-only callers retain the 64 KiB request limit.
+    pub(super) fn exchange_flash(
+        &mut self,
+        request: &[u8],
+        maximum_response: usize,
+        deadline: Option<Instant>,
+    ) -> Result<Vec<u8>> {
+        use wpi_protocol::flash;
+        let invalid = || ProtocolError::Invalid("Noncanonical native Spec A write packet".into());
+        if request.len() > 32 * 1024 * 1024 + 32 {
+            return Err(invalid());
+        }
+        let canonical = if request.starts_with(b"NOKF") && request.len() >= 64 {
+            let start = u32::from_be_bytes(request[11..15].try_into().unwrap());
+            flash::sectors_v1(start, &request[64..], request[19])?
+        } else if request.starts_with(b"NOKXFS") && request.len() >= 28 {
+            match u32::from_be_bytes(request[12..16].try_into().unwrap()) {
+                11 if request.len() >= 32 => flash::ffu_header_v1(&request[32..])?,
+                12 => flash::ffu_payload_v1(&request[28..], request[8])?,
+                _ => return Err(invalid()),
+            }
+        } else {
+            return Err(invalid());
+        };
+        if canonical != request {
+            return Err(invalid());
+        }
+        let end = self.check_bound(request, deadline, 32 * 1024 * 1024 + 32)?;
+        self.exchange_checked(request, maximum_response, end)
+    }
+    fn exchange_checked(
+        &mut self,
+        request: &[u8],
+        maximum_response: usize,
+        end: Instant,
+    ) -> Result<Vec<u8>> {
         if maximum_response == 0 || maximum_response > 1024 * 1024 {
             return Err(ProtocolError::Invalid("invalid response bound".into()));
         }
@@ -478,6 +525,44 @@ mod tests {
         );
         assert_eq!(session.io.written, [vec![6]]);
         assert_retired(&mut session);
+    }
+    #[test]
+    fn large_flash_path_is_canonical_bounded_and_does_not_relax_probe_path() {
+        let packet = wpi_protocol::flash::sectors_v1(1024, &vec![1; 128 * 1024], 1).unwrap();
+        let mut s = Session::new(Fake::default());
+        assert!(s.exchange(&packet, 8, None).is_err());
+        let mut bad = packet.clone();
+        bad[10] = 1;
+        assert!(s.exchange_flash(&bad, 8, None).is_err());
+        assert!(s.exchange_flash(b"NOKR", 8, None).is_err());
+        assert!(s.io.written.is_empty());
+        s.io.output.push_back(Ok(packet.len()));
+        s.io.input.push_back(Ok(vec![0; 8]));
+        assert_eq!(s.exchange_flash(&packet, 8, None).unwrap(), vec![0; 8]);
+        assert_eq!(s.io.written.len(), 1);
+        s.io.output.push_back(Ok(packet.len() - 1));
+        assert!(s.exchange_flash(&packet, 8, None).is_err());
+        assert_retired(&mut s);
+        assert_eq!(s.io.reads.len(), 1);
+    }
+    #[test]
+    fn canonical_entry_header_and_payload_use_one_out_each_and_reject_changed_lengths() {
+        use wpi_protocol::flash;
+        for packet in [
+            flash::ffu_header_v1(&vec![1; 256 * 1024]).unwrap(),
+            flash::ffu_payload_v1(&vec![0; 128 * 1024], 0).unwrap(),
+            flash::ffu_payload_v1(&[0], 0).unwrap(),
+        ] {
+            let mut session = Session::new(Fake::default());
+            let mut bad = packet.clone();
+            bad[16] ^= 1;
+            assert!(session.exchange_flash(&bad, 8, None).is_err());
+            assert!(session.io.written.is_empty());
+            session.io.output.push_back(Ok(packet.len()));
+            session.io.input.push_back(Ok(vec![0; 8]));
+            session.exchange_flash(&packet, 8, None).unwrap();
+            assert_eq!(session.io.written, [packet]);
+        }
     }
     #[test]
     fn framed_limits_and_short_out_stop_before_in() {

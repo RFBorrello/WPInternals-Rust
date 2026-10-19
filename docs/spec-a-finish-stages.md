@@ -95,6 +95,12 @@ imported as execution or resume authority, and the inspector never contacts USB.
 
 ## Validation and remaining execution work
 
+The [experimental native controller](spec-a-native-controller.md) now connects
+these plans to native USB, exact USB ancestry-bound disk snapshots and final
+EFIESP readback. It also reconstructs the reciprocal secondary GPT cleared by
+entry and captures the actual retained NV backup. It has not been physically
+executed. The earlier milestone notes below do not establish hardware support.
+
 Synthetic tests cover variable-range collisions and malformed geometry, exact
 dual-FAT slices, large chunked reads, installed-file preservation, changed captures,
 cancellation, every transfer/journal failure boundary, and torn/corrupt journals.

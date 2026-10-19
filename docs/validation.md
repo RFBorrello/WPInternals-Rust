@@ -1093,3 +1093,40 @@ hardware validation false, writes disabled and automatic resume disabled. See th
 [sanitized record](../tests/hardware/lumia-1020-rm875-session-check.json) and
 [session guide](spec-a-session.md). This establishes one read-only Normal check,
 not device acceptance of the older source firmware or live unlock readiness.
+
+## Experimental native controller (2026-10-18)
+
+The [native controller](spec-a-native-controller.md) now joins fresh Normal /
+Flash / BootManager GPT checks, pinned emergency entry, one DLOAD loader,
+programmer transfers, both NV/EFIESP passes, secondary GPT repair, exact Windows
+USB ancestry-bound targeted capture, full final EFIESP readback and return checks.
+Its CLI defaults to local preview. Unknown profiles cannot execute. A separate
+read-only host check and an explicit experimental confirmation precede execution;
+the browser/desktop capability matrix remains unchanged.
+
+The final affected image/core/protocol/storage/transport/CLI suite passed **332
+tests** on local Windows ARM64. This includes fault and cancellation boundaries,
+durable intent ordering, torn native journals, reused USB identities, unrelated
+hotplug events, ambiguous/wrong storage parents, output alias collisions, post-NV
+capture, canonical large USB packets and process-default-stack CLI regressions.
+Atomic temporary-file publication tests required execution outside the filesystem
+sandbox; they use synthetic files and do not select a phone. Strict local Clippy
+and formatting were checked separately. The previous CI failures were a generated
+CLI parser sharing a large dispatch frame and Rust 1.99's manual checked-division
+lint; parsing/dispatch are now separated and progress uses checked_div.
+
+The optimized CLI prepared the actual pinned source, package, saved primary,
+FAST8960 loader and supported donor successfully without enumerating USB. The
+[metadata-only preview](../tests/fixtures/rm875-native-controller-preview.json)
+records 7,529,371 programmer bytes, 33,835,520 first-pass bytes and a derived
+16,896-byte secondary GPT at sector 61,071,327. The second pass remains dependent
+on a future physical capture bound to the same native session, not a reference image.
+
+No entry, loader upload, programmer, NOKF, mass-storage request or unlock command
+was sent during this work. Read-only host metadata found an unelevated process
+and no historical Qualcomm WinUSB binding. One matching VID/PID history entry
+uses HidUsb; it is not established as this phone's emergency endpoint. This is
+not driver or protocol validation. Installed FlashApp identity, exact physical
+entry behavior, loader acceptance, full data preservation, installed originals
+and physical recovery remain unverified. Software implementation and successful
+builds do not resolve those hardware-evidence requirements.

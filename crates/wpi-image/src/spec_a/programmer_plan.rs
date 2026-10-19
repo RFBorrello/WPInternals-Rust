@@ -54,8 +54,16 @@ pub struct Plan {
     regions: Vec<Region>,
     report: Report,
     source_sbl1_sha256: String,
+    original_primary: Vec<u8>,
+    candidate_primary: Vec<u8>,
 }
 impl Plan {
+    pub fn original_primary(&self) -> &[u8] {
+        &self.original_primary
+    }
+    pub fn candidate_primary(&self) -> &[u8] {
+        &self.candidate_primary
+    }
     pub fn source_sbl1_sha256(&self) -> &str {
         &self.source_sbl1_sha256
     }
@@ -242,6 +250,8 @@ pub fn build<R: Read + Seek, F: FnMut(&str, u64, u64) -> bool>(
     let total_transfer_bytes = transfers.iter().map(|t| t.byte_length).sum();
     Ok(Plan {
         regions,
+        original_primary: primary.to_vec(),
+        candidate_primary: verified.candidate.bytes.clone(),
         source_sbl1_sha256: super::hash(&first),
         report: Report {
             schema: 1,

@@ -50,12 +50,74 @@ pub struct Plan {
 fn sha(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
+/// Read one bounded capture member after checking the complete archive digest
+/// and all ZIP members. No paths are extracted to the host filesystem.
+pub fn read_efiesp<R: Read + Seek>(input: &mut R, expected_archive: &str) -> Result<Vec<u8>> {
+    use std::io::{Cursor, SeekFrom};
+    if expected_archive.len() != 64 {
+        return Err(invalid("Complete snapshot digest is required"));
+    }
+    input.seek(SeekFrom::Start(0))?;
+    if input.seek(SeekFrom::End(0))? > 129 * 1024 * 1024 {
+        return Err(invalid("Targeted snapshot archive exceeds bound"));
+    }
+    input.seek(SeekFrom::Start(0))?;
+    if !crate::stream::sha256(input)?.eq_ignore_ascii_case(expected_archive) {
+        return Err(invalid("Snapshot archive digest differs"));
+    }
+    let (_, files) = super::archive::inspect(input, |_, _| true)?;
+    let members: Vec<_> = files
+        .iter()
+        .filter(|f| f.path == "captured/EFIESP.bin")
+        .collect();
+    let [member] = members.as_slice() else {
+        return Err(invalid("Snapshot EFIESP is missing or ambiguous"));
+    };
+    if member.size == 0 || member.size > 96 * 1024 * 1024 || !member.size.is_multiple_of(512) {
+        return Err(invalid("Snapshot EFIESP exceeds bound"));
+    }
+    input.seek(SeekFrom::Start(member.data_offset))?;
+    let mut bytes = vec![0; member.size as usize];
+    input.read_exact(&mut bytes)?;
+    if crate::stream::sha256(&mut Cursor::new(&bytes))? != member.sha256 {
+        return Err(invalid("Snapshot EFIESP changed after verification"));
+    }
+    Ok(bytes)
+}
 impl Plan {
     pub fn captured_bytes(&self) -> u64 {
         self.bytes
     }
     pub fn new(primary: &[u8], capacity: u64, expected_primary: &str) -> Result<Self> {
         Capsule::build(primary, capacity, expected_primary)?;
+        Self::compose(primary, capacity, false)
+    }
+    /// Capture the actual NV backup after the first unlock pass. The caller must
+    /// compare this primary to its in-memory finish plan, not import a report.
+    /// This deliberately makes no claim to be a pre-unlock backup.
+    pub fn after_nv(primary: &[u8], capacity: u64, expected_primary: &str) -> Result<Self> {
+        if expected_primary.len() != 64 || !sha(primary).eq_ignore_ascii_case(expected_primary) {
+            return Err(invalid("Post-NV primary GPT digest differs"));
+        }
+        super::entry_recovery::secondary_from_primary(primary, capacity)?;
+        let gpt = layout::parse(primary)?;
+        for p in &gpt.partitions {
+            if p.first_sector < 256
+                && !(p.name == "IS_UNLOCKED_SBL3" && p.first_sector == 64 && p.last_sector == 64)
+            {
+                return Err(invalid("Unknown partition inside entry footprint"));
+            }
+        }
+        let active = gpt.partition("UEFI_BS_NV")?;
+        let backup = gpt.partition("BACKUP_BS_NV")?;
+        if backup.last_sector - backup.first_sector + 1 != 512
+            || backup.last_sector + 1 != active.first_sector
+        {
+            return Err(invalid("Unknown post-NV backup geometry"));
+        }
+        Self::compose(primary, capacity, true)
+    }
+    fn compose(primary: &[u8], capacity: u64, after_nv: bool) -> Result<Self> {
         let gpt = layout::parse(primary)?;
         let mut spans = vec![
             Span {
@@ -90,20 +152,30 @@ impl Plan {
         if nv.last_sector - nv.first_sector + 1 != 512 {
             return Err(invalid("Unknown Spec A UEFI variable geometry"));
         }
-        let next = nv.last_sector + 1;
+        let next = if after_nv {
+            gpt.partition("BACKUP_BS_NV")?.first_sector
+        } else {
+            nv.last_sector + 1
+        };
         let last = next + 511;
         if last > gpt.last_usable_sector
-            || gpt
-                .partitions
-                .iter()
-                .any(|p| p.first_sector <= last && p.last_sector >= next)
+            || gpt.partitions.iter().any(|p| {
+                !(after_nv && p.name == "BACKUP_BS_NV")
+                    && p.first_sector <= last
+                    && p.last_sector >= next
+            })
         {
             return Err(invalid(
                 "Future variable destination is occupied or out of bounds",
             ));
         }
         spans.push(Span {
-            name: "variable-destination".into(),
+            name: if after_nv {
+                "BACKUP_BS_NV"
+            } else {
+                "variable-destination"
+            }
+            .into(),
             start: next * 512,
             size: 256 * 1024,
         });
@@ -284,6 +356,61 @@ mod tests {
         d[at..at + 16384].copy_from_slice(&p[1024..]);
         d[at + 16384..at + 16896].copy_from_slice(&h);
         (d, p)
+    }
+    #[test]
+    fn post_nv_snapshot_captures_backup_not_an_unrelated_future_hole() {
+        let (mut disk, p) = disk();
+        let mut parts = layout::parse(&p).unwrap().partitions;
+        let active = parts.iter_mut().find(|p| p.name == "UEFI_BS_NV").unwrap();
+        let mut backup = active.clone();
+        backup.name = "BACKUP_BS_NV".into();
+        backup.guid = uuid::Uuid::from_u128(1002);
+        active.first_sector += 512;
+        active.last_sector += 512;
+        parts.push(backup);
+        let mut marker = parts[0].clone();
+        marker.name = "IS_UNLOCKED_SBL3".into();
+        marker.guid = uuid::Uuid::from_u128(1003);
+        marker.first_sector = 64;
+        marker.last_sector = 64;
+        parts.push(marker);
+        let p = layout::encode(&p, &parts).unwrap();
+        let cap = disk.len() as u64 / 512;
+        disk[..p.len()].copy_from_slice(&p);
+        let secondary = super::super::entry_recovery::secondary_from_primary(&p, cap).unwrap();
+        disk[(cap as usize - 33) * 512..].copy_from_slice(&secondary);
+        assert!(Plan::new(&p, cap, &sha(&p)).is_err());
+        let plan = Plan::after_nv(&p, cap, &sha(&p)).unwrap();
+        assert!(plan
+            .spans
+            .iter()
+            .any(|s| s.name == "BACKUP_BS_NV" && s.start == 9000 * 512));
+        assert!(!plan.spans.iter().any(|s| s.name == "variable-destination"));
+        let mut archive = Cursor::new(Vec::new());
+        let report = plan
+            .capture(
+                &mut archive,
+                |at, b| {
+                    b.copy_from_slice(&disk[at as usize..at as usize + b.len()]);
+                    Ok(())
+                },
+                |_, _, _| true,
+            )
+            .unwrap();
+        assert!(!report.pre_unlock_originals_proven);
+        let image = read_efiesp(&mut archive, &report.archive_sha256).unwrap();
+        assert_eq!(image, disk[512 * 512..576 * 512]);
+        assert!(read_efiesp(&mut archive, &"0".repeat(64)).is_err());
+        archive.get_mut()[40] ^= 1;
+        assert!(read_efiesp(&mut archive, &report.archive_sha256).is_err());
+        assert!(Plan::after_nv(&p, cap, &"0".repeat(64)).is_err());
+        parts
+            .iter_mut()
+            .find(|p| p.name == "IS_UNLOCKED_SBL3")
+            .unwrap()
+            .name = "unexpected".into();
+        let wrong = layout::encode(&p, &parts).unwrap();
+        assert!(Plan::after_nv(&wrong, cap, &sha(&wrong)).is_err());
     }
     #[test]
     fn bounded_snapshot_rereads_every_range_and_verifies_archive() {

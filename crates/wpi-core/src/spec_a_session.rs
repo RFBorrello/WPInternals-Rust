@@ -294,6 +294,40 @@ impl<'a> NormalSession<'a> {
     }
 }
 impl<'a> FlashSession<'a> {
+    /// Fresh observation bound to the original Normal ID and prepared artifacts.
+    /// This is correlation, not a hardware-validation or storage-write grant.
+    pub fn capture_current<T: MessageTransport, F: FnMut(&str) -> bool>(
+        &self,
+        transport: &mut T,
+        read_primary: bool,
+        progress: F,
+    ) -> Result<preflight::Observation, String> {
+        let mut guarded = FlashGuard {
+            inner: transport,
+            capacity: self.baseline.context.capacity,
+        };
+        preflight::capture_bound(
+            &mut guarded,
+            &self.baseline.context.root,
+            &self.baseline.context.platform,
+            read_primary,
+            &self.baseline.public_id,
+            progress,
+        )
+        .map(|c| c.into_observation())
+        .map_err(|e| e.to_string())
+    }
+    pub fn verify_return_for_continuation(
+        self,
+        returning: NormalSession<'a>,
+    ) -> Result<NormalSession<'a>, String> {
+        if !std::ptr::eq(returning.context, self.baseline.context)
+            || returning.public_id != self.baseline.public_id
+        {
+            return Err("Returning Normal identity or prepared context differs".into());
+        }
+        Ok(returning)
+    }
     pub fn report(&self) -> Report {
         self.baseline.report_with_flash(true)
     }
