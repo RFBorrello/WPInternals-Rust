@@ -26,6 +26,7 @@ struct Bindings {
 #[serde(deny_unknown_fields)]
 pub struct Endpoint {
     pub product_id: u16,
+    pub binding_target: BindingTarget,
     pub present: bool,
     pub setup_class: SetupClass,
     pub service: Service,
@@ -33,6 +34,15 @@ pub struct Endpoint {
     pub protected_class: bool,
     pub winusb_compatible_id: bool,
     pub interface_guid_registered: bool,
+}
+/// nusb opens whole-device WinUSB via GUID_DEVINTERFACE_USB_DEVICE. Only
+/// USBCCGP child interfaces use a custom GUID from the device registry key.
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BindingTarget {
+    WholeDevice,
+    CompositeInterface,
+    Unknown,
 }
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -57,7 +67,11 @@ impl Endpoint {
         self.service == Service::Winusb
             && self.setup_class == SetupClass::UsbDevice
             && !self.protected_class
-            && self.interface_guid_registered
+            && match self.binding_target {
+                BindingTarget::WholeDevice => true,
+                BindingTarget::CompositeInterface => self.interface_guid_registered,
+                BindingTarget::Unknown => false,
+            }
             // A historical devnode need not have a current problem code. A
             // present devnode must positively report no configuration problem.
             && (!self.present || self.problem_code == Some(0))
@@ -103,7 +117,7 @@ fn report(supported: bool, admin: bool, bindings: Bindings) -> Readiness {
         messages.push("Run the reviewed native CLI from an Administrator terminal before any mode change; no elevation was attempted.");
     }
     if usable == 0 {
-        messages.push("No usable historical emergency WinUSB binding with a registered interface GUID was found. Verify the actual phone endpoint before choosing a binding; no driver was installed or changed.");
+        messages.push("No eligible historical emergency WinUSB binding was found. Whole devices use the standard USB device path; composite interfaces also need a registered custom interface GUID. Verify the actual phone endpoint before choosing a binding; no driver was installed or changed.");
     }
     if bindings.endpoints.iter().any(|e| {
         e.protected_class || e.setup_class == SetupClass::Hid || e.service == Service::Hidusb
@@ -117,12 +131,12 @@ fn report(supported: bool, admin: bool, bindings: Bindings) -> Readiness {
     {
         messages.push("A matching endpoint uses serial access. The native unlock controller has no serial fallback; do not replace a class driver based only on this report.");
     }
-    if bindings
-        .endpoints
-        .iter()
-        .any(|e| e.service == Service::Winusb && !e.interface_guid_registered)
-    {
-        messages.push("A WinUSB service without a registered device interface GUID is insufficient for application discovery.");
+    if bindings.endpoints.iter().any(|e| {
+        e.service == Service::Winusb
+            && e.binding_target == BindingTarget::CompositeInterface
+            && !e.interface_guid_registered
+    }) {
+        messages.push("A composite WinUSB interface without a registered custom interface GUID is insufficient for nusb discovery. Whole-device WinUSB uses the standard USB device interface instead.");
     }
     messages.push("A future phone disk must already be offline/read-only before capture; this check changes no disk attributes.");
     Readiness {
@@ -232,6 +246,7 @@ mod tests {
     fn endpoint() -> Endpoint {
         Endpoint {
             product_id: 0x9008,
+            binding_target: BindingTarget::WholeDevice,
             present: false,
             setup_class: SetupClass::UsbDevice,
             service: Service::Winusb,
@@ -261,10 +276,30 @@ mod tests {
         e.protected_class = true;
         assert!(!with(e).prerequisites_met);
         let mut e = endpoint();
-        e.interface_guid_registered = false;
-        assert!(!with(e).prerequisites_met);
-        let mut e = endpoint();
         e.service = Service::Hidusb;
+        assert!(!with(e).prerequisites_met);
+    }
+    #[test]
+    fn custom_guid_is_required_only_for_composite_interfaces() {
+        let mut e = endpoint();
+        e.interface_guid_registered = false;
+        // The actual nusb whole-device branch enumerates the standard USB
+        // device interface; missing custom registry values cannot block it.
+        assert!(with(e).prerequisites_met);
+        let mut e = endpoint();
+        e.binding_target = BindingTarget::CompositeInterface;
+        e.interface_guid_registered = false;
+        let r = with(e);
+        assert!(!r.prerequisites_met);
+        assert!(r
+            .messages
+            .iter()
+            .any(|m| m.starts_with("A composite WinUSB")));
+        let mut e = endpoint();
+        e.binding_target = BindingTarget::CompositeInterface;
+        assert!(with(e).prerequisites_met);
+        let mut e = endpoint();
+        e.binding_target = BindingTarget::Unknown;
         assert!(!with(e).prerequisites_met);
     }
     #[test]
@@ -314,6 +349,11 @@ mod tests {
         assert!(
             parse(&serde_json::to_vec(&serde_json::json!({"endpoints": entries})).unwrap())
                 .is_err()
+        );
+        let mut e = serde_json::to_value(endpoint()).unwrap();
+        e.as_object_mut().unwrap().remove("binding_target");
+        assert!(
+            parse(&serde_json::to_vec(&serde_json::json!({"endpoints": [e]})).unwrap()).is_err()
         );
         let mut e = serde_json::to_value(endpoint()).unwrap();
         e["instance_id"] = "private".into();

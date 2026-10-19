@@ -1142,7 +1142,7 @@ checks its own token again. No phone mode or storage change was sent.
 The emergency inventory now emits bounded, sanitized endpoint metadata and
 distinguishes present devices from historical records. WinUSB service presence
 alone no longer satisfies admission: the setup class, protected class metadata,
-registered interface GUID and present-device problem code are checked. The
+binding target, composite-interface GUID and present-device problem code are checked. The
 development host has zero present emergency candidates and zero usable emergency
 WinUSB bindings. Its single absent F006 candidate has HID/protected-class
 metadata and is not established as this phone's endpoint. Its driver was left
@@ -1221,3 +1221,30 @@ valid singular fallback, and reject a parsed empty plural GUID. Four Rust host
 readiness tests and the complete synthetic Windows inventory script passed.
 The controller's execution gates and all hardware/preservation evidence remain
 unchanged. See [metadata evidence](../tests/fixtures/windows-emergency-binding-validation.json).
+
+## Whole-device versus composite WinUSB discovery (2026-10-19)
+
+Inspection of the pinned nusb 0.2.7 implementation found that the earlier GUID
+admission rule was too broad. Its whole-device WinUSB branch enumerates the
+standard `GUID_DEVINTERFACE_USB_DEVICE`; only its USBCCGP child-interface branch
+reads the custom GUID registry properties. Readiness now distinguishes these
+targets using the private Windows instance-ID shape and emits only the enum.
+Whole-device bindings no longer need an unused custom property. Composite
+interfaces retain the first-plural-entry/singular-fallback check, and unknown
+targets, HID/protected classes and present-device errors still fail admission.
+
+The existing controller still requires an eligible historical binding before
+entry; this fix does not implement first-time driver setup or validate emergency
+access. No driver, disk attribute, phone mode or phone storage was changed.
+
+All **93 transport tests and four CLI subprocess tests** passed. Synthetic PnP
+checks passed in PowerShell 7 and Windows PowerShell 5.1, including whole-device,
+composite, unexpected suffix and case-insensitive product-ID cases. Strict
+transport/CLI Clippy, formatting and an optimized CLI build passed. These are
+software checks, not a physical emergency USB or unlock validation.
+
+The rebuilt CLI's actual read-only host inventory still found one absent F006
+HID record, zero present emergency endpoints and zero usable WinUSB bindings.
+The current process was not Administrator. The new whole-device classification
+does not admit that HID record; phone contact and driver-change flags stayed
+false.

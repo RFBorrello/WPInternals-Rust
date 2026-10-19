@@ -61,10 +61,12 @@ disable signature enforcement, enable test signing, or import a local trust
 certificate as a substitute for a production package.
 
 The separate documented in-box Device Manager setup route may avoid a custom
-driver package, but still needs an identified actual endpoint and registered
-interface GUID. Neither route makes the storage-changing 1020 emergency entry
-a read-only driver test. The native controller's existing admission gates remain
-unchanged. See [Windows access](../../../docs/windows-emergency-access.md).
+driver package, but still needs an identified actual endpoint. nusb uses the
+standard USB device path for whole-device WinUSB; composite child interfaces
+also need a custom registered interface GUID. Neither route makes the
+storage-changing 1020 emergency entry a read-only driver test. The native
+controller's existing admission gates remain unchanged. See
+[Windows access](../../../docs/windows-emergency-access.md).
 
 References: Microsoft's [WinUSB universal INF and installation guide](https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/winusb-installation),
 [WDK NuGet acquisition](https://learn.microsoft.com/en-us/windows-hardware/drivers/install-the-wdk-using-nuget),

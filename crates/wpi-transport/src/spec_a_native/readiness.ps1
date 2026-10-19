@@ -6,6 +6,13 @@ $devices = @(Get-PnpDevice | Where-Object {
 } | Select-Object -First 65)
 if ($devices.Count -gt 64) { throw 'Emergency device inventory exceeds bound' }
 $entries = @(foreach ($device in $devices) {
+    # Keep topology classification private. A VID/PID prefix with unexpected
+    # suffixes cannot be treated as a whole device just because MI_ is absent.
+    $bindingTarget = 'unknown'
+    if ($device.InstanceId -match '^USB\\VID_05C6&PID_(9008|F006)(&REV_[0-9A-F]{4})?(&MI_[0-9A-F]{2})?\\[^\\]+$') {
+        if ($Matches[3]) { $bindingTarget = 'composite_interface' }
+        else { $bindingTarget = 'whole_device' }
+    }
     $properties = @{}
     Get-PnpDeviceProperty -InstanceId $device.InstanceId -KeyName @(
         'DEVPKEY_Device_Service', 'DEVPKEY_Device_ClassGuid',
@@ -51,7 +58,7 @@ $entries = @(foreach ($device in $devices) {
         $parameters = Get-ItemProperty -LiteralPath $parameterPath
         $guids = @($parameters.DeviceInterfaceGUIDs) + @($parameters.DeviceInterfaceGUID)
         if ($guids.Count -gt 64) { throw 'Device interface inventory exceeds bound' }
-        # nusb 0.2.7 parses the FIRST plural value, falling back to the singular
+        # For USBCCGP CHILD interfaces, nusb 0.2.7 parses the FIRST plural value, falling back to the singular
         # property only if that parse fails. A later valid plural entry cannot
         # rescue an unusable first entry. Match that behavior conservatively.
         $plural = @($parameters.DeviceInterfaceGUIDs)
@@ -65,9 +72,11 @@ $entries = @(foreach ($device in $devices) {
             }
         }
     }
-    $product = [regex]::Match($device.InstanceId, 'PID_(9008|F006)').Groups[1].Value
+    $product = [regex]::Match($device.InstanceId, '^USB\\VID_05C6&PID_(9008|F006)($|&|\\)',
+        [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Groups[1].Value
     @{
         product_id = [Convert]::ToUInt16($product, 16)
+        binding_target = $bindingTarget
         present = $properties['DEVPKEY_Device_IsPresent']
         setup_class = $setupClass
         service = $service

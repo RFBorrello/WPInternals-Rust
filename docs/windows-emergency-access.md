@@ -8,13 +8,22 @@ decimal (`36872` = `9008`, `61446` = `f006`). Serial numbers, device instance
 paths, physical ports, friendly labels and interface GUID values are omitted.
 
 The report separates historical records from present endpoints. A service named
-WinUSB alone is insufficient: the setup class must be USBDevice, a nonempty
-device interface GUID must be registered, protected USB class metadata must be
-absent, and a present devnode must report problem code zero. Serial and HID
-bindings are reported separately and never satisfy this controller's USB gate.
-The GUID check follows nusb's first-entry selection: a later valid plural GUID
-cannot rescue an invalid first entry. The singular property is a fallback only
-when the plural parse fails; a parsed empty GUID remains unusable.
+WinUSB alone is insufficient: the setup class must be USBDevice, protected USB
+class metadata must be absent, and a present devnode must report problem code
+zero. `binding_target` distinguishes whole devices from composite interfaces;
+unknown instance-ID shapes cannot satisfy admission. Serial and HID bindings
+are reported separately and never satisfy this controller's USB gate.
+
+For whole-device WinUSB, nusb 0.2.7 uses Windows' standard
+`GUID_DEVINTERFACE_USB_DEVICE` path. It does **not** require a custom registry
+GUID for this branch. USBCCGP composite child interfaces additionally require
+that custom GUID. `interface_guid_registered` reports this custom registry
+value, so false does not by itself reject a whole-device binding. For composite
+interfaces, a later valid plural GUID cannot rescue an invalid first entry.
+The singular property is a fallback only when the plural parse fails; a parsed
+empty GUID remains unusable. These rules follow the pinned dependency's
+[`claim_interface` dispatch](https://github.com/kevinmehall/nusb/blob/bdc148c123c102785cd1d506b77bfeeb794ffeb1/src/platform/windows_winusb/device.rs#L182-L209)
+and [device-path helpers](https://github.com/kevinmehall/nusb/blob/bdc148c123c102785cd1d506b77bfeeb794ffeb1/src/platform/windows_winusb/enumeration.rs#L225-L296).
 Even an eligible historical binding is only availability evidence. It does not
 authenticate a Lumia, prove that the future endpoint will open, or validate an
 unlock. Actual arrival still needs port, descriptor, root and protocol checks.
@@ -60,10 +69,12 @@ support untested; it does not prove all alternatives impossible.
 
 Microsoft documents an in-box WinUSB route in Device Manager: Update driver,
 Browse my computer, Let me pick, Universal Serial Bus devices, WinUsb Device.
-Its instructions also require a registered device interface GUID for application
-access; selecting the service alone is insufficient. This is a potential setup
-route **after verifying the exact endpoint**, not an instruction to rebind the
-historical HID device. Automatic in-box binding requires the device's WinUSB OS
+Its general application setup instructions register a custom device interface
+GUID. This remains useful for other clients and is required for nusb's composite
+interface path, while nusb's whole-device path uses the standard USB GUID. This
+is a potential setup route **after verifying the exact endpoint**, not an
+instruction to rebind the historical HID device. Automatic in-box binding
+requires the device's WinUSB OS
 descriptors/compatible ID. See Microsoft's
 [WinUSB installation instructions](https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/winusb-installation)
 and [automatic installation requirements](https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/automatic-installation-of-winusb).
@@ -119,3 +130,15 @@ driver binding and physical emergency access remain unvalidated. The documented
 manual in-box setup remains a separate route once that actual endpoint is
 available; a custom package signature is not a universal prerequisite for it.
 Neither route clears the controller's live token/driver gates or validates entry.
+
+## First-time setup limitation
+
+The current controller requires an eligible historical binding **before** entry.
+On a first-time host with no such record, it stops before any phone command. It
+does not yet retain a live session across a manual first-time driver setup after
+emergency arrival. Do not create a fake historical record or rebind the unrelated
+HID candidate to satisfy that check. A future setup checkpoint must retain the
+Normal/Flash identity and physical port, observe the actual endpoint, and repeat
+descriptor and DLOAD-root checks before any loader upload. Entering emergency
+mode to reach that checkpoint still changes storage with the current route; the
+unsigned INF and a corrected GUID check do not establish data preservation.

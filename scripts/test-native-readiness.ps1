@@ -6,7 +6,7 @@ function Invoke-InventoryFixture {
     param([hashtable]$Fixture)
     function Get-PnpDevice {
         if ($Fixture.Empty) { return }
-        [pscustomobject]@{ InstanceId = ('USB\VID_05C6&PID_' + $Fixture.Product + '\PRIVATE-SERIAL') }
+        [pscustomobject]@{ InstanceId = ('USB\VID_05C6&PID_' + $Fixture.Product + $Fixture.Suffix + '\PRIVATE-SERIAL') }
     }
     function Get-PnpDeviceProperty {
         param($InstanceId, $KeyName)
@@ -39,7 +39,18 @@ Assert-True ($result.endpoints.Count -eq 1 -and $e.product_id -eq 36872) 'Exact 
 Assert-True ($e.setup_class -eq 'usb_device' -and $e.service -eq 'winusb') 'Case-insensitive class/service normalization failed'
 Assert-True ($e.present -and $e.problem_code -eq 0 -and -not $e.protected_class) 'Vendor interface metadata changed'
 Assert-True ($e.interface_guid_registered -and $e.winusb_compatible_id) 'WinUSB discovery metadata missing'
+Assert-True ($e.binding_target -eq 'whole_device') 'Whole-device WinUSB path was misclassified'
 Assert-True (($result | ConvertTo-Json -Depth 5) -notmatch 'PRIVATE-SERIAL|134e20e8') 'Private metadata leaked'
+foreach ($suffix in @('&MI_00', '&mi_0a', '&REV_0100&MI_00')) {
+    $f = $valid.Clone(); $f.Suffix = $suffix
+    Assert-True ((Invoke-InventoryFixture $f).endpoints[0].binding_target -eq 'composite_interface') 'Composite WinUSB interface was misclassified'
+}
+$f = $valid.Clone(); $f.Suffix = '&REV_0100'
+Assert-True ((Invoke-InventoryFixture $f).endpoints[0].binding_target -eq 'whole_device') 'Whole device with revision was misclassified'
+foreach ($suffix in @('&MI_000', '&MI_ZZ', '&OTHER_00', '&MI_00&REV_0100')) {
+    $f = $valid.Clone(); $f.Suffix = $suffix
+    Assert-True ((Invoke-InventoryFixture $f).endpoints[0].binding_target -eq 'unknown') 'Unknown binding target became eligible'
+}
 $hid = $valid.Clone()
 $hid.Product = 'F006'; $hid.Service = 'HidUsb'
 $hid.ClassGuid = '{745A17A0-74D3-11D0-B6FE-00A0C90F57DA}'
@@ -49,6 +60,8 @@ $hid.RegistryExists = $false
 $e = (Invoke-InventoryFixture $hid).endpoints[0]
 Assert-True ($e.product_id -eq 61446 -and $e.setup_class -eq 'hid' -and $e.service -eq 'hidusb') 'HID charging candidate was misclassified'
 Assert-True ($e.protected_class -and -not $e.present -and -not $e.interface_guid_registered) 'Absent HID metadata became usable'
+$f = $hid.Clone(); $f.Product = 'f006'
+Assert-True ((Invoke-InventoryFixture $f).endpoints[0].product_id -eq 61446) 'Lowercase product ID inventory failed'
 foreach ($ids in @('USB\Class_08', 'USB\COMPAT_VID_05C6&Class_03')) {
     $f = $valid.Clone(); $f.CompatibleIds = @($ids)
     Assert-True (Invoke-InventoryFixture $f).endpoints[0].protected_class 'Protected USB class was missed'
