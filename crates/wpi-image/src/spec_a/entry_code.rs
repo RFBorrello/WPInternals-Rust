@@ -15,6 +15,8 @@ pub struct Report {
     pub end_relative_descriptors_skipped_in_payload_loop: bool,
     pub header_import_clears_backup_gpt_sectors: u32,
     pub backup_clear_failure_propagated_in_header_reply: bool,
+    pub reference_nokxcbe_supported: bool,
+    pub reference_nokxcbe_response: &'static str,
     pub installed_binary_identity_verified: bool,
     pub physical_write_interpretation_validated: bool,
     pub phone_writes_enabled: bool,
@@ -38,6 +40,8 @@ pub fn inspect_uefi(bytes: &[u8]) -> Result<Report> {
         end_relative_descriptors_skipped_in_payload_loop: true,
         header_import_clears_backup_gpt_sectors: 33,
         backup_clear_failure_propagated_in_header_reply: false,
+        reference_nokxcbe_supported: false,
+        reference_nokxcbe_response: "NOKU",
         installed_binary_identity_verified: false,
         physical_write_interpretation_validated: false,
         phone_writes_enabled: false,
@@ -65,6 +69,37 @@ fn anchors(bytes: &[u8]) -> Result<()> {
             }
         }
     }
+    emergency_dispatch_anchors(bytes)
+}
+
+// Traced in the same exact executable: NOKX selects the extended dispatcher,
+// which requires byte 4 == 'F'. NOKXCBE instead reaches the NOKU reply builder.
+// No installed-firmware behavior or absence of every possible entry route is
+// inferred from this one command path.
+const EMERGENCY_DISPATCH_ANCHORS: &[(usize, &[u32])] = &[
+    (0x12684, &[0xe5d40003, 0xe2400044, 0xe3500017, 0x308ff100]),
+    (0x126e8, &[0xea000030]),             // 'X' jump-table slot -> 0x127b0
+    (0x127b0, &[0xe1a00004, 0xebfff579]), // extended handler 0xfda0
+    (0xfda4, &[0xe1a04000, 0xe5d00004]),
+    (0xfdb8, &[0xe3500046, 0x0a00000b]), // byte 4 == 'F' -> 0xfdf0
+    (0xfde0, &[0xe1a03007, 0xe1a02006, 0xe1a01005, 0xea00003b]),
+    (0xfee0, &[0xe1a00004, 0xe8bd41f0, 0xea0007c4]),
+    (
+        0x11e50,
+        &[
+            0xe3a0004e, 0xe5c50000, 0xe3a0004f, 0xe5c50001, 0xe3a0004b, 0xe5c50002, 0xe3a00055,
+            0xe5c50003, 0xe28dd014, 0xe3a00004, 0xe8bd8030,
+        ],
+    ),
+];
+fn emergency_dispatch_anchors(bytes: &[u8]) -> Result<()> {
+    for &(at, words) in EMERGENCY_DISPATCH_ANCHORS {
+        for (i, word) in words.iter().enumerate() {
+            if crate::u32le(bytes, at + i * 4)? != *word {
+                return Err(invalid("FlashApp emergency dispatch anchor differs"));
+            }
+        }
+    }
     Ok(())
 }
 
@@ -79,5 +114,27 @@ mod tests {
             assert!(inspect_uefi(&original[..n]).is_err());
         }
         assert!(anchors(&[0; 128]).is_err());
+    }
+
+    #[test]
+    fn emergency_dispatch_evidence_rejects_each_changed_or_truncated_anchor() {
+        let mut code = vec![0; 0x127b8];
+        for &(at, words) in EMERGENCY_DISPATCH_ANCHORS {
+            for (i, word) in words.iter().enumerate() {
+                code[at + i * 4..at + i * 4 + 4].copy_from_slice(&word.to_le_bytes());
+            }
+        }
+        emergency_dispatch_anchors(&code).unwrap();
+        for &(at, words) in EMERGENCY_DISPATCH_ANCHORS {
+            for i in 0..words.len() {
+                let offset = at + i * 4;
+                code[offset] ^= 1;
+                assert!(emergency_dispatch_anchors(&code).is_err());
+                code[offset] ^= 1;
+                assert!(emergency_dispatch_anchors(&code[..offset + 3]).is_err());
+            }
+        }
+        // Synthetic anchors alone cannot select a known executable profile.
+        assert!(inspect_uefi(&code).is_err());
     }
 }

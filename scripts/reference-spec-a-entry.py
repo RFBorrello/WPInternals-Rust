@@ -91,6 +91,41 @@ def main():
     assert offline.u32(exe, 0x972c) == 0xe3a03021
     assert offline.u32(exe, 0x9730) == 0xe2402021
 
+    # Independently decode the selected ARM branches, the top-level jump-table
+    # index and reply immediates. This models this exact path, not an ARM CPU or
+    # the installed phone. No fixture report can enable a device operation.
+    def branch(at):
+        word = offline.u32(exe, at)
+        assert (word >> 25) & 7 == 5
+        displacement = word & 0xffffff
+        if displacement & 0x800000:
+            displacement -= 0x1000000
+        return at + 8 + displacement * 4
+
+    assert offline.u32(exe, 0x12684) == 0xe5d40003  # command byte 3
+    assert offline.u32(exe, 0x12688) == 0xe2400044  # subtract 'D'
+    assert offline.u32(exe, 0x1268c) == 0xe3500017  # 23 entries
+    assert offline.u32(exe, 0x12690) == 0x308ff100
+    table_slot = 0x12698 + (ord('X') - ord('D')) * 4
+    assert branch(table_slot) == 0x127b0
+    assert branch(0x127b4) == 0xfda0
+    assert offline.u32(exe, 0xfda8) == 0xe5d00004  # command byte 4
+    assert offline.u32(exe, 0xfdb8) == 0xe3500046  # compare with 'F', not 'C'
+    assert branch(0xfdbc) == 0xfdf0  # equality only; C follows default path
+    assert branch(0xfdec) == 0xfee0
+    assert branch(0xfee8) == 0x11e00
+    reply = bytearray()
+    for at, offset in [(0x11e50, 0), (0x11e58, 1), (0x11e60, 2), (0x11e68, 3)]:
+        immediate = offline.u32(exe, at)
+        store = offline.u32(exe, at+4)
+        assert immediate & 0xffffff00 == 0xe3a00000
+        assert store == 0xe5c50000 | offset
+        reply.append(immediate & 0xff)
+    assert reply == b'NOKU'
+    assert offline.u32(exe, 0x11e74) == 0xe3a00004
+    assert rust['reference_nokxcbe_supported'] is False
+    assert rust['reference_nokxcbe_response'] == reply.decode()
+
     primary = read(a.primary, 17408); assert len(primary) == 17408
     gpt(primary[512:1024], primary[1024:])
     capacity = u64(primary, 544)+1
@@ -118,6 +153,9 @@ def main():
     targeted_bytes = 256*1024+256*1024+sum((parts[n][1]-parts[n][0]+1)*512 for n in targets)
     print(json.dumps(dict(
         comparison='matches', scope='offline_reference_binary_and_historical_gpt_only',
+        non_payload_entry_command=dict(command='NOKXCBE', response=reply.decode(),
+            supported_in_reference=False, installed_binary_verified=False,
+            command_sent_to_phone=False),
         code=rust, capacity_sectors=capacity, primary_sha256=sha(primary),
         reconstructed_secondary_sha256=sha(secondary),
         capsule_sha256=sha(read(a.capsule, 65536)),

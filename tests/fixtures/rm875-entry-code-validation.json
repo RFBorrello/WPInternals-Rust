@@ -1,6 +1,13 @@
 {
   "comparison": "matches",
   "scope": "offline_reference_binary_and_historical_gpt_only",
+  "non_payload_entry_command": {
+    "command": "NOKXCBE",
+    "response": "NOKU",
+    "supported_in_reference": false,
+    "installed_binary_verified": false,
+    "command_sent_to_phone": false
+  },
   "code": {
     "reference_uefi_sha256": "9497815e89f9359e8a7f4f181564cb7a62dcf949e6e41588547ec1e491fb7e4d",
     "reference_flash_app_sha256": "503578ed1bb90406e19067664235f974a19216e25ff4c33565bdda9365b8a1e2",
@@ -9,6 +16,8 @@
     "end_relative_descriptors_skipped_in_payload_loop": true,
     "header_import_clears_backup_gpt_sectors": 33,
     "backup_clear_failure_propagated_in_header_reply": false,
+    "reference_nokxcbe_supported": false,
+    "reference_nokxcbe_response": "NOKU",
     "installed_binary_identity_verified": false,
     "physical_write_interpretation_validated": false,
     "phone_writes_enabled": false

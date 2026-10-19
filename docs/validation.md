@@ -1,4 +1,4 @@
-# Local validation — October 13–18, 2026
+# Local validation — October 13–19, 2026
 
 ## October 18: entry-code interpretation and targeted recovery material
 
@@ -1158,3 +1158,23 @@ See the [sanitized evidence](../tests/hardware/lumia-1020-rm875-native-host-read
 and [Windows access guide](windows-emergency-access.md). Emergency access,
 installed entry-code identity, data preservation and physical unlock remain
 unverified.
+
+## Reference non-payload emergency command (2026-10-19)
+
+The exact known reference NokiaFlashApp rejects `NOKXCBE` through its
+unknown-command handler. Static ARM analysis traces the top-level `X` table slot
+to the extended dispatcher, its byte-4 `F` check, the default branch for `C`,
+and the four-byte `NOKU` reply builder. The image inspector now reports that
+bounded negative result after the complete executable hash and new instruction
+anchors agree. This is not a physical response or installed-binary proof, and
+does not establish that every other non-payload entry route is impossible.
+
+The independent Python checker calculates the table index and signed branch
+destinations and reconstructs the reply from instruction immediates. It agrees
+with the optimized Rust CLI on the local reference UEFI; the
+[metadata evidence](../tests/fixtures/rm875-entry-code-validation.json) was updated.
+All **200 image/core tests** passed, including mutation and truncation of every
+new command-path anchor. Strict image/core/transport/CLI Clippy, formatting and
+WASM compilation passed. No firmware executable or complete disassembly is
+published. No phone query, mode request, loader, driver change or storage write
+was performed. The experiment's entry, USB and preservation gates are unchanged.

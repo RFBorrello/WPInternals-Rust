@@ -49,6 +49,12 @@ as a harmless driver-discovery test. The current 1020 entry route is not a
 validated way to preserve data, and no read-only emergency-entry shortcut has
 been validated for this phone.
 
+The exact older reference FlashApp rejects the proposed non-payload `NOKXCBE`
+route through its unknown-command handler. The installed binary's identity is
+still unknown. See the [command-path evidence](spec-a-entry-code.md#non-payload-entry-command-bounded-negative-result).
+This rules out that shortcut for the reference, rather than just leaving its
+support untested; it does not prove all alternatives impossible.
+
 Microsoft documents an in-box WinUSB route in Device Manager: Update driver,
 Browse my computer, Let me pick, Universal Serial Bus devices, WinUsb Device.
 Its instructions also require a registered device interface GUID for application

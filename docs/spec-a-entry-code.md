@@ -51,7 +51,43 @@ does not prove binary equality. Its installed UEFI has not been captured. The
 1424.0002 file for product code `059T909` when checked for this milestone; the
 catalog check did not provide an exact installed-version FFU. The non-payload
 `NOKXCBE` alternative remains untested on RM-875; pinned upstream describes that
-route as available on newer Lumias. No command fallback was added.
+route as available on newer Lumias. The command-path analysis below now rules
+it out for the exact reference FlashApp; the installed binary remains unknown.
+No command fallback was added.
+
+## Non-payload entry command: bounded negative result
+
+The upstream switch-mode UI sends `NOKXCBE` to request emergency mode, but its
+Normal-mode route is commented "Only available in new Lumia's". The older
+Spec A unlock flow instead calls `PerformSoftBrick`, which sends the FFU header,
+zero payload and reboot. These source observations do not by themselves prove
+what either FlashApp binary implements.
+
+Static ARM analysis of the exact reference PE resolves this command path:
+
+| PE RVA / file offset | Observed control flow |
+| --- | --- |
+| `0x12684–0x12690` | Load command byte 3; subtract `D`; dispatch through a 23-slot branch table. |
+| `0x126E8`, `0x127B0–0x127B4` | The `X` slot selects the extended handler at `0xFDA0`. |
+| `0xFDA8`, `0xFDB8–0xFDBC` | Load command byte 4 and compare with `F`; only equality enters the implemented extended subcommands at `0xFDF0`. |
+| `0xFDE0–0xFDEC` | Byte `C` follows the default path, preserving arguments and branching to `0xFEE0`. |
+| `0xFEE0–0xFEE8` | Tail-branch to the unknown-command handler at `0x11E00`. |
+| `0x11E50–0x11E78` | Store `N`, `O`, `K`, `U` into the reply buffer and return length four. |
+
+This is a **reference-binary inference of an unsupported command**, not an
+observed phone response. It does not establish that every non-payload route is
+absent, or that the installed 1451.1003 image behaves identically. A matching
+FlashApp version string is still insufficient to identify that image. The
+result gives no reason to send a speculative emergency-mode request or to use
+the storage-changing entry merely to discover a driver.
+
+`inspect-spec-a-entry-code` now includes `reference_nokxcbe_supported=false` and
+`reference_nokxcbe_response="NOKU"` only after the complete executable hash and
+command-path instruction anchors agree. Mutation/truncation tests guard every
+new anchor. The independent Python checker decodes the branch destinations,
+calculates the `X` jump-table index and reconstructs the response from the ARM
+immediates. See the [updated metadata evidence](../tests/fixtures/rm875-entry-code-validation.json).
+Neither implementation executes firmware or contacts USB.
 
 ## GPT recovery capsule
 
@@ -115,8 +151,8 @@ validates both capsule CRCs and ZIP contents, and recalculates range intersectio
 and snapshot size. Its [public metadata record](../tests/fixtures/rm875-entry-code-validation.json)
 contains no raw firmware, phone identifiers or GPT bytes.
 
-The native emergency upload/write controller, post-write storage correlation,
-mass-storage reboot/finish continuation, and physical interruption/recovery tests
-are still required. This milestone implements offline recovery material and
-read-only capture, not that complete controller. The existing entry/programmer
-and finish-stage executors remain replay-only. No new live unlock button is exposed.
+The [experimental native controller](spec-a-native-controller.md) now joins the
+entry/programmer stages, correlated storage capture and finish continuation.
+It has not run physically. Emergency USB access, installed entry-code identity,
+data preservation and physical interruption/recovery behavior remain unverified.
+No browser unlock capability or new command fallback follows from this analysis.
