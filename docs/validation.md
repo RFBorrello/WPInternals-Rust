@@ -1178,3 +1178,24 @@ new command-path anchor. Strict image/core/transport/CLI Clippy, formatting and
 WASM compilation passed. No firmware executable or complete disassembly is
 published. No phone query, mode request, loader, driver change or storage write
 was performed. The experiment's entry, USB and preservation gates are unchanged.
+
+## Normal-mode file preservation and legacy driver audit (2026-10-19)
+
+The new [bounded MTP helper](mtp-file-backup.md) copied all three exposed phone
+files (2,289,461 bytes) twice into new private local directories. Every length
+and SHA-256 agreed, and a separate Python verifier reread both trees against the
+manifest. Preview worked in Windows PowerShell 5.1 and PowerShell 7. Existing
+output rejection preserved the completed backup. Synthetic Shell tests passed in
+both shells, covering hidden extensions, path traversal/reserved names, duplicate
+paths, missing/oversized sizes, ambiguous selection and mismatching copy hashes.
+No real phone access occurs in these synthetic tests. Public
+[validation metadata](../tests/hardware/lumia-1020-rm875-mtp-file-backup.json)
+omits personal filenames and file hashes; the actual backup remains ignored.
+
+The [legacy emergency driver audit](windows-emergency-access.md#audited-legacy-driver-package)
+found x86/x64 INF models and no ARM64 model. The host in-box WinUSB INF has its
+own ARM64 model, but no actual emergency binding or access was validated. No
+installer, certificate import, driver binding, mode command or phone-storage
+write was performed. No matching installed-version UEFI/FlashApp artifact was
+found in the bounded follow-up search. The MTP backup excludes private app data,
+boot partitions and GPTs and does not admit an unlock or prove data preservation.

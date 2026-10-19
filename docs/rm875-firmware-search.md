@@ -54,3 +54,20 @@ The later [offline recovery audit](rm875-recovery-path.md) confirms a 10 GiB
 manifest minimum and `UseAllSpace=true` for Data. The smaller source template
 alone does not establish a need for a larger-capacity FFU; device layout handling
 and downgrade acceptance are still unvalidated.
+
+## October 19 follow-up
+
+A targeted filename search of the known Windows Phone project tree, Downloads
+and the accessible WPInternals repository found no 1451.1003 firmware, CAB or
+installed UEFI/FlashApp artifact. The Microsoft recovery-cache Products path was
+not present in this check. This is a bounded search, not an inventory of every
+disk or cloud account. Further exact-version/platform web searches did not yield
+a verified downloadable matching artifact. No multi-gigabyte image was fetched
+and no OTA-only distribution claim is inferred from the negative search.
+
+The local legacy emergency driver package was separately
+[audited](windows-emergency-access.md#audited-legacy-driver-package) and lacks an
+ARM64 INF model. A small [Normal-mode MTP backup](mtp-file-backup.md) now preserves
+the three exposed files with independent matching copies. That backup does not
+include installed UEFI/FlashApp or application-private data, so it does not resolve
+binary identity, emergency entry or full data preservation.

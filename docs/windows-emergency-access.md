@@ -70,3 +70,27 @@ NTamd64, includes `winusb.inf`, registers an interface GUID and needs a signed
 catalog. This repository does not yet ship such a signed package. Legacy x86/x64
 kernel drivers are not an ARM64 solution. Driver setup and observed emergency
 access remain unvalidated; an Administrator token by itself resolves neither.
+
+## Audited legacy driver package
+
+The locally available `EmergencyDownloadDriver.msi` (SHA-256
+`3d58722990e737e8e3e0fb3e9645edf34bf7d45fdab376237e0f85ecb4e572bd`)
+was opened as a read-only Windows Installer database and its embedded cabinet
+was inspected with existing 7-Zip 25.01 ARM64. The installer and bundled
+executables were not run. Only INF/catalog copies were extracted locally.
+
+Its 2014 Nokia INF, version 1.0.0.1, declares `DeviceList.NTx86` and
+`DeviceList.NTamd64` for `USB\VID_05C6&PID_9008`; it has **no NTarm64 model**.
+It also references legacy WinUSB/WDF coinstallers. The MSI template is Intel
+and its bundled DPInst programs are x86/x64. This package does not supply the
+needed ARM64 binding. Running its installer under emulation cannot add a missing
+ARM64 INF model. Windows reported the extracted catalog signature valid when
+inspected as a `.cat` file; catalog-member binding was not separately checked,
+and a valid signature does not establish architecture compatibility.
+
+The host's own `winusb.inf` does contain a native NTarm64 section matching
+`USB\MS_COMP_WINUSB`. That is evidence of the available in-box driver, not a
+binding or access test on this phone's future emergency endpoint. No certificate,
+INF, driver or device setting was installed or modified. The
+[metadata audit](../tests/fixtures/nokia-emergency-driver-architecture-audit.json)
+contains hashes and declarations only; proprietary installer contents stay local.

@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-19",
+  "host": "windows-arm64",
+  "selection": {
+    "usb_vendor_id": "0421",
+    "usb_product_id": "0661",
+    "exposed_portable_devices_matching_id": 1,
+    "device_authenticated": false
+  },
+  "backup": {
+    "complete": true,
+    "scope": "mtp_exposed_files_only",
+    "files_verified": 3,
+    "verified_bytes": 2289461,
+    "independent_read_passes": 2,
+    "both_local_copies_retained": true,
+    "all_copy_sizes_and_sha256_match": true,
+    "independent_python_disk_verification_passed": true,
+    "source_names_and_sizes_stable": true,
+    "existing_backup_preserved_on_rejection": true,
+    "private_names_and_hashes_omitted_from_public_record": true
+  },
+  "verification": {
+    "powershell_7_preview_and_copy_passed": true,
+    "windows_powershell_5_1_preview_passed": true,
+    "synthetic_shell_tests_passed": true
+  },
+  "full_device_backup": false,
+  "app_data_included": false,
+  "boot_partitions_included": false,
+  "phone_mode_changes": false,
+  "phone_storage_writes": false,
+  "driver_changes": false,
+  "unlock_authorized_by_this_record": false,
+  "data_preservation_validated": false
+}

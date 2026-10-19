@@ -1,5 +1,10 @@
 # Experimental read-only native backup
 
+For files already visible while the phone is in Normal mode, a separate
+[Windows MTP file-copy helper](mtp-file-backup.md) has now copied and verified
+the test 1020's three exposed files. That limited file backup does not expose raw
+partitions or establish mass-storage backup access described below.
+
 The Windows CLI can inspect and copy a recognized phone disk that **already
 exposes mass storage**. This is research functionality, not hardware-validated
 Lumia backup support. No real phone disk has been copied yet. macOS/Linux raw

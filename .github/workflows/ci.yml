@@ -37,6 +37,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: ./scripts/test-native-readiness.ps1
+      - name: Synthetic Windows MTP backup
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./scripts/test-mtp-backup.ps1
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo check --locked -p wpi-wasm --target wasm32-unknown-unknown
       - run: npm --prefix apps/ui ci
@@ -85,6 +89,10 @@ jobs:
             docs/spec-a-native-controller.md
             docs/windows-emergency-access.md
             scripts/check-native-unlock-host.ps1
+            scripts/backup-rm875-mtp.ps1
+            docs/mtp-file-backup.md
+            tests/hardware/lumia-1020-rm875-mtp-file-backup.json
+            tests/fixtures/nokia-emergency-driver-architecture-audit.json
             tests/hardware/lumia-1020-rm875-native-host-readiness.json
             docs/native-usb-transactions.md
             docs/native-emergency-probe.md

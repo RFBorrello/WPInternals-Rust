@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-19",
+  "scope": "static_local_package_and_inbox_inf_inspection_only",
+  "package": {
+    "filename": "EmergencyDownloadDriver.msi",
+    "bytes": 544768,
+    "sha256": "3d58722990e737e8e3e0fb3e9645edf34bf7d45fdab376237e0f85ecb4e572bd",
+    "msi_template": "Intel;1033",
+    "inf_sha256": "16070526ab304b2ab2b7c26d9177e9c89765d2c28d86243fd8b1093fabe54fa2",
+    "catalog_sha256": "352522f39e500232c96c6d4b24f29b9ce2cf86a5630f0bc6610dddc327718b18"
+  },
+  "inf": {
+    "driver_version": "1.0.0.1",
+    "driver_date": "2014-03-13",
+    "class": "USBDevice",
+    "model_decorations": ["NTx86", "NTamd64"],
+    "model_hardware_ids": ["USB\\VID_05C6&PID_9008"],
+    "arm64_model_declared": false,
+    "includes_winusb_inf": true,
+    "coinstallers": ["winusbcoinstaller2.dll", "WdfCoInstaller01009.dll"],
+    "bundled_installers": ["DPInst.exe_x32", "DPInst.exe_x64"]
+  },
+  "signature_observation": {
+    "tool": "Windows Get-AuthenticodeSignature with catalog .cat extension",
+    "catalog_signature_status": "Valid",
+    "catalog_member_binding_verified": false,
+    "arm64_compatibility_proven_by_signature": false
+  },
+  "host_inbox_winusb": {
+    "ntarm64_model_declared": true,
+    "automatic_compatible_id": "USB\\MS_COMP_WINUSB",
+    "actual_phone_emergency_binding_verified": false
+  },
+  "legacy_package_provides_arm64_model": false,
+  "installer_executed": false,
+  "driver_installed_or_rebound": false,
+  "phone_contacted": false,
+  "phone_storage_writes": false
+}
