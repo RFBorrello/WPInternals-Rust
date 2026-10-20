@@ -1320,3 +1320,39 @@ without creating the live run directory or enumerating USB. Private paths,
 baselines and launch artifacts remain ignored. No emergency entry, programmer,
 boot/GPT write, driver install or actual disk-flag change was performed during
 this preparation. Hardware validation and data preservation remain false.
+
+## Native BootManager path readiness correction (2026-10-19)
+
+The first separately approved live unlock invocation at `0f7b4bf` stopped during
+the returning BootManager/GPT preflight with `Cannot claim USB interface: failed
+to find device path for WinUSB interface`. The seven complete journal records
+contain two submitted mode commands, no unmatched intent and no storage-changing
+intent. Read-only discovery and a fresh Normal probe subsequently confirmed the
+original RM-875/product/firmware. No entry, loader, boot/GPT/EFIESP write, disk flag
+change, retry or recovery reset occurred. The
+[sanitized hardware record](../tests/hardware/lumia-1020-rm875-native-unlock-preflight-path-failure.json)
+does not establish whether the failure was the first claim or the redundant
+reopen after classification, nor whether the path would later become available.
+
+The native observer previously aborted immediately on that path error and
+discarded the successful NOKV handle before opening another for GPT or NOKS. It
+now distinguishes nusb 0.2.7's exact Windows pre-open missing-child-path error
+from terminal errors. Only that path lookup may wait on the unchanged endpoint,
+physical port and removal generation within the original 120-second deadline.
+Driver/GUID/permission errors, changed devices, disappearance and all protocol
+failures remain terminal. The successfully opened handle is retained through
+classification and its GPT/NOKS callback, with the operation deadline applied to
+transfers. Late connected notifications cannot revive a completed probe; actual
+removal is required for a new generation.
+
+All **109 transport tests and four CLI subprocess tests** passed on Windows
+ARM64. Nine new regressions cover narrow error classification, deferred opens
+without phone queries, retained handles, terminal claim/transfer/reply/callback
+errors, cancellation and late observations, delayed connected events, retirement
+and changed/disconnected/reconnected candidates. Strict transport/CLI Clippy,
+formatting and an optimized CLI build passed. The new executable completed an
+offline preview with the actual pinned RM-875 artifacts, still reporting no
+phone contact or writes and the same programmer/first-pass byte totals. These
+are software checks; the corrected native path has not yet been
+validated in another hardware cycle. The original failed experiment and its
+single-use launcher remain preserved; no second experiment was started.

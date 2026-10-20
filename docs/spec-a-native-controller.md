@@ -104,9 +104,21 @@ The controller retains one native operation lock across all stages:
 
 Hotplug watches are armed before mode requests. Disconnects between inventory
 polls are retained; a reused Windows instance ID is eligible only after its own
-new event. Unrelated USB events do not revive a retired BootManager interface.
+new removal. Unrelated or delayed connected events do not revive a retired
+BootManager interface.
 Unknown devices or multiple devices on the bound port stop observation. Each
 wait has a fixed 120-second deadline; no mode request is repeated on timeout.
+
+Windows can enumerate a composite arrival before its WinUSB child interface path
+is available. The native arrival observer waits only for nusb 0.2.7's exact
+pre-open missing-interface-path error, on the same unchanged endpoint and physical
+port, within that original deadline. No phone request has been sent by that
+failed claim. A missing GUID, incompatible driver, access denial, changed endpoint,
+removal, failed transfer or invalid reply is terminal. After a successful claim,
+the same handle performs NOKV and the BootManager GPT read or version-checked NOKS;
+the observer does not close and reopen between those steps. The operation deadline
+also bounds those transfers. This path wait does not apply to emergency driver
+setup, storage access or failed commands.
 
 ## Interruption and recovery
 

@@ -13,6 +13,7 @@ pub mod serial_probe;
 pub mod spec_a_native;
 pub mod spec_a_preflight;
 pub mod spec_a_session;
+mod usb_open;
 mod usb_session;
 static PHONE_ACCESS: Mutex<()> = Mutex::new(());
 
@@ -69,6 +70,9 @@ pub fn probe(id: &str) -> Result<ProbeResult, String> {
     probe_session(identity, &mut transport, false)
 }
 fn open_selected(id: &str) -> Result<(DeviceIdentity, UsbMessages), String> {
+    open_selected_detailed(id).map_err(usb_open::OpenError::message)
+}
+fn open_selected_detailed(id: &str) -> Result<(DeviceIdentity, UsbMessages), usb_open::OpenError> {
     let info = nusb::list_devices()
         .wait()
         .map_err(|e| e.to_string())?
@@ -124,7 +128,7 @@ fn open_selected(id: &str) -> Result<(DeviceIdentity, UsbMessages), String> {
     let interface = device
         .claim_interface(candidate.0)
         .wait()
-        .map_err(|e| format!("Cannot claim USB interface: {e}"))?;
+        .map_err(usb_open::OpenError::claim)?;
     let transport =
         UsbMessages::new(interface, candidate.1, candidate.2).map_err(|e| e.to_string())?;
     Ok((device_identity, transport))

@@ -4,13 +4,16 @@
 use super::{
     device_binding::{self, Snapshot},
     mode_test::PhysicalPort,
-    open_selected, usb_session, UsbMessages, PHONE_ACCESS,
+    open_selected_detailed,
+    usb_open::OpenError,
+    usb_session, UsbMessages, PHONE_ACCESS,
 };
 use futures_core::Stream;
 use nusb::hotplug::HotplugEvent;
 #[cfg(windows)]
 use nusb::MaybeFuture;
 use serde::{Deserialize, Serialize};
+mod arrival;
 mod driver_setup;
 pub mod journal;
 pub mod readiness;
@@ -440,8 +443,14 @@ struct Channel {
 }
 impl Channel {
     fn open(selected: &Snapshot) -> Result<Self, String> {
+        Self::open_detailed(selected).map_err(OpenError::message)
+    }
+    fn open_detailed(selected: &Snapshot) -> Result<Self, OpenError> {
         validate(selected)?;
-        let (_, transport) = open_selected(&selected.descriptor.id)?;
+        let (descriptor, transport) = open_selected_detailed(&selected.descriptor.id)?;
+        if descriptor != selected.descriptor {
+            return Err("USB descriptors changed while opening the selected interface".into());
+        }
         validate(selected)?;
         Ok(Self {
             selected: selected.clone(),
@@ -489,7 +498,7 @@ fn boundary(cancelled: &AtomicBool) -> Result<(), String> {
 }
 
 // The watch is armed BEFORE each mode command so rapid disconnects between
-// inventory polls are retained. Each newly observed interface is queried once.
+// inventory polls are retained. Each successfully opened arrival is queried once.
 struct Watch {
     watch: nusb::hotplug::HotplugWatch,
     tracker: ArrivalTracker,
@@ -500,19 +509,23 @@ struct ArrivalTracker {
     generation: HashMap<String, u64>,
     examined: HashSet<(String, u64)>,
     gone: bool,
+    opening: Option<(Snapshot, u64)>,
 }
 impl ArrivalTracker {
     fn event(&mut self, id: String, removed: bool) -> Result<(), String> {
         if !self.generation.contains_key(&id) && self.generation.len() >= 256 {
             return Err("USB event inventory exceeds the session bound".into());
         }
+        let generation = self.generation.entry(id.clone()).or_default();
         if removed {
-            self.removed.insert(id.clone());
+            // Discovery can see an arrival before its Connected notification.
+            // Only an actual removal can authorize another generation; a late
+            // or duplicate Connected event must not repeat a successful query.
+            *generation = generation
+                .checked_add(1)
+                .ok_or("Hotplug generation overflow")?;
+            self.removed.insert(id);
         }
-        let generation = self.generation.entry(id).or_default();
-        *generation = generation
-            .checked_add(1)
-            .ok_or("Hotplug generation overflow")?;
         Ok(())
     }
     fn observe(
@@ -529,6 +542,19 @@ impl ArrivalTracker {
             .collect();
         if selected.len() > 1 {
             return Err("Ambiguous interfaces on the bound physical port".into());
+        }
+        if let Some((pending, generation)) = &self.opening {
+            if selected.first().copied() != Some(pending)
+                || self
+                    .generation
+                    .get(&pending.descriptor.id)
+                    .copied()
+                    .unwrap_or(0)
+                    != *generation
+            {
+                return Err("Unopened USB arrival changed, disappeared or reconnected while waiting for its interface path".into());
+            }
+            return Ok(Some(pending.clone()));
         }
         if let [next] = selected.as_slice() {
             let generation = self
@@ -548,6 +574,18 @@ impl ArrivalTracker {
             }
         }
         Ok(None)
+    }
+    fn defer_open(&mut self, selected: &Snapshot) {
+        self.opening = Some((
+            selected.clone(),
+            self.generation
+                .get(&selected.descriptor.id)
+                .copied()
+                .unwrap_or(0),
+        ));
+    }
+    fn opened(&mut self) {
+        self.opening = None;
     }
 }
 impl Watch {
@@ -573,7 +611,9 @@ impl Watch {
         }
         Err("USB hotplug event flood".into())
     }
-    fn wait<F: FnMut(&Snapshot, Option<&flash::FlashInfo>) -> Result<bool, String>>(
+    fn wait<
+        F: FnMut(&Snapshot, Option<arrival::Application<'_, Channel>>) -> Result<bool, String>,
+    >(
         &mut self,
         source: &Snapshot,
         port: &PhysicalPort,
@@ -587,26 +627,33 @@ impl Watch {
             self.drain()?;
             let all = device_binding::scan()?;
             if let Some(next) = self.tracker.observe(&all, source, port)? {
-                let info = if next.descriptor.mode == DeviceMode::Flash {
-                    let mut channel = Channel::open(&next)?;
-                    let (info, _) = preflight::parse_application(
-                        &channel.exchange(b"NOKV", 65536).map_err(text)?,
-                    )
-                    .map_err(text)?;
-                    Some(info)
-                } else {
-                    None
-                };
-                let actual = info.as_ref().map_or(next.descriptor.mode, |i| i.mode);
-                let accepted = inspect(&next, info.as_ref())?;
-                if Instant::now() >= deadline {
-                    return Err("USB observation finished after its deadline".into());
-                }
-                if actual == expected && accepted {
-                    return Ok(next);
-                }
-                if actual != DeviceMode::BootManager {
-                    return Err("Unexpected arrival mode; no fallback command sent".into());
+                let observation = arrival::inspect(
+                    next.descriptor.mode,
+                    || {
+                        let mut channel = Channel::open_detailed(&next)?;
+                        channel.transport.deadline = Some(deadline);
+                        Ok(channel)
+                    },
+                    || {
+                        boundary(cancelled)?;
+                        if Instant::now() >= deadline {
+                            return Err("USB observation finished after its deadline".into());
+                        }
+                        Ok(())
+                    },
+                    |application| inspect(&next, application),
+                )?;
+                match observation {
+                    None => self.tracker.defer_open(&next),
+                    Some((actual, accepted)) => {
+                        self.tracker.opened();
+                        if actual == expected && accepted {
+                            return Ok(next);
+                        }
+                        if actual != DeviceMode::BootManager {
+                            return Err("Unexpected arrival mode; no fallback command sent".into());
+                        }
+                    }
                 }
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -753,14 +800,15 @@ fn execute<F: FnMut(&str)>(
         &port,
         DeviceMode::Normal,
         cancelled,
-        |next, info| {
-            if info.is_some_and(|i| i.mode == DeviceMode::BootManager) {
+        |_, application| {
+            if let Some(application) =
+                application.filter(|a| a.info.mode == DeviceMode::BootManager)
+            {
                 if captured.is_some() {
                     return Err("Second BootManager cannot replace the first capture".into());
                 }
-                let mut channel = Channel::open(next)?;
                 captured = Some(
-                    wpi_core::boot_gpt::read(&mut channel, plan.capacity() as u32, |_| {
+                    wpi_core::boot_gpt::read(application.channel, plan.capacity() as u32, |_| {
                         !cancelled.load(Ordering::Acquire)
                     })
                     .map_err(text)?,
@@ -1082,25 +1130,32 @@ fn wait_flash(
     cancelled: &AtomicBool,
 ) -> Result<Snapshot, String> {
     let mut selected_boot = false;
-    watch.wait(source, port, DeviceMode::Flash, cancelled, |next, info| {
-        if let Some(info) = info.filter(|i| i.mode == DeviceMode::BootManager) {
-            wpi_core::boot_gpt::validate_info(info).map_err(text)?;
-            if selected_boot {
-                return Err("A second BootManager cannot trigger another NOKS".into());
+    watch.wait(
+        source,
+        port,
+        DeviceMode::Flash,
+        cancelled,
+        |_, application| {
+            if let Some(application) =
+                application.filter(|a| a.info.mode == DeviceMode::BootManager)
+            {
+                wpi_core::boot_gpt::validate_info(&application.info).map_err(text)?;
+                if selected_boot {
+                    return Err("A second BootManager cannot trigger another NOKS".into());
+                }
+                selected_boot = true;
+                command(
+                    sink,
+                    cancelled,
+                    "Select Flash from returning BootManager",
+                    b"NOKS",
+                    false,
+                    || application.channel.send(b"NOKS"),
+                )?;
             }
-            selected_boot = true;
-            let mut channel = Channel::open(next)?;
-            command(
-                sink,
-                cancelled,
-                "Select Flash from returning BootManager",
-                b"NOKS",
-                false,
-                || channel.send(b"NOKS"),
-            )?;
-        }
-        Ok(true)
-    })
+            Ok(true)
+        },
+    )
 }
 fn manual_return<F: FnMut(&str)>(
     storage: &Snapshot,
@@ -1543,5 +1598,70 @@ mod tests {
             tracker.event(format!("id-{i}"), true).unwrap();
         }
         assert!(tracker.event("overflow".into(), true).is_err());
+    }
+    #[test]
+    fn unopened_arrival_can_wait_but_a_successful_open_retires_its_generation() {
+        let source = endpoint("normal", DeviceMode::Normal);
+        let boot = endpoint("boot", DeviceMode::Flash);
+        let port = source.port.as_ref().unwrap();
+        let mut tracker = ArrivalTracker::default();
+        assert!(tracker.observe(&[], &source, port).unwrap().is_none());
+        let candidate = tracker
+            .observe(std::slice::from_ref(&boot), &source, port)
+            .unwrap()
+            .unwrap();
+        tracker.defer_open(&candidate);
+        tracker.event("boot".into(), false).unwrap(); // Initial notification may trail discovery.
+        for _ in 0..4 {
+            assert!(tracker
+                .observe(std::slice::from_ref(&boot), &source, port)
+                .unwrap()
+                .is_some());
+        }
+        // Other devices cannot revive or replace this candidate.
+        tracker.event("keyboard".into(), false).unwrap();
+        assert!(tracker
+            .observe(std::slice::from_ref(&boot), &source, port)
+            .unwrap()
+            .is_some());
+        tracker.opened();
+        tracker.event("boot".into(), false).unwrap();
+        assert!(tracker
+            .observe(std::slice::from_ref(&boot), &source, port)
+            .unwrap()
+            .is_none());
+        tracker.event("keyboard".into(), true).unwrap();
+        assert!(tracker
+            .observe(std::slice::from_ref(&boot), &source, port)
+            .unwrap()
+            .is_none());
+    }
+    #[test]
+    fn pending_path_never_retries_a_changed_disconnected_or_reconnected_endpoint() {
+        let source = endpoint("normal", DeviceMode::Normal);
+        let boot = endpoint("boot", DeviceMode::Flash);
+        let port = source.port.as_ref().unwrap();
+        let mut changed = boot.clone();
+        changed.descriptor.serial = Some("different serial".into());
+        let mut moved = boot.clone();
+        moved.port = None;
+        for inventory in [
+            vec![],
+            vec![changed],
+            vec![moved],
+            vec![endpoint("replacement", DeviceMode::Flash)],
+            vec![boot.clone(), endpoint("second", DeviceMode::Flash)],
+        ] {
+            let mut tracker = ArrivalTracker::default();
+            tracker.defer_open(&boot);
+            assert!(tracker.observe(&inventory, &source, port).is_err());
+        }
+        let mut tracker = ArrivalTracker::default();
+        tracker.defer_open(&boot);
+        tracker.event("boot".into(), true).unwrap();
+        tracker.event("boot".into(), false).unwrap();
+        assert!(tracker
+            .observe(std::slice::from_ref(&boot), &source, port)
+            .is_err());
     }
 }

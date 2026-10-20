@@ -33,3 +33,11 @@ passed; two mode commands took 57,503 ms, excluding local preparation. No entry,
 programmer, GPT query or storage write was sent. It does not validate unlock or
 preservation. The separately labelled conservative entry-impact model is a local
 calculation, not hardware evidence or observed damage.
+
+`lumia-1020-rm875-native-unlock-preflight-path-failure.json` records the first
+approved native unlock invocation stopping before emergency entry because a
+WinUSB interface path could not be found. Its seven-record journal contains no
+storage-changing intent. A subsequent read-only probe confirmed the original
+Normal model/product/firmware. This failed invocation does not establish an
+unlock, data preservation, the exact driver timing cause, or hardware validation
+of the later interface-readiness fix.

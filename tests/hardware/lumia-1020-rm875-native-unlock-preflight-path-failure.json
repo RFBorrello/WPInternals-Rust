@@ -1,0 +1,37 @@
+{
+  "record_kind": "native_unlock_preflight_stopped_before_entry",
+  "recorded_on": "2026-10-19",
+  "application_revision": "0f7b4bf93b6c217bcdf08b2e93dc3fa6e86e11fe",
+  "transport": "native_usb",
+  "host": "windows-arm64",
+  "authorization": "Owner approved one live experiment; exactly one invocation started in Administrator PowerShell",
+  "native_journal": {
+    "complete_records": 7,
+    "last_kind": "recovery_required",
+    "last_stage": "Cannot claim USB interface: failed to find device path for WinUSB interface",
+    "unmatched_intent": false,
+    "torn_final_record": false,
+    "completion_reported": false,
+    "storage_may_have_changed": false,
+    "automatic_resume_allowed": false
+  },
+  "mode_commands_submitted": 2,
+  "emergency_entry_reached": false,
+  "loader_uploaded": false,
+  "boot_gpt_efiesp_writes_sent": false,
+  "disk_attributes_changed": false,
+  "automatic_retry_or_reset_sent": false,
+  "subsequent_read_only_probe": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "mode": "normal",
+    "product_code": "059T909",
+    "firmware": "3051.50009.1451.1003"
+  },
+  "limits": [
+    "The failed claim sent no protocol request on that handle; the journal does not record whether an earlier arrival handle classified BootManager successfully.",
+    "The exact installed-driver timing cause is not established by the error alone.",
+    "No complete data-integrity check or physical unlock validation follows from the returning Normal probe.",
+    "Subsequent code changes require their own hardware validation; this failed experiment is not evidence that the fix works on hardware."
+  ]
+}
