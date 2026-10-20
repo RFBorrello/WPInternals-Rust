@@ -170,3 +170,81 @@ fn targeted_capture_bad_pins_fail_before_disk_access() {
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stderr).contains("required before opening a disk"));
 }
+
+#[test]
+fn native_preflight_is_exclusive_requires_selection_and_its_own_confirmation() {
+    let base = [
+        "unlock-spec-a",
+        "missing-source",
+        "missing-package",
+        "missing-primary",
+        "missing-loader",
+        "missing-donor",
+        "--disk-sectors",
+        "1",
+        "--expect-source-sha256",
+        "bad",
+        "--expect-package-sha256",
+        "bad",
+        "--expect-primary-sha256",
+        "bad",
+        "--expect-loader-sha256",
+        "bad",
+    ];
+    let selection = [
+        "--device-id",
+        "not-a-device",
+        "--confirm",
+        "RM875-NATIVE-PREFLIGHT-ONLY",
+        "--journal",
+        "unused.jsonl",
+    ];
+    for extra in [
+        vec![],
+        vec!["--execute"],
+        vec!["--manual-emergency-driver-setup"],
+        vec!["--first-snapshot", "unused.zip"],
+    ] {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_wpi"));
+        command.args(base).arg("--preflight-only");
+        if !extra.is_empty() {
+            command.args(selection);
+        }
+        let output = command.args(extra).output().unwrap();
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    for confirmation in [
+        "unreviewed",
+        "RM875-EXPERIMENTAL-UNLOCK-WITHOUT-FULL-BACKUP",
+        "RM875-EXPERIMENTAL-ENTRY-BEFORE-DRIVER-SETUP-WITHOUT-FULL-BACKUP",
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_wpi"))
+            .args(base)
+            .args([
+                "--preflight-only",
+                "--device-id",
+                "not-a-device",
+                "--confirm",
+                confirmation,
+                "--journal",
+                "unused.jsonl",
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("no file or device was opened"));
+    }
+    let output = Command::new(env!("CARGO_BIN_EXE_wpi"))
+        .args(base)
+        .arg("--preflight-only")
+        .args(selection)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1)); // Accepted options, then fails on missing local input.
+    assert!(!String::from_utf8_lossy(&output.stderr).contains("no file or device was opened"));
+}

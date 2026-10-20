@@ -1356,3 +1356,41 @@ phone contact or writes and the same programmer/first-pass byte totals. These
 are software checks; the corrected native path has not yet been
 validated in another hardware cycle. The original failed experiment and its
 single-use launcher remain preserved; no second experiment was started.
+
+## Isolated native preflight and returning Normal handoff (2026-10-19)
+
+The CLI now offers `unlock-spec-a --preflight-only`, with a separate confirmation,
+explicit device selection and new journal. It conflicts with unlock execution,
+manual emergency setup and snapshot arguments. A separate native entry point
+calls the same factored preflight as the unlock controller, then returns before
+entry. Its command guard allows only the two ordered Normal-to-Flash and NOKR
+requests; it rejects storage flags, loader/entry commands, additional requests
+and attempts to reissue an uncertain command. No raw disk/Administrator storage
+or emergency driver prerequisite is needed. Default preview remains offline.
+
+The first mode-only hardware run completed its two mode requests but stopped on
+the still-immediate returning Normal identity open. Read-only inspection verified
+the original phone back in Normal, with no storage-changing journal intent. The
+arrival wait now also covers the exact pre-open missing-path error for Normal;
+the five guarded identity queries reuse that successful arrival handle. Normal
+interfaces receive no NOKV. Contextual errors and a separate completed-GPT-read
+journal stage distinguish BootManager capture from returning Normal readiness.
+
+After explicit approval for one additional corrected cycle, the native preflight
+**passed on the connected Lumia 1020 RM-875 / 059T909 / 3051.50009.1451.1003 on
+Windows ARM64**. It read the installed primary twice, matched the saved layout,
+verified the returning original Normal identity and sent exactly two mode
+commands. Eight complete journal records ended in preflight-only completion, with
+no unmatched intent, torn record or storage-changing intent. No emergency entry,
+programmer, unlock, driver or disk-attribute change occurred. Exact executable,
+journal and completion digests and the preceding failure are recorded in the
+[sanitized hardware evidence](../tests/hardware/lumia-1020-rm875-native-preflight-only.json).
+This single preflight does not validate the remaining unlock stages, other
+hosts/phones, user-data preservation or physical recovery.
+
+All **112 transport tests and five CLI subprocess tests** passed, including
+exclusive CLI action/confirmation admission, the two-command journal allowlist,
+uncertain-command refusal and Normal handle handoff without Flash queries.
+Strict Clippy, formatting and the optimized CLI build passed. The original live
+unlock experiment was not resumed or repeated; both mode-only test journals are
+preserved separately.

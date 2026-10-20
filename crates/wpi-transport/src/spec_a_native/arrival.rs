@@ -4,7 +4,7 @@ use wpi_protocol::{flash::FlashInfo, preflight, MessageTransport};
 use wpi_types::DeviceMode;
 
 pub(super) struct Application<'a, T> {
-    pub(super) info: FlashInfo,
+    pub(super) info: Option<FlashInfo>,
     pub(super) channel: &'a mut T,
 }
 
@@ -17,7 +17,7 @@ pub(super) fn inspect<T: MessageTransport>(
     inspect: impl FnOnce(Option<Application<'_, T>>) -> Result<bool, String>,
 ) -> Result<Option<(DeviceMode, bool)>, String> {
     boundary()?;
-    if mode != DeviceMode::Flash {
+    if !matches!(mode, DeviceMode::Flash | DeviceMode::Normal) {
         let accepted = inspect(None)?;
         boundary()?;
         return Ok(Some((mode, accepted)));
@@ -31,14 +31,21 @@ pub(super) fn inspect<T: MessageTransport>(
         Err(error) => return Err(error.message()),
     };
     boundary()?;
-    let (info, _) = preflight::parse_application(
-        &channel
-            .exchange(b"NOKV", 65536)
-            .map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
+    let info = if mode == DeviceMode::Flash {
+        Some(
+            preflight::parse_application(
+                &channel
+                    .exchange(b"NOKV", 65536)
+                    .map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?
+            .0,
+        )
+    } else {
+        None // Normal uses its own guarded five-query protocol on this handle.
+    };
     boundary()?;
-    let actual = info.mode;
+    let actual = info.as_ref().map_or(mode, |info| info.mode);
     let accepted = inspect(Some(Application {
         info,
         channel: &mut channel,
@@ -97,7 +104,7 @@ mod tests {
             || Ok(()),
             |application| {
                 let application = application.unwrap();
-                assert_eq!(application.info.mode, DeviceMode::BootManager);
+                assert_eq!(application.info.unwrap().mode, DeviceMode::BootManager);
                 assert_eq!(
                     application.channel.exchange(b"NOKT", 65536).unwrap(),
                     b"GPT read"
@@ -186,7 +193,7 @@ mod tests {
         }
     }
     #[test]
-    fn late_classification_prevents_followup_and_nonflash_never_opens() {
+    fn late_classification_prevents_followup_and_emergency_never_opens() {
         let requests = Cell::new(0);
         let checks = Cell::new(0);
         assert!(inspect(
@@ -208,8 +215,8 @@ mod tests {
         .is_err());
         assert_eq!(requests.get(), 1);
         let result = inspect::<Fake<'_>>(
-            DeviceMode::Normal,
-            || panic!("Normal arrival must not open Flash interface"),
+            DeviceMode::Emergency,
+            || panic!("Emergency arrival must use its separate driver checkpoint"),
             || Ok(()),
             |application| {
                 assert!(application.is_none());
@@ -217,6 +224,39 @@ mod tests {
             },
         )
         .unwrap();
+        assert_eq!(result, Some((DeviceMode::Emergency, true)));
+    }
+    #[test]
+    fn normal_arrival_waits_for_path_and_hands_over_the_same_handle_without_nokv() {
+        assert_eq!(
+            inspect::<Fake<'_>>(
+                DeviceMode::Normal,
+                || Err(OpenError::PathNotReady("missing path".into())),
+                || Ok(()),
+                |_| panic!("unopened Normal callback")
+            )
+            .unwrap(),
+            None
+        );
+        let requests = Cell::new(0);
+        let result = inspect(
+            DeviceMode::Normal,
+            || {
+                Ok(Fake {
+                    requests: &requests,
+                    replies: VecDeque::new(),
+                })
+            },
+            || Ok(()),
+            |application| {
+                let application = application.unwrap();
+                assert!(application.info.is_none());
+                assert_eq!(application.channel.requests.get(), 0);
+                Ok(true)
+            },
+        )
+        .unwrap();
         assert_eq!(result, Some((DeviceMode::Normal, true)));
+        assert_eq!(requests.get(), 0);
     }
 }

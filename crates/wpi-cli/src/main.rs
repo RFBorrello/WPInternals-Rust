@@ -78,18 +78,22 @@ struct NativeUnlockArgs {
     #[arg(long)]
     expect_loader_sha256: String,
     /// Run the reviewed experimental controller. Default is local preview only.
-    #[arg(long, requires_all=["device_id", "confirm", "journal", "first_snapshot", "final_snapshot"])]
+    #[arg(long, group="native_action", conflicts_with="preflight_only", requires_all=["device_id", "confirm", "journal", "first_snapshot", "final_snapshot"])]
     execute: bool,
+    /// One Normal/Flash/Normal identity and double-GPT-read cycle using the
+    /// native controller. Returns before emergency entry; no storage writes.
+    #[arg(long, group="native_action", conflicts_with="manual_emergency_driver_setup", requires_all=["device_id", "confirm", "journal"])]
+    preflight_only: bool,
     /// Permit entry before a historical driver binding exists, then wait up to
     /// ten minutes per emergency endpoint for manual setup. Changes storage
     /// when executed; requires a distinct confirmation. Preview stays offline.
     #[arg(long)]
     manual_emergency_driver_setup: bool,
-    #[arg(long, requires = "execute")]
+    #[arg(long, requires = "native_action")]
     device_id: Option<String>,
-    #[arg(long, requires = "execute")]
+    #[arg(long, requires = "native_action")]
     confirm: Option<String>,
-    #[arg(long, requires = "execute")]
+    #[arg(long, requires = "native_action")]
     journal: Option<PathBuf>,
     #[arg(long, requires = "execute")]
     first_snapshot: Option<PathBuf>,
@@ -1313,6 +1317,11 @@ fn native_unlock(args: NativeUnlockArgs) -> Result<(), Box<dyn Error>> {
     if args.execute && args.confirm.as_deref() != Some(access.confirmation()) {
         return Err("Execution requires the exact experimental unlock confirmation; no file or device was opened".into());
     }
+    if args.preflight_only
+        && args.confirm.as_deref() != Some(wpi_transport::spec_a_native::PREFLIGHT_CONFIRMATION)
+    {
+        return Err("Preflight requires the exact RM875-NATIVE-PREFLIGHT-ONLY confirmation; no file or device was opened".into());
+    }
     let cancelled = Arc::new(AtomicBool::new(false));
     let signal = cancelled.clone();
     ctrlc::set_handler(move || signal.store(true, Ordering::Release))?;
@@ -1354,7 +1363,18 @@ fn native_unlock(args: NativeUnlockArgs) -> Result<(), Box<dyn Error>> {
         .take(4 * 1024 * 1024 + 1)
         .read_to_end(&mut donor)?;
     let plan = wpi_transport::spec_a_native::Plan::new(&prepared, &finish, &donor)?;
-    if args.execute {
+    if args.preflight_only {
+        print(wpi_transport::spec_a_native::run_preflight(
+            args.device_id
+                .as_deref()
+                .ok_or("Device selection required")?,
+            &plan,
+            args.confirm.as_deref().ok_or("Confirmation required")?,
+            args.journal.as_deref().ok_or("New journal required")?,
+            &cancelled,
+            |stage| eprintln!("{stage}"),
+        )?)?;
+    } else if args.execute {
         let report = wpi_transport::spec_a_native::run(
             args.device_id
                 .as_deref()

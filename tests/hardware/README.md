@@ -41,3 +41,12 @@ storage-changing intent. A subsequent read-only probe confirmed the original
 Normal model/product/firmware. This failed invocation does not establish an
 unlock, data preservation, the exact driver timing cause, or hardware validation
 of the later interface-readiness fix.
+
+`lumia-1020-rm875-native-preflight-only.json` records one explicitly approved
+corrected cycle using the shared native unlock preflight and its separate
+preflight-only entry point. Both GPT reads matched the saved installed layout,
+the original Normal identity returned and exactly two mode commands were sent.
+The returning Normal arrival handle was retained for guarded identity queries.
+An earlier preflight had stopped on the remaining Normal path-readiness gap;
+both outcomes and exact executable/journal digests are recorded. This validates
+that single preflight, not emergency entry, unlocking or data preservation.

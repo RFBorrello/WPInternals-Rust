@@ -117,10 +117,38 @@ failed claim. A missing GUID, incompatible driver, access denial, changed endpoi
 removal, failed transfer or invalid reply is terminal. After a successful claim,
 the same handle performs NOKV and the BootManager GPT read or version-checked NOKS;
 the observer does not close and reopen between those steps. The operation deadline
-also bounds those transfers. This path wait does not apply to emergency driver
-setup, storage access or failed commands.
+also bounds those transfers. Returning Normal arrivals use the same path wait;
+preflight hands that successful handle directly to the guarded five-query Normal
+identity reader. It sends no NOKV on a Normal interface and does not reopen it
+between arrival and identity verification. This path wait does not apply to
+emergency driver setup, storage access or failed commands.
 
 ## Interruption and recovery
+
+### Isolated preflight validation
+
+`unlock-spec-a` also accepts `--preflight-only` with the same five local inputs,
+capacity and source/package/GPT/loader hash pins. Supply `--device-id`, a new
+`--journal` and `--confirm RM875-NATIVE-PREFLIGHT-ONLY`. This action is mutually
+exclusive with `--execute`, snapshot outputs and manual emergency-driver setup.
+Without either action flag, the command remains an offline preview.
+
+The preflight action runs the exact shared native Normal/Flash/BootManager/Normal
+cycle used before unlock entry. It requires fresh correlated identity, root,
+security, capacity, two consistent primary GPT reads matching the pinned installed
+layout and the original returning Normal identity. It then returns directly from
+a separate entry point; it cannot continue into emergency entry. Its journalled
+command guard permits only the two ordered mode requests. It needs neither raw
+disk access nor emergency drivers or Administrator disk privileges. A failure
+stops without repeating a mode request, writing storage or automatically resetting
+the phone. Success is reported as preflight completion, never unlock completion.
+
+This currently targets native Windows ARM64 and the same exact RM-875 profile.
+Keep the cable on its physical port and browser phone controls idle during the
+cycle. A failure may still leave Flash requiring manual recovery. Do not use
+`--execute` as a substitute for this test.
+
+### Durable journal
 
 Each command has a synchronized JSONL intent before submission and a paired
 validated acknowledgement or send-only submission record afterward. Bindings

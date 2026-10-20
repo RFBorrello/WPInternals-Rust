@@ -40,6 +40,7 @@ use wpi_protocol::{
 use wpi_types::{BootloaderFamily, DeviceMode};
 
 pub const CONFIRMATION: &str = "RM875-EXPERIMENTAL-UNLOCK-WITHOUT-FULL-BACKUP";
+pub const PREFLIGHT_CONFIRMATION: &str = "RM875-NATIVE-PREFLIGHT-ONLY";
 pub const SETUP_CONFIRMATION: &str =
     "RM875-EXPERIMENTAL-ENTRY-BEFORE-DRIVER-SETUP-WITHOUT-FULL-BACKUP";
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Default)]
@@ -234,6 +235,7 @@ struct Journal {
     storage: bool,
     binding: Binding,
     binding_hash: String,
+    preflight_next_command: Option<usize>,
     #[cfg(test)]
     fail_at: Option<u64>,
 }
@@ -256,6 +258,7 @@ impl Journal {
             storage: false,
             binding,
             binding_hash,
+            preflight_next_command: None,
             #[cfg(test)]
             fail_at: None,
         })
@@ -336,6 +339,92 @@ pub struct Report {
     pub journal_records: u64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct PreflightReport {
+    pub preflight_only: bool,
+    pub preflight_completed: bool,
+    pub return_to_windows_verified: bool,
+    pub fresh_primary_gpt_matches: bool,
+    pub mode_commands_submitted: usize,
+    pub storage_may_have_changed: bool,
+    pub unlock_attempted: bool,
+    pub automatic_resume_allowed: bool,
+    pub journal_records: u64,
+}
+
+fn plan_binding(plan: &Plan<'_>) -> Binding {
+    let artifacts = plan.prepared.artifacts();
+    Binding {
+        source_ffu_sha256: artifacts.source_ffu_sha256.clone(),
+        package_sha256: artifacts.package_sha256.clone(),
+        saved_primary_sha256: artifacts.saved_primary_sha256.clone(),
+        boot_primary_sha256: artifacts.candidate_primary_sha256.clone(),
+        nv_primary_sha256: plan.finish.report().nv_primary_sha256.clone(),
+        loader_input_sha256: artifacts.loader_input_sha256.clone(),
+        loader_decoded_sha256: artifacts.loader_decoded_sha256.clone(),
+        donor_sha256: hash(plan.donor),
+        capacity_sectors: plan.capacity(),
+    }
+}
+
+/// Dedicated terminal entry point: shares the unlock preflight, never calls
+/// execute/emergency, needs no raw disk or emergency driver admission, and
+/// rejects every journalled command except the two ordered mode requests.
+pub fn run_preflight<F: FnMut(&str)>(
+    id: &str,
+    plan: &Plan<'_>,
+    confirmation: &str,
+    journal: &Path,
+    cancelled: &AtomicBool,
+    mut progress: F,
+) -> Result<PreflightReport, String> {
+    if confirmation != PREFLIGHT_CONFIRMATION {
+        return Err("Exact preflight-only confirmation required; no device was opened".into());
+    }
+    if !cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+        return Err("This native preflight currently supports Windows ARM64 only".into());
+    }
+    validate_outputs([journal])?;
+    let _access = PHONE_ACCESS
+        .try_lock()
+        .map_err(|_| "Another native phone operation is active")?;
+    let mut sink = Journal::create(journal, plan_binding(plan))?;
+    sink.preflight_next_command = Some(0);
+    sink.append(
+        "prepared",
+        "Preflight only: two mode requests, identity and GPT reads; no storage writes",
+        None,
+    )?;
+    let result: Result<PreflightReport, String> = (|| {
+        let _ = preflight_cycle(id, plan, &mut sink, cancelled, &mut progress)?;
+        boundary(cancelled)?;
+        if sink.preflight_next_command != Some(2) || sink.storage {
+            return Err("Preflight command boundary mismatch".into());
+        }
+        sink.append(
+            "completed",
+            "Preflight only completed in original Normal; GPT matches; no unlock attempted",
+            None,
+        )?;
+        Ok(PreflightReport {
+            preflight_only: true,
+            preflight_completed: true,
+            return_to_windows_verified: true,
+            fresh_primary_gpt_matches: true,
+            mode_commands_submitted: 2,
+            storage_may_have_changed: false,
+            unlock_attempted: false,
+            automatic_resume_allowed: false,
+            journal_records: sink.sequence,
+        })
+    })();
+    if let Err(error) = &result {
+        let _ = sink.append("recovery_required", error, None);
+        progress("Preflight stopped. Inspect phone state and journal; no storage write, retry or automatic recovery was sent.");
+    }
+    result
+}
+
 /// Execution is an explicit experimental action, distinct from preview and the
 /// browser capability matrix. The confirmation acknowledges the missing original
 /// backup and installed-binary evidence; callers must present `preview()` first.
@@ -370,19 +459,7 @@ pub fn run<F: FnMut(&str)>(
     let _access = PHONE_ACCESS
         .try_lock()
         .map_err(|_| "Another native phone operation is active")?;
-    let artifacts = plan.prepared.artifacts();
-    let binding = Binding {
-        source_ffu_sha256: artifacts.source_ffu_sha256.clone(),
-        package_sha256: artifacts.package_sha256.clone(),
-        saved_primary_sha256: artifacts.saved_primary_sha256.clone(),
-        boot_primary_sha256: artifacts.candidate_primary_sha256.clone(),
-        nv_primary_sha256: plan.finish.report().nv_primary_sha256.clone(),
-        loader_input_sha256: artifacts.loader_input_sha256.clone(),
-        loader_decoded_sha256: artifacts.loader_decoded_sha256.clone(),
-        donor_sha256: hash(plan.donor),
-        capacity_sectors: plan.capacity(),
-    };
-    let mut sink = Journal::create(journal, binding)?;
+    let mut sink = Journal::create(journal, plan_binding(plan))?;
     sink.append(
         "prepared",
         "Experimental native plan; evidence flags remain unverified",
@@ -411,7 +488,7 @@ pub fn run<F: FnMut(&str)>(
     }
     result.map_err(|e| format!("{e}. Storage may have changed: {}. Inspect device state; no retry, reset, or rollback was sent.", sink.storage))
 }
-fn validate_outputs(paths: [&Path; 3]) -> Result<(), String> {
+fn validate_outputs<const N: usize>(paths: [&Path; N]) -> Result<(), String> {
     let mut selected = HashSet::new();
     for path in paths {
         let parent = output_parent(path)?;
@@ -421,7 +498,7 @@ fn validate_outputs(paths: [&Path; 3]) -> Result<(), String> {
         // conservatively on every host, including case-sensitive directories.
         let key = absolute.to_string_lossy().to_lowercase();
         if path.exists() || !selected.insert(key) {
-            return Err("Journal and snapshot outputs must be three distinct NEW files".into());
+            return Err("Journal and snapshot outputs must be distinct NEW files".into());
         }
     }
     Ok(())
@@ -642,7 +719,8 @@ impl Watch {
                         Ok(())
                     },
                     |application| inspect(&next, application),
-                )?;
+                )
+                .map_err(|e| format!("USB arrival {:?}: {e}", next.descriptor.mode))?;
                 match observation {
                     None => self.tracker.defer_open(&next),
                     Some((actual, accepted)) => {
@@ -671,6 +749,9 @@ fn command<F: FnMut() -> Result<(), String>>(
     mut submit: F,
 ) -> Result<(), String> {
     boundary(cancelled)?;
+    if let Some(next) = &mut sink.preflight_next_command {
+        preflight_command(next, request, storage)?;
+    }
     // A durable intent is already uncertain after a crash, even if OUT has not
     // begun. Advance the conservative flag BEFORE synchronizing the intent.
     sink.storage |= storage;
@@ -678,6 +759,28 @@ fn command<F: FnMut() -> Result<(), String>>(
     boundary(cancelled)?;
     submit()?;
     sink.append("acknowledged_or_submitted", stage, Some(request))
+}
+fn preflight_command(next: &mut usize, request: &[u8], storage: bool) -> Result<(), String> {
+    let enter = mode::command(
+        DeviceMode::Normal,
+        DeviceMode::Flash,
+        BootloaderFamily::SpecA,
+        None,
+    )
+    .map_err(text)?
+    .request;
+    let expected = match *next {
+        0 => enter.as_slice(),
+        1 => b"NOKR",
+        _ => &[],
+    };
+    if storage || expected.is_empty() || request != expected {
+        return Err(
+            "Preflight-only boundary refuses writes, extra or out-of-order commands".into(),
+        );
+    }
+    *next += 1;
+    Ok(())
 }
 fn switch(
     sink: &mut Journal,
@@ -762,17 +865,13 @@ fn enter_flash<'a>(
     Ok((next, proof))
 }
 
-#[allow(clippy::too_many_arguments)]
-fn execute<F: FnMut(&str)>(
+fn preflight_cycle<'a, F: FnMut(&str)>(
     id: &str,
-    plan: &Plan<'_>,
-    emergency_access: EmergencyAccess,
+    plan: &Plan<'a>,
     sink: &mut Journal,
-    first_snapshot: &Path,
-    final_snapshot: &Path,
     cancelled: &AtomicBool,
     progress: &mut F,
-) -> Result<Report, String> {
+) -> Result<(Snapshot, NormalSession<'a>, PhysicalPort), String> {
     boundary(cancelled)?;
     progress("Read fresh Normal identity before the installed GPT capture cycle");
     let original = device_binding::selected(id)?;
@@ -795,14 +894,24 @@ fn execute<F: FnMut(&str)>(
     )?;
     drop(channel);
     let mut captured = None;
+    let mut returned_normal = None;
     let returning = watch.wait(
         &first_flash,
         &port,
         DeviceMode::Normal,
         cancelled,
-        |_, application| {
+        |next, application| {
+            if next.descriptor.mode == DeviceMode::Normal {
+                if returned_normal.is_some() { return Err("Duplicate Normal return".into()); }
+                let application = application.ok_or("Normal arrival handle is missing")?;
+                let (returned, _) = super::spec_a_session::capture_normal_on(
+                    next, plan.prepared, application.channel, cancelled, |_| {},
+                ).map_err(|e| format!("Returning Normal identity: {e}"))?;
+                returned_normal = Some(returned);
+                return Ok(true);
+            }
             if let Some(application) =
-                application.filter(|a| a.info.mode == DeviceMode::BootManager)
+                application.filter(|a| a.info.as_ref().is_some_and(|info| info.mode == DeviceMode::BootManager))
             {
                 if captured.is_some() {
                     return Err("Second BootManager cannot replace the first capture".into());
@@ -813,16 +922,12 @@ fn execute<F: FnMut(&str)>(
                     })
                     .map_err(text)?,
                 );
+                sink.append("verified", "BootManager GPT double-read completed; returning Normal identity still pending", None)?;
             }
             Ok(true)
         },
     )?;
-    let (returned, _) = super::spec_a_session::capture_normal_bound(
-        &returning.descriptor.id,
-        plan.prepared,
-        cancelled,
-        |_| {},
-    )?;
+    let returned = returned_normal.ok_or("Missing returning Normal identity")?;
     let returned = proof.verify_return_for_continuation(returned)?;
     if captured.as_ref().map(|c| c.bytes()) != Some(plan.prepared.boot().original_primary()) {
         return Err(
@@ -835,6 +940,21 @@ fn execute<F: FnMut(&str)>(
         "Fresh installed GPT and original Normal identity match",
         None,
     )?;
+    Ok((returning, returned, port))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute<F: FnMut(&str)>(
+    id: &str,
+    plan: &Plan<'_>,
+    emergency_access: EmergencyAccess,
+    sink: &mut Journal,
+    first_snapshot: &Path,
+    final_snapshot: &Path,
+    cancelled: &AtomicBool,
+    progress: &mut F,
+) -> Result<Report, String> {
+    let (returning, returned, port) = preflight_cycle(id, plan, sink, cancelled, progress)?;
     let (flash, proof) = enter_flash(&returning, returned, &port, sink, cancelled)?;
     check_flash(&proof, &flash, None, plan.capacity(), cancelled)?;
     progress("Entering emergency mode with the pinned header and zero chunk");
@@ -1136,10 +1256,18 @@ fn wait_flash(
         DeviceMode::Flash,
         cancelled,
         |_, application| {
-            if let Some(application) =
-                application.filter(|a| a.info.mode == DeviceMode::BootManager)
-            {
-                wpi_core::boot_gpt::validate_info(&application.info).map_err(text)?;
+            if let Some(application) = application.filter(|a| {
+                a.info
+                    .as_ref()
+                    .is_some_and(|info| info.mode == DeviceMode::BootManager)
+            }) {
+                wpi_core::boot_gpt::validate_info(
+                    application
+                        .info
+                        .as_ref()
+                        .ok_or("Missing application information")?,
+                )
+                .map_err(text)?;
                 if selected_boot {
                     return Err("A second BootManager cannot trigger another NOKS".into());
                 }
@@ -1298,6 +1426,98 @@ fn overlay(
 mod tests {
     use super::*;
     use std::{cell::Cell, sync::atomic::AtomicBool};
+    #[test]
+    fn preflight_allows_only_two_ordered_mode_requests_and_no_storage_intents() {
+        let enter = mode::command(
+            DeviceMode::Normal,
+            DeviceMode::Flash,
+            BootloaderFamily::SpecA,
+            None,
+        )
+        .unwrap()
+        .request;
+        let dir = tempfile::tempdir().unwrap();
+        let mut sink = Journal::create(&dir.path().join("preflight.jsonl"), binding()).unwrap();
+        sink.preflight_next_command = Some(0);
+        let cancel = AtomicBool::new(false);
+        for bytes in [
+            b"NOKR".as_slice(),
+            b"NOKS",
+            b"NOKM",
+            b"NOKF",
+            b"NOKXFS",
+            b"loader",
+        ] {
+            assert!(
+                command(&mut sink, &cancel, "forbidden", bytes, false, || panic!(
+                    "forbidden OUT"
+                ))
+                .is_err()
+            );
+        }
+        assert!(
+            command(&mut sink, &cancel, "write flag", &enter, true, || panic!(
+                "storage OUT"
+            ))
+            .is_err()
+        );
+        assert_eq!(sink.sequence, 0);
+        assert!(!sink.storage);
+        for bytes in [&enter[..], b"NOKR"] {
+            command(&mut sink, &cancel, "mode once", bytes, false, || Ok(())).unwrap();
+        }
+        assert_eq!(sink.preflight_next_command, Some(2));
+        assert_eq!(sink.sequence, 4);
+        assert!(command(
+            &mut sink,
+            &cancel,
+            "no third command",
+            b"NOKR",
+            false,
+            || panic!("third OUT")
+        )
+        .is_err());
+        assert_eq!(sink.sequence, 4);
+        assert!(!sink.storage);
+    }
+    #[test]
+    fn preflight_uncertain_mode_or_journal_error_cannot_reissue_the_command() {
+        let enter = mode::command(
+            DeviceMode::Normal,
+            DeviceMode::Flash,
+            BootloaderFamily::SpecA,
+            None,
+        )
+        .unwrap()
+        .request;
+        for fail_save in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut sink = Journal::create(&dir.path().join("preflight.jsonl"), binding()).unwrap();
+            sink.preflight_next_command = Some(0);
+            if fail_save {
+                sink.fail_at = Some(1);
+            }
+            assert!(command(
+                &mut sink,
+                &AtomicBool::new(false),
+                "uncertain",
+                &enter,
+                false,
+                || Err("uncertain transfer".into())
+            )
+            .is_err());
+            assert!(command(
+                &mut sink,
+                &AtomicBool::new(false),
+                "retry refused",
+                &enter,
+                false,
+                || panic!("retry OUT")
+            )
+            .is_err());
+            assert!(!sink.storage);
+        }
+    }
     #[test]
     fn manual_setup_changes_only_historical_binding_admission_and_confirmation() {
         let mut host = readiness::Readiness {

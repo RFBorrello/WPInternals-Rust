@@ -1,0 +1,55 @@
+{
+  "record_kind": "native_preflight_only_completed",
+  "recorded_on": "2026-10-19",
+  "host": "windows-arm64",
+  "transport": "native_usb",
+  "base_revision": "7e38e4a84179959e57c27ac2d750644e86a4ce95",
+  "code_state": "Preflight-only and returning-Normal handoff changes were tested before being committed on this base revision",
+  "cli_sha256": "bcf2d06845ace55c65a535209a3d6c0abe6eea29ff2f5fb66d168827d97e8230",
+  "authorization": "Owner explicitly approved one additional corrected preflight-only cycle after the first preflight stopped",
+  "device": {
+    "model": "Lumia 1020",
+    "variant": "RM-875",
+    "product_code": "059T909",
+    "firmware": "3051.50009.1451.1003",
+    "final_mode": "normal"
+  },
+  "result": {
+    "preflight_only": true,
+    "preflight_completed": true,
+    "return_to_windows_verified": true,
+    "fresh_primary_gpt_matches": true,
+    "mode_commands_submitted": 2,
+    "storage_may_have_changed": false,
+    "unlock_attempted": false,
+    "automatic_resume_allowed": false,
+    "journal_records": 8
+  },
+  "native_journal_sha256": "ab9c9ca88c2167c2a2b8b2eddf7047f4bc1bfac2029f7f5950ab8bdc36739b4b",
+  "completion_sha256": "8d33ac524df028c307929cd879ac07c8800efe0aa1fbc61af0a2ced5292ec43f",
+  "journal_inspection": {
+    "complete_records": 8,
+    "unmatched_intent": false,
+    "torn_final_record": false,
+    "completion_reported": true,
+    "storage_may_have_changed": false,
+    "state_inspection_required": false,
+    "imported_evidence_authenticated": false,
+    "automatic_resume_allowed": false
+  },
+  "earlier_preflight": {
+    "cli_sha256": "857c09654fc08e3c5022361a9ae5d10e3376fffd665a0bd832ee94808c734cf1",
+    "journal_sha256": "0e8ab515eab68d4b16cdd0c5b8781cb4f86fc176758f4f268a597a9a3b139ef2",
+    "complete_records": 6,
+    "last_error": "Cannot claim USB interface: failed to find device path for WinUSB interface",
+    "storage_may_have_changed": false,
+    "subsequent_read_only_probe_confirmed_original_normal_model_and_firmware": true,
+    "diagnosis": "The returning Normal identity reader still opened immediately after enumeration; the corrected cycle waits and retains the arrival handle"
+  },
+  "limits": [
+    "This validates one preflight cycle on the recorded phone, firmware and host; it does not establish repeatability or other hosts/models.",
+    "No emergency entry, programmer, unlock, driver change or raw-storage operation occurred.",
+    "Successful identity and GPT checks do not establish complete user-data preservation, bootloader unlock or physical recovery.",
+    "The successful journal does not count path-readiness attempts or prove which interface required a deferred open."
+  ]
+}

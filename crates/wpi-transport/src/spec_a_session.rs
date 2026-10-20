@@ -131,7 +131,7 @@ pub(super) fn capture_normal_bound<'a, F: FnMut(&str)>(
     id: &str,
     prepared: &'a Prepared,
     cancelled: &AtomicBool,
-    mut progress: F,
+    progress: F,
 ) -> Result<(session::NormalSession<'a>, usize), String> {
     if cancelled.load(Ordering::Acquire) {
         return Err("Cancelled before USB selection".into());
@@ -144,8 +144,28 @@ pub(super) fn capture_normal_bound<'a, F: FnMut(&str)>(
     }
     let deadline = Instant::now() + Duration::from_secs(30);
     transport.deadline = Some(deadline);
+    capture_normal_on(&selected, prepared, &mut transport, cancelled, progress)
+}
+
+/// Use a freshly validated arrival handle instead of reopening a Normal
+/// endpoint whose Windows path may still be initializing. Caller holds access.
+pub(super) fn capture_normal_on<'a, T: MessageTransport, F: FnMut(&str)>(
+    selected: &Snapshot,
+    prepared: &'a Prepared,
+    transport: &mut T,
+    cancelled: &AtomicBool,
+    mut progress: F,
+) -> Result<(session::NormalSession<'a>, usize), String> {
+    validate(selected, &device_binding::scan()?)?;
+    struct Borrowed<'a, T>(&'a mut T);
+    impl<T: MessageTransport> MessageTransport for Borrowed<'_, T> {
+        fn exchange(&mut self, bytes: &[u8], maximum: usize) -> wpi_protocol::Result<Vec<u8>> {
+            self.0.exchange(bytes, maximum)
+        }
+    }
+    let deadline = Instant::now() + Duration::from_secs(30);
     let mut guard = Guard {
-        transport,
+        transport: Borrowed(transport),
         next: 0,
         failed: false,
         requests: (0..5).filter_map(request).collect(),
@@ -153,7 +173,7 @@ pub(super) fn capture_normal_bound<'a, F: FnMut(&str)>(
             if cancelled.load(Ordering::Acquire) || Instant::now() >= deadline {
                 return Err("Normal session cancelled or expired".into());
             }
-            validate(&selected, &device_binding::scan()?)?;
+            validate(selected, &device_binding::scan()?)?;
             if Instant::now() >= deadline {
                 return Err("Normal discovery exceeded the session deadline".into());
             }
