@@ -1394,3 +1394,43 @@ uncertain-command refusal and Normal handle handoff without Flash queries.
 Strict Clippy, formatting and the optimized CLI build passed. The original live
 unlock experiment was not resumed or repeated; both mode-only test journals are
 preserved separately.
+
+## First live entry and unconfigured emergency arrival (2026-10-20)
+
+After the owner reviewed the fresh plan and explicitly approved one new live
+unlock invocation, revision `4f92b89` repeated the successful native preflight,
+entered Flash again and submitted the pinned entry header, zero payload and
+reboot. The header and zero payload status checks passed; the reboot was submitted
+once. These observations do not prove actual stored bytes or the installed
+entry footprint. Storage may have changed.
+
+The controller timed out before the first-time driver checkpoint. Its 17-record
+journal is complete with no unmatched intent or torn final record, ends in
+recovery-required state, and grants no resume authority. No RAM loader, programmer
+boot writes, NV/EFIESP passes, raw-storage snapshot, disk-attribute change,
+automatic reset or retry followed. The user reported a black screen.
+
+Read-only Windows PnP inventory then found exactly one present whole-device
+`05c6:9008` QHSUSB_DLOAD, code 28, no service and vendor FF compatible IDs. Its
+parent hub, connection index and location path matched the original Normal
+endpoint's retained metadata. The same endpoint was absent from nusb discovery.
+The Windows nusb 0.2.7 path enumerates registered USB_DEVICE/USB_HUB interfaces;
+the unconfigured devnode was visible separately in PnP. This exposes a first-time
+setup discovery gap: the native controller cannot reach its manual binding
+checkpoint for this actual unconfigured arrival. Entry must not be repeated as a
+driver-discovery test. A bounded physical-port-correlated PnP fallback needs
+implementation and validation before that workflow is considered supported.
+
+The owner's approved manual setup scope was used to provide Microsoft's in-box
+Device Manager steps for the exact actual 9008 target. At this evidence
+checkpoint the installation outcome and emergency protocol were not yet verified.
+The process had already stopped, so a later host binding cannot resume it. Any
+further loader/storage action needs a separately reviewed recovery/continuation
+decision with fresh device checks. The captured-primary/reconstructed-secondary
+capsule remains recovery material, not a validated rollback.
+
+The [sanitized entry outcome](../tests/hardware/lumia-1020-rm875-entry-emergency-unconfigured.json)
+records the six submitted command stages and exact journal/executable hashes.
+Private instance paths and topology remain local. This result establishes entry
+command submission and a correlated unconfigured PnP arrival, not DLOAD protocol,
+bootloader unlock, preservation or recovery success.

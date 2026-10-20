@@ -133,6 +133,15 @@ Neither route clears the controller's live token/driver gates or validates entry
 
 ## First-time setup checkpoint
 
+**Hardware limitation observed October 20, 2026:** the first actual unconfigured
+9008 devnode appeared in Windows PnP with code 28 and no driver, but was absent
+from nusb's registered USB interface discovery. The controller timed out after
+entry, before reaching the setup checkpoint below. Do not repeat entry as a
+driver-discovery test. The same-process arrival path needs a bounded, physically
+correlated PnP fallback before this first-time setup workflow can be validated.
+Installing a host driver after that failure does not resume the stopped run.
+See the [entry outcome](../tests/hardware/lumia-1020-rm875-entry-emergency-unconfigured.json).
+
 Default execution still requires an eligible historical binding **before**
 entry. The explicit `--manual-emergency-driver-setup` alternative removes only
 that historical-binding prerequisite, retaining the Windows ARM64, Administrator,

@@ -1,0 +1,53 @@
+{
+  "record_kind": "native_unlock_entry_stopped_before_programmer",
+  "recorded_on": "2026-10-20",
+  "application_revision": "4f92b89445b50b71a7cce3bee36884954fb7a4fd",
+  "cli_sha256": "bcf2d06845ace55c65a535209a3d6c0abe6eea29ff2f5fb66d168827d97e8230",
+  "host": "windows-arm64",
+  "transport": "native_usb",
+  "authorization": "Owner explicitly approved one new live unlock experiment after reviewing the new plan; launched once in Administrator PowerShell",
+  "native_journal_sha256": "951e933c0fe0b4e6bc89911b32d5bd76790170ab8f4a8f8f0f91ab358079d431",
+  "complete_records": 17,
+  "last_stage": "Timed out awaiting the bound phone; no mode request was repeated",
+  "completion_reported": false,
+  "storage_may_have_changed": true,
+  "automatic_resume_allowed": false,
+  "submitted_command_stages": [
+    "Mode request submitted once",
+    "Return for fresh BootManager GPT",
+    "Mode request submitted once",
+    "Entry FFU header (backup GPT may be cleared)",
+    "Entry zero payload",
+    "Entry reboot"
+  ],
+  "preflight_primary_gpt_and_original_normal_identity_verified": true,
+  "driver_setup_checkpoint_reached": false,
+  "programmer_uploaded": false,
+  "boot_region_programmer_writes_sent": false,
+  "nv_efiesp_writes_sent": false,
+  "snapshots_produced": false,
+  "automatic_retry_or_reset_sent": false,
+  "post_stop_read_only_windows_pnp": {
+    "present_emergency_endpoints": 1,
+    "vendor_id": 1478,
+    "product_id": 36872,
+    "friendly_name": "QHSUSB_DLOAD",
+    "problem_code": 28,
+    "driver_service": null,
+    "whole_device": true,
+    "vendor_class_ff_compatible_ids": true,
+    "same_parent_hub_as_original_normal": true,
+    "same_connection_index": true,
+    "same_location_path": true,
+    "nusb_discovery_listed_endpoint": false,
+    "protocol_probed": false,
+    "user_reports_black_screen": true
+  },
+  "limits": [
+    "Entry statuses are acknowledgements/submission, not stored-byte readback or a verified entry footprint.",
+    "PnP identity and topology do not establish DLOAD protocol or cryptographic device authentication.",
+    "The first-time driver checkpoint cannot observe this unconfigured endpoint through nusb discovery and was not reached.",
+    "No unlock, data-preservation, rollback or physical-recovery success is established.",
+    "Manual in-box WinUSB instructions were provided for the exact actual 9008 device; installation and access were not yet verified at this checkpoint."
+  ]
+}

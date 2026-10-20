@@ -50,3 +50,11 @@ The returning Normal arrival handle was retained for guarded identity queries.
 An earlier preflight had stopped on the remaining Normal path-readiness gap;
 both outcomes and exact executable/journal digests are recorded. This validates
 that single preflight, not emergency entry, unlocking or data preservation.
+
+`lumia-1020-rm875-entry-emergency-unconfigured.json` records a separately approved
+live invocation reaching entry and stopping before any RAM programmer. The header,
+zero payload and reboot were acknowledged/submitted; stored bytes were not read
+back. Windows PnP subsequently showed one unconfigured whole-device 9008 with
+matching hub/port/location, while nusb discovery did not list it. The driver
+checkpoint was not reached. Storage may have changed, the phone was reported
+black-screened, and no recovery or unlock success is established.
