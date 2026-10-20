@@ -15,6 +15,7 @@ use nusb::MaybeFuture;
 use serde::{Deserialize, Serialize};
 mod arrival;
 mod driver_setup;
+pub mod entry_restore;
 pub mod journal;
 pub mod readiness;
 #[cfg(windows)]
@@ -236,6 +237,7 @@ struct Journal {
     binding: Binding,
     binding_hash: String,
     preflight_next_command: Option<usize>,
+    restore_guard: Option<entry_restore::Guard>,
     #[cfg(test)]
     fail_at: Option<u64>,
 }
@@ -259,6 +261,7 @@ impl Journal {
             binding,
             binding_hash,
             preflight_next_command: None,
+            restore_guard: None,
             #[cfg(test)]
             fail_at: None,
         })
@@ -752,6 +755,9 @@ fn command<F: FnMut() -> Result<(), String>>(
     if let Some(next) = &mut sink.preflight_next_command {
         preflight_command(next, request, storage)?;
     }
+    if let Some(guard) = &mut sink.restore_guard {
+        guard.admit(stage, request, storage)?;
+    }
     // A durable intent is already uncertain after a crash, even if OUT has not
     // begun. Advance the conservative flag BEFORE synchronizing the intent.
     sink.storage |= storage;
@@ -1127,10 +1133,15 @@ fn emergency<F: FnMut(&str)>(
     let download = watch.wait(source, port, DeviceMode::Emergency, cancelled, |_, _| {
         Ok(true)
     })?;
-    if emergency_access == EmergencyAccess::ManualSetup {
-        driver_setup::wait(&download, sink, cancelled, progress)?;
-    }
-    let mut io = super::emergency_probe::open_bound(&download)?;
+    let (programmer, mut io) = load_programmer(
+        plan,
+        &download,
+        port,
+        sink,
+        cancelled,
+        progress,
+        emergency_access,
+    )?;
     let framed = |io: &mut usb_session::Session<usb_session::NativeIo>,
                   selected: &Snapshot,
                   bytes: &[u8]| {
@@ -1139,62 +1150,6 @@ fn emergency<F: FnMut(&str)>(
         io.exchange_framed(bytes, v1::MAX_REPLY_FRAME, None)
             .map_err(text)
     };
-    progress("Verify the emergency root before uploading exactly one loader");
-    let alive = framed(&mut io, &download, &dload::alive().map_err(text)?)?;
-    dload::check_ack(&alive).map_err(text)?;
-    let root = framed(&mut io, &download, &dload::root_key().map_err(text)?)?;
-    if dload::parse_root(&root).map_err(text)? != *plan.prepared.reference().root() {
-        return Err("Emergency root fingerprint differs; no loader was uploaded".into());
-    }
-    for (index, bytes) in plan
-        .prepared
-        .loader()
-        .decoded_bytes()
-        .chunks(dload::MAX_MEMORY_BYTES)
-        .enumerate()
-    {
-        let address = dload::LOADER_ADDRESS + (index * dload::MAX_MEMORY_BYTES) as u32;
-        let request = dload::memory(address, bytes).map_err(text)?;
-        command(sink, cancelled, "DLOAD RAM upload", &request, false, || {
-            dload::check_ack(&framed(&mut io, &download, &request)?).map_err(text)
-        })?;
-    }
-    let mut watch = Watch::new()?;
-    let start = dload::start(dload::LOADER_ADDRESS).map_err(text)?;
-    command(
-        sink,
-        cancelled,
-        "Start one pinned loader",
-        &start,
-        false,
-        || dload::check_ack(&framed(&mut io, &download, &start)?).map_err(text),
-    )?;
-    drop(io);
-    let programmer = watch.wait(&download, port, DeviceMode::Emergency, cancelled, |_, _| {
-        Ok(true)
-    })?;
-    if emergency_access == EmergencyAccess::ManualSetup {
-        driver_setup::wait(&programmer, sink, cancelled, progress)?;
-    }
-    let mut io = super::emergency_probe::open_bound(&programmer)?;
-    progress("Send immutable programmer regions; stop on any invalid or missing acknowledgement");
-    for (stage, request, ack) in [
-        ("Programmer hello", v1::hello(), v1::Ack::Hello),
-        (
-            "Programmer security mode",
-            v1::SECURITY_MODE_ZERO.to_vec(),
-            v1::Ack::SecurityMode,
-        ),
-        (
-            "Programmer open boot partition",
-            v1::OPEN_BOOT_PARTITION.to_vec(),
-            v1::Ack::Open,
-        ),
-    ] {
-        command(sink, cancelled, stage, &request, false, || {
-            v1::check_ack(&framed(&mut io, &programmer, &request)?, ack).map_err(text)
-        })?;
-    }
     for region in plan.prepared.boot().regions() {
         for (index, bytes) in region.bytes().chunks(v1::MAX_WRITE_BYTES).enumerate() {
             let address = region.start_bytes() + (index * v1::MAX_WRITE_BYTES) as u32;
@@ -1240,6 +1195,87 @@ fn emergency<F: FnMut(&str)>(
     )?;
     drop(io);
     wait_flash(&mut watch, &programmer, port, sink, cancelled)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn load_programmer<F: FnMut(&str)>(
+    plan: &Plan<'_>,
+    download: &Snapshot,
+    port: &PhysicalPort,
+    sink: &mut Journal,
+    cancelled: &AtomicBool,
+    progress: &mut F,
+    emergency_access: EmergencyAccess,
+) -> Result<(Snapshot, usb_session::Session<usb_session::NativeIo>), String> {
+    if emergency_access == EmergencyAccess::ManualSetup {
+        driver_setup::wait(download, sink, cancelled, progress)?;
+    }
+    let mut io = super::emergency_probe::open_bound(download)?;
+    let framed = |io: &mut usb_session::Session<usb_session::NativeIo>,
+                  selected: &Snapshot,
+                  bytes: &[u8]| {
+        boundary(cancelled)?;
+        validate(selected)?;
+        io.exchange_framed(bytes, v1::MAX_REPLY_FRAME, None)
+            .map_err(text)
+    };
+    progress("Verify the emergency root before uploading exactly one loader");
+    let alive = framed(&mut io, download, &dload::alive().map_err(text)?)?;
+    dload::check_ack(&alive).map_err(text)?;
+    let root = framed(&mut io, download, &dload::root_key().map_err(text)?)?;
+    if dload::parse_root(&root).map_err(text)? != *plan.prepared.reference().root() {
+        return Err("Emergency root fingerprint differs; no loader was uploaded".into());
+    }
+    for (index, bytes) in plan
+        .prepared
+        .loader()
+        .decoded_bytes()
+        .chunks(dload::MAX_MEMORY_BYTES)
+        .enumerate()
+    {
+        let address = dload::LOADER_ADDRESS + (index * dload::MAX_MEMORY_BYTES) as u32;
+        let request = dload::memory(address, bytes).map_err(text)?;
+        command(sink, cancelled, "DLOAD RAM upload", &request, false, || {
+            dload::check_ack(&framed(&mut io, download, &request)?).map_err(text)
+        })?;
+    }
+    let mut watch = Watch::new()?;
+    let start = dload::start(dload::LOADER_ADDRESS).map_err(text)?;
+    command(
+        sink,
+        cancelled,
+        "Start one pinned loader",
+        &start,
+        false,
+        || dload::check_ack(&framed(&mut io, download, &start)?).map_err(text),
+    )?;
+    drop(io);
+    let programmer = watch.wait(download, port, DeviceMode::Emergency, cancelled, |_, _| {
+        Ok(true)
+    })?;
+    if emergency_access == EmergencyAccess::ManualSetup {
+        driver_setup::wait(&programmer, sink, cancelled, progress)?;
+    }
+    let mut io = super::emergency_probe::open_bound(&programmer)?;
+    progress("Validate the programmer handshake before permitted writes");
+    for (stage, request, ack) in [
+        ("Programmer hello", v1::hello(), v1::Ack::Hello),
+        (
+            "Programmer security mode",
+            v1::SECURITY_MODE_ZERO.to_vec(),
+            v1::Ack::SecurityMode,
+        ),
+        (
+            "Programmer open boot partition",
+            v1::OPEN_BOOT_PARTITION.to_vec(),
+            v1::Ack::Open,
+        ),
+    ] {
+        command(sink, cancelled, stage, &request, false, || {
+            v1::check_ack(&framed(&mut io, &programmer, &request)?, ack).map_err(text)
+        })?;
+    }
+    Ok((programmer, io))
 }
 
 fn wait_flash(

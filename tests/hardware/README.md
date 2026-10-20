@@ -58,3 +58,10 @@ back. Windows PnP subsequently showed one unconfigured whole-device 9008 with
 matching hub/port/location, while nusb discovery did not list it. The driver
 checkpoint was not reached. Storage may have changed, the phone was reported
 black-screened, and no recovery or unlock success is established.
+
+`lumia-1020-rm875-winusb-dload.json` records the subsequent manual in-box WinUSB
+binding and successful read-only DLOAD alive/root handshake on native Windows
+ARM64. The exact saved instance and physical port matched, the driver was healthy,
+and two queries returned valid protocol responses. Root availability is not a
+reference-root comparison or authenticated model identity. No loader upload,
+recovery write or unlock followed from this probe.

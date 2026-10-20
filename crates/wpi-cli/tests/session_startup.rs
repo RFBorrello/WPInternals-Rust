@@ -172,6 +172,78 @@ fn targeted_capture_bad_pins_fail_before_disk_access() {
 }
 
 #[test]
+fn dedicated_gpt_recovery_starts_on_default_stack_and_requires_separate_authorization() {
+    let executable = env!("CARGO_BIN_EXE_wpi-gpt-recovery");
+    let help = Command::new(executable).arg("--help").output().unwrap();
+    assert!(
+        help.status.success(),
+        "{}",
+        String::from_utf8_lossy(&help.stderr)
+    );
+    assert!(String::from_utf8_lossy(&help.stdout).contains("Preview"));
+    let base = [
+        "missing-source",
+        "missing-package",
+        "missing-primary",
+        "missing-loader",
+        "missing-donor",
+        "--disk-sectors",
+        "61071360",
+        "--expect-source-sha256",
+        "bad",
+        "--expect-package-sha256",
+        "bad",
+        "--expect-primary-sha256",
+        "bad",
+        "--expect-loader-sha256",
+        "bad",
+    ];
+    let missing = Command::new(executable)
+        .args(base)
+        .arg("--execute")
+        .output()
+        .unwrap();
+    assert_eq!(missing.status.code(), Some(2));
+    for confirmation in [
+        "unreviewed",
+        "RM875-NATIVE-PREFLIGHT-ONLY",
+        "RM875-EXPERIMENTAL-ENTRY-BEFORE-DRIVER-SETUP-WITHOUT-FULL-BACKUP",
+    ] {
+        let result = Command::new(executable)
+            .args(base)
+            .args([
+                "--execute",
+                "--device-id",
+                "not-a-device",
+                "--confirm",
+                confirmation,
+                "--journal",
+                "unused.jsonl",
+                "--expect-port-sha256",
+                &"a".repeat(64),
+                "--expect-normal-serial-sha256",
+                &"b".repeat(64),
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(result.status.code(), Some(1));
+        assert!(String::from_utf8_lossy(&result.stderr).contains("no file or device was opened"));
+    }
+    for forbidden in [
+        "--preflight-only",
+        "--manual-emergency-driver-setup",
+        "--first-snapshot",
+    ] {
+        let result = Command::new(executable)
+            .args(base)
+            .arg(forbidden)
+            .output()
+            .unwrap();
+        assert_eq!(result.status.code(), Some(2));
+    }
+}
+
+#[test]
 fn native_preflight_is_exclusive_requires_selection_and_its_own_confirmation() {
     let base = [
         "unlock-spec-a",

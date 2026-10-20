@@ -1,0 +1,38 @@
+{
+  "record_kind": "manually_bound_winusb_dload_readonly",
+  "recorded_on": "2026-10-20",
+  "cli_revision": "4f92b89445b50b71a7cce3bee36884954fb7a4fd",
+  "cli_sha256": "bcf2d06845ace55c65a535209a3d6c0abe6eea29ff2f5fb66d168827d97e8230",
+  "host": "windows-arm64",
+  "setup": "Owner selected Microsoft in-box WinUsb Device for the exact observed whole-device 9008 target and accepted the compatibility warning",
+  "verified_binding": {
+    "same_saved_instance": true,
+    "same_parent_hub": true,
+    "same_port_number": true,
+    "service": "WINUSB",
+    "problem_code": 0,
+    "setup_class": "USBDevice"
+  },
+  "report": {
+    "protocol": "dload",
+    "vendor_id": 1478,
+    "product_id": 36872,
+    "requests_sent": 2,
+    "protocol_response_validated": true,
+    "root_key_available": true,
+    "descriptors_matched": true,
+    "physical_port_matched": true,
+    "identity_authenticated": false,
+    "lumia_model_identified": false,
+    "mode_change_sent": false,
+    "programmer_uploaded": false,
+    "phone_writes_enabled": false,
+    "unlock_verified": false,
+    "data_preservation_validated": false
+  },
+  "limitations": [
+    "Root fingerprint format/availability was validated, but this standalone probe did not compare it to the reference FFU.",
+    "No RAM loader, storage write, reset, recovery or unlock was sent by this probe.",
+    "The stopped unlock remains stopped; installing the driver does not resume it."
+  ]
+}

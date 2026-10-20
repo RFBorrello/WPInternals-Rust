@@ -78,6 +78,8 @@ jobs:
           path: |
             target/release/wpi
             target/release/wpi.exe
+            target/release/wpi-gpt-recovery
+            target/release/wpi-gpt-recovery.exe
             target/release/wpi-desktop
             target/release/wpi-desktop.exe
             LICENSE
@@ -108,6 +110,7 @@ jobs:
             docs/spec-a-entry-preservation.md
             docs/spec-a-entry-code.md
             docs/spec-a-native-controller.md
+            docs/spec-a-primary-recovery.md
             docs/rm875-experimental-test.md
             docs/windows-emergency-access.md
             resources/windows/emergency/README.md

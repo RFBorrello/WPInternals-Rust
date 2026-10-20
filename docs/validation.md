@@ -1434,3 +1434,43 @@ records the six submitted command stages and exact journal/executable hashes.
 Private instance paths and topology remain local. This result establishes entry
 command submission and a correlated unconfigured PnP arrival, not DLOAD protocol,
 bootloader unlock, preservation or recovery success.
+
+## Manual WinUSB and isolated primary-GPT recovery preparation (2026-10-20)
+
+The owner completed Microsoft's in-box WinUsb Device selection for the exact
+observed 9008 endpoint, accepting the manual compatibility warning. Fresh PnP
+checks verified the same instance, hub and port, WinUSB service, USBDevice class
+and problem code zero. The existing read-only emergency adapter then sent exactly
+two DLOAD alive/root queries. Both validated, with no loader, mode change or
+storage write. Root availability/format was checked, not equality to a reference
+fingerprint or authenticated model identity. The
+[sanitized hardware record](../tests/hardware/lumia-1020-rm875-winusb-dload.json)
+preserves those limits; the prior unlock was not resumed.
+
+A new standalone `wpi-gpt-recovery` defaults to offline preview and prepares a
+separate captured-primary recovery experiment for the already exposed endpoint.
+It shares the existing pinned bundle, root-checked loader and bounded transaction
+machinery, while an exact packet/stage/address allowlist permits only that loader,
+V1 handshake, 18 captured MBR/primary writes, close and one programmer reboot.
+The target must match reviewed physical-port and expected Normal-serial digests.
+Whole-device healthy WinUSB and descriptors are checked before protocol access.
+It cannot import a journal as authority or execute entry/unlock-region packets.
+
+The 17,407-byte write length follows the upstream 2.9.2 GPT loader boundary
+workaround: captured byte 17407 must be zero and is omitted from writes. Complete
+17,408-byte BootManager double-read and original Normal model/product/firmware/
+serial are required afterward. The secondary GPT is outside the programmer's
+32-bit byte-address range and is explicitly not restored. Front padding, installed
+boot images and possible Data-tail damage also remain outside this operation.
+See the [primary recovery procedure](spec-a-primary-recovery.md). This is not a
+validated rollback or data-preservation path.
+
+All **116 transport tests and six CLI subprocess tests** passed on Windows ARM64,
+including exact coverage/boundary omission, packet mutations/retries, selector
+validation and intent/ACK save failures at every recovery packet. Both binaries
+start on the default debug main-thread stack. Strict Clippy, formatting and
+optimized builds passed. The actual pinned-input offline recovery preview passed
+in PowerShell 7 and Windows PowerShell 5.1, reporting 17,407 bytes, 18 requests,
+no USB contact, no backup GPT repair and no unlock. No new loader or recovery
+write was executed during preparation. Physical recovery still needs separate
+review/approval and hardware validation.
