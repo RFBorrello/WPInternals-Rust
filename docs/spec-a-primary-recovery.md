@@ -103,3 +103,26 @@ The main CLI's arguments remain unchanged. Windows ARM64 local transport/CLI
 tests, strict Clippy and optimized builds passed. Actual pinned-input offline
 preview reports no contact and the expected 18 requests. These checks do not
 validate loader acceptance or physical GPT recovery.
+
+## First physical attempt (2026-10-20)
+
+One separately approved Windows ARM64 attempt freshly matched the DLOAD root,
+uploaded and started the pinned RAM programmer, validated its V1 handshake and
+received acknowledgements for all 18 captured-primary writes (17,407 bytes),
+partition close and the planned reboot. The returning application was Flash
+2.2/protocol 1.18 rather than the required BootManager-to-Normal path. The
+controller stopped immediately without another command. Its complete 620-record
+journal has no unmatched intent or torn final record and reports recovery
+required, not completion.
+
+A separate read-only port check and NOKV/FVER probe found healthy WinUSB on
+`0421:066e`, the expected platform and 61,071,360-sector capacity, with secure
+boot and secure FFU still enabled. FVER was unavailable. The owner reported the
+Nokia logo or red Flash screen. No primary readback or returning Normal identity
+was verified. The secondary GPT remains unrepaired and the phone is not claimed
+unlocked or recovered. See the [sanitized attempt record](../tests/hardware/lumia-1020-rm875-primary-recovery-flash-stop.json).
+
+Do not rerun primary recovery or unlock as a response to this result. Preserve
+the stopped journal and inspect the Flash return behavior before preparing a
+separate, explicitly reviewed mode-only return/readback attempt. A mode-only
+attempt cannot establish backup GPT repair or complete data preservation.

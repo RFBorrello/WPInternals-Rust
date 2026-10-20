@@ -1474,3 +1474,26 @@ in PowerShell 7 and Windows PowerShell 5.1, reporting 17,407 bytes, 18 requests,
 no USB contact, no backup GPT repair and no unlock. No new loader or recovery
 write was executed during preparation. Physical recovery still needs separate
 review/approval and hardware validation.
+
+## Primary recovery acknowledged writes; stopped at Flash (2026-10-20)
+
+The owner then approved one targeted captured-primary recovery with the pinned
+standalone executable. Fresh DLOAD/reference-root comparison, one pinned RAM
+loader, V1 handshake, all 18 primary write acknowledgements, partition close and
+one reboot acknowledgement completed. The 17,407-byte payload intentionally
+omits the known loader boundary byte. The returning application was Flash, so
+the observer stopped without a fallback command. The 620-record native journal
+has no unmatched intent or torn final record and ends recovery-required.
+
+Read-only post-stop inspection correlated the reviewed physical port and found
+`0421:066e` NOKIA FLASH with healthy WinUSB. NOKV reported Flash 2.2/protocol
+1.18, the expected platform and disk capacity, and secure boot/FFU enabled.
+FVER was unavailable. The owner reported Nokia logo or red Flash screen.
+No extra reset, entry, unlock continuation or storage write was sent.
+
+The [sanitized recovery outcome](../tests/hardware/lumia-1020-rm875-primary-recovery-flash-stop.json)
+records executable/journal hashes and these observations. Primary GPT readback,
+the omitted-byte assumption and Normal identity remain unverified. The secondary
+GPT is unrepaired. This establishes the observed loader/ACK sequence only, not
+complete recovery, preservation or unlock support. A separate reviewed mode-only
+return/readback attempt must precede any decision about more storage writes.
